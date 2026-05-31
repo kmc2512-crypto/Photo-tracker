@@ -1,26 +1,643 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>test</title></head>
-<body style="background:#080808;color:#e8e8e8;font-family:monospace;padding:40px">
-<div id="msg">step 0</div>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>写真成長記録</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:#080808;color:#e8e8e8;font-family:'DM Mono',monospace}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#222}
+input,textarea{font-family:'DM Mono',monospace;background:transparent;border:none;border-bottom:1px solid #222;color:#e8e8e8;outline:none;width:100%;padding:8px 0;font-size:12px;line-height:1.7;resize:none}
+input:focus,textarea:focus{border-bottom-color:#444}
+input::placeholder,textarea::placeholder{color:#333}
+button{cursor:pointer}
+.nav{border-bottom:1px solid #141414;display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;background:#080808;z-index:10;height:48px}
+.nav-title{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+.nav-tabs{display:flex}
+.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding:0 20px;height:48px;color:#333;border-bottom:2px solid transparent}
+.tab-btn:hover{color:#777}
+.tab-btn.active{color:#e8e8e8;border-bottom-color:#e8e8e8}
+.streak{font-size:10px;color:#333;letter-spacing:.1em}
+.main{max-width:640px;margin:0 auto;padding:40px 32px 80px}
+.day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:36px}
+.day-date{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1}
+.day-weekday{font-size:10px;color:#444;letter-spacing:.18em;margin-top:8px}
+.save-btn{background:#e8e8e8;border:none;color:#080808;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:8px 20px}
+.save-btn:hover{background:#fff}
+.saved-msg{font-size:10px;color:#444;letter-spacing:.1em}
+.section{margin-bottom:40px}
+.section-div{border-top:1px solid #141414;margin:0 0 40px}
+.lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#444}
+.row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.row-gap{display:flex;align-items:center;gap:12px}
+.ghost-btn{background:none;border:1px solid #1e1e1e;color:#555;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:6px 14px}
+.ghost-btn:hover{border-color:#444;color:#e8e8e8}
+.ghost-btn:disabled{opacity:.25;cursor:default}
+.notice{background:#0c0c0c;border:1px solid #1a1a1a;padding:14px 16px;margin-bottom:16px}
+.notice p{font-size:11px;color:#555;line-height:1.9}
+.notice strong{color:#888}
+.url-input-wrap{margin-top:12px}
+.url-input-wrap input{background:#0a0a0a;border:1px solid #1e1e1e!important;border-bottom:1px solid #1e1e1e!important;padding:8px 12px;font-size:11px}
+.url-input-wrap input:focus{border-color:#444!important;border-bottom-color:#444!important}
+.url-btns{display:flex;gap:8px;margin-top:12px}
+.task-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #111}
+.task-row:last-child{border-bottom:none}
+.cb{width:13px;height:13px;border:1px solid #2a2a2a;flex-shrink:0;margin-top:3px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cb.done{background:#e8e8e8;border-color:#e8e8e8}
+.cb.done::after{content:'✓';color:#080808;font-size:9px;font-weight:700;line-height:1}
+.task-title{font-size:13px;letter-spacing:.02em;line-height:1.6}
+.task-title.done{color:#2a2a2a;text-decoration:line-through}
+.task-title.overdue{color:#cc6666}
+.task-meta{display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center}
+.tag{display:inline-block;border:1px solid #1e1e1e;color:#444;font-size:10px;letter-spacing:.04em;padding:3px 8px}
+.task-due{font-size:11px;color:#444;letter-spacing:.05em}
+.task-due.overdue{color:#cc6666}
+.drop-zone{border:1px dashed #1e1e1e;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;position:relative}
+.drop-zone:hover{border-color:#333}
+.drop-zone .plus{font-size:18px;color:#1e1e1e}
+.drop-zone .hint{font-size:10px;color:#444;letter-spacing:.12em}
+.drop-zone .sub{font-size:9px;color:#2a2a2a;letter-spacing:.08em}
+.photo-wrap{position:relative;width:100%}
+.photo-wrap img{width:100%;max-height:500px;object-fit:contain;display:block;background:#050505}
+.del-btn{position:absolute;top:10px;right:10px;background:rgba(8,8,8,.88);border:1px solid #2a2a2a;color:#888;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;letter-spacing:.06em}
+.del-btn:hover{color:#e8e8e8;border-color:#555}
+.lens-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.lens-btn{background:none;border:1px solid #1a1a1a;color:#444;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;padding:4px 10px}
+.lens-btn:hover{border-color:#333;color:#aaa}
+.lens-btn.active{border-color:#444;color:#e8e8e8}
+.pro-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.pro-slot{}
+.pro-drop{border:1px dashed #1a1a1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;height:80px;cursor:pointer;margin-bottom:8px;position:relative}
+.pro-drop:hover{border-color:#2a2a2a}
+.pro-drop img{width:100%;height:80px;object-fit:cover;display:block}
+.pro-del{position:absolute;top:4px;right:4px;background:rgba(8,8,8,.9);border:1px solid #2a2a2a;color:#888;font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px}
+.week-tabs{display:flex;border-bottom:1px solid #141414;margin-bottom:28px}
+.week-tab{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:#333;padding:8px 0;border-bottom:2px solid transparent;margin-right:20px}
+.week-tab:hover{color:#777}
+.week-tab.active{color:#e8e8e8;border-bottom-color:#e8e8e8}
+.week-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;display:flex;align-items:baseline;gap:14px;margin-bottom:24px}
+.week-dates{font-size:10px;color:#444;letter-spacing:.08em;font-family:'DM Mono',monospace}
+.constraint{border-left:2px solid #441a1a;padding-left:16px;margin-bottom:28px}
+.constraint .lbl{color:#441a1a;margin-bottom:6px}
+.constraint p{font-size:12px;color:#884444;line-height:1.7;letter-spacing:.02em}
+.mission-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+.mission-box{border-top:1px solid #141414;padding-top:14px}
+.mission-box .lbl{margin-bottom:10px}
+.mission-box p{font-size:11px;color:#666;line-height:1.9;letter-spacing:.02em}
+.check-section{border-top:1px solid #141414;padding-top:16px;margin-bottom:32px}
+.check-section .lbl{margin-bottom:12px}
+.check-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;cursor:pointer}
+.check-text{font-size:12px;color:#999;line-height:1.6;letter-spacing:.02em}
+.check-text.done{color:#333;text-decoration:line-through}
+.progress-section{border-top:1px solid #141414;padding-top:20px}
+.progress-section .lbl{margin-bottom:12px}
+.progress-bar{display:flex;gap:3px;margin-bottom:8px}
+.progress-seg{flex:1;height:2px;background:#141414}
+.progress-seg.done{background:#e8e8e8}
+.progress-label{font-size:10px;color:#444;letter-spacing:.08em}
+.log-header{margin-bottom:36px}
+.log-header h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em}
+.log-header p{font-size:10px;color:#444;letter-spacing:.15em;margin-top:6px}
+.log-empty{font-size:11px;color:#333;line-height:3;letter-spacing:.08em}
+.log-entry{display:grid;grid-template-columns:80px 1fr;gap:16px;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid #0c0c0c}
+.log-thumb{background:#0e0e0e;height:80px;overflow:hidden}
+.log-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.log-thumb-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1a1a1a;letter-spacing:.1em}
+.log-date{font-size:12px;color:#e8e8e8;letter-spacing:.04em}
+.log-meta{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.log-comment{font-size:11px;color:#555;line-height:1.7;letter-spacing:.01em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.log-pro{display:flex;gap:5px;align-items:center;margin-top:6px}
+.log-pro-label{font-size:9px;color:#333;letter-spacing:.08em}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">写真成長記録</span>
+  <div class="nav-tabs">
+    <button class="tab-btn active" data-tab="today">今日</button>
+    <button class="tab-btn" data-tab="plan">プラン</button>
+    <button class="tab-btn" data-tab="log">ログ</button>
+  </div>
+  <span class="streak" id="streak"></span>
+</nav>
+
+<div class="main">
+
+  <!-- TODAY -->
+  <div id="tab-today">
+    <div class="day-header">
+      <div>
+        <div class="day-date" id="day-date"></div>
+        <div class="day-weekday" id="day-weekday"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding-top:4px">
+        <span class="saved-msg hidden" id="saved-msg">保存済み</span>
+        <button class="save-btn" id="save-btn">SAVE</button>
+      </div>
+    </div>
+
+    <!-- 課題 -->
+    <div class="section">
+      <div class="row-between">
+        <div class="row-gap">
+          <span class="lbl">課題</span>
+          <span id="task-count" style="font-size:10px;color:#666"></span>
+        </div>
+        <div class="row-gap">
+          <button class="ghost-btn" id="url-toggle-btn">URL設定</button>
+          <button class="ghost-btn" id="sync-btn">SYNC</button>
+        </div>
+      </div>
+      <div class="notice hidden" id="url-panel">
+        <p>Apps Scriptをデプロイして発行されたURLを貼る<br>※デプロイ設定の「アクセスできるユーザー」を<strong>「全員」</strong>に設定</p>
+        <div class="url-input-wrap">
+          <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/...">
+        </div>
+        <div class="url-btns">
+          <button class="save-btn" id="url-save-btn">保存してSYNC</button>
+          <button class="ghost-btn" id="url-cancel-btn">キャンセル</button>
+        </div>
+      </div>
+      <div class="notice hidden" id="task-error"><p id="task-error-msg"></p></div>
+      <div id="task-empty" style="font-size:11px;color:#333;padding:16px 0;letter-spacing:.05em">「URL設定」からApps ScriptのURLを登録してください</div>
+      <div id="task-list"></div>
+    </div>
+
+    <div class="section-div"></div>
+
+    <!-- 写真記録 -->
+    <div class="section">
+      <div class="lbl" style="margin-bottom:4px">写真記録</div>
+      <div style="font-size:10px;color:#444;letter-spacing:.06em;margin-bottom:14px;line-height:1.8">原画質で保存されます</div>
+      <div class="drop-zone" id="photo-drop" style="height:160px;margin-bottom:14px">
+        <span class="plus">+</span>
+        <span class="hint">写真をドロップ or クリック</span>
+        <span class="sub">原画質で保存</span>
+      </div>
+      <input type="file" accept="image/*" id="photo-input" class="hidden">
+      <div class="lens-wrap" id="lens-wrap"></div>
+      <textarea id="photo-comment" rows="3" placeholder="今日の気づき — 「光が良かった」は不正解。「逆光で葉が透けて希望を感じるから」が正解。"></textarea>
+    </div>
+
+    <div class="section-div"></div>
+
+    <!-- プロ研究 -->
+    <div class="section">
+      <div class="lbl" style="margin-bottom:4px">プロ研究</div>
+      <div style="font-size:10px;color:#444;letter-spacing:.06em;margin-bottom:18px;line-height:1.8">プロ写真家の作品を3枚アップして「なぜ良いか」を1行で</div>
+      <div class="pro-grid" id="pro-grid"></div>
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div id="tab-plan" class="hidden">
+    <div class="log-header">
+      <h1>週間プラン</h1>
+      <p>6 WEEK INTENSIVE</p>
+    </div>
+    <div class="week-tabs" id="week-tabs"></div>
+    <div id="week-content"></div>
+  </div>
+
+  <!-- LOG -->
+  <div id="tab-log" class="hidden">
+    <div class="log-header">
+      <h1>ログ一覧</h1>
+      <p id="log-count">0 ENTRIES</p>
+    </div>
+    <div id="log-list"></div>
+  </div>
+
+</div>
+
 <script>
-document.getElementById('msg').textContent = 'step 1: JS OK';
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script>
-document.getElementById('msg').textContent = typeof React !== 'undefined' ? 'step 2: React OK' : 'step 2: React FAILED';
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script>
-document.getElementById('msg').textContent = typeof ReactDOM !== 'undefined' ? 'step 3: ReactDOM OK' : 'step 3: ReactDOM FAILED';
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script>
-document.getElementById('msg').textContent = typeof Babel !== 'undefined' ? 'step 4: Babel OK' : 'step 4: Babel FAILED';
-</script>
-<script type="text/babel">
-function App() {
-  return <div>step 5: JSX OK ✓</div>;
+// ── IndexedDB ─────────────────────────────────
+const IDB = (() => {
+  let db = null;
+  function open() {
+    if (db) return Promise.resolve(db);
+    return new Promise((res, rej) => {
+      const req = indexedDB.open('photo_tracker_v1', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+      req.onsuccess = e => { db = e.target.result; res(db); };
+      req.onerror = () => rej(req.error);
+    });
+  }
+  return {
+    async set(key, blob) {
+      const d = await open();
+      return new Promise((res, rej) => {
+        const tx = d.transaction('photos', 'readwrite');
+        tx.objectStore('photos').put(blob, key);
+        tx.oncomplete = () => res(true);
+        tx.onerror = () => rej(tx.error);
+      });
+    },
+    async get(key) {
+      const d = await open();
+      return new Promise((res, rej) => {
+        const req = d.transaction('photos').objectStore('photos').get(key);
+        req.onsuccess = () => res(req.result || null);
+        req.onerror = () => rej(req.error);
+      });
+    },
+    async del(key) {
+      const d = await open();
+      return new Promise(res => {
+        const tx = d.transaction('photos', 'readwrite');
+        tx.objectStore('photos').delete(key);
+        tx.oncomplete = () => res(true);
+      });
+    }
+  };
+})();
+
+// ── localStorage ──────────────────────────────
+const LS = {
+  get: k => { try { const v = localStorage.getItem('ptr_' + k); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem('ptr_' + k, JSON.stringify(v)); } catch {} }
+};
+
+// ── 定数 ──────────────────────────────────────
+const LENSES = ['55mm f2.8', 'Sigma 28-70', '16-50', '55-210', 'スマホ'];
+const WEEKS = [
+  {id:1,dates:'5/28〜6/3',theme:'構図を体に叩き込む',constraint:'55mm f2.8のみ。ズーム禁止。足で動く。',weekday:'同じ被写体を三分割・日の丸・対角線の3構図で撮り比べる。学校の行き帰りでOK。',weekend:'1シーンにつき低・中・高の3アングル必須。同じ場所で30枚以上。',check:'3構図の撮り比べを見て「どれが一番伝わるか」を言えるか'},
+  {id:2,dates:'6/4〜6/10',theme:'光だけを追いかける',constraint:'撮影は朝7時前か夕方17時以降のみ。昼間は撮らない。',weekday:'登下校中に「今日一番いい光」を1枚だけ撮る。',weekend:'日の出撮影。同じ場所を6時・7時・8時の3回撮り比べる。',check:'「今日の光は何時が一番良かったか」を理由付きで言えるか'},
+  {id:3,dates:'6/11〜6/17',theme:'引き算を覚える',constraint:'1枚に写る「主役」は必ず1つだけ。2つあったら撮り直す。',weekday:'撮った写真を見て「主役以外で目立っているもの」を書き出す。',weekend:'Week1・Week2の写真100枚を見直してベスト10を選ぶ。',check:'ベスト10の選定理由が「光・構図・意図」の3軸で語れるか'},
+  {id:4,dates:'6/18〜6/24',theme:'プロを完全模倣する',constraint:'1人の写真家を決めて、その人の写真を完璧に模倣した1枚を撮る。',weekday:'選んだ写真家の作品を1枚分析。焦点距離・絞り・光の方向・距離を推測。',weekend:'分析した1枚を完全再現しに行く。場所・時間帯・構図を全部合わせる。',check:'元の写真と並べて「なぜ違うか」を3点言えるか'},
+  {id:5,dates:'6/25〜7/1',theme:'テーマで20枚撮る',constraint:'週の最初にテーマを1つ決める。それ以外は撮らない。',weekday:'テーマに沿った被写体だけを撮る。毎日最低3枚。',weekend:'20枚をLightroomで1フォルダに並べる。色調・明るさのトーンを統一。',check:'20枚を見知らぬ人に見せてテーマが伝わるか'},
+  {id:6,dates:'7/2〜7/8',theme:'外部の目にさらす',constraint:'自分で良いと思う写真を5枚、家族以外の人に見せて感想をもらう。',weekday:'SNS（Instagram・500px）にベスト写真を投稿。反応を記録する。',weekend:'Week1とWeek5の写真を並べて変化を言語化。6週間の総括を書く。',check:'「自分の写真はこういう写真だ」を1文で言えるか'},
+];
+
+// ── 状態 ──────────────────────────────────────
+const state = {
+  today: new Date().toISOString().slice(0, 10),
+  tab: 'today',
+  lens: LENSES[0],
+  tasks: [],
+  tasksDone: LS.get('tasks_done') || {},
+  checks: LS.get('checks') || {},
+  scriptUrl: LS.get('script_url') || '',
+  activeWeek: 1,
+  photoObjUrl: null,
+  proObjUrls: [null, null, null],
+};
+
+// ── ユーティリティ ─────────────────────────────
+function fmtFull(s) {
+  try { const d = new Date(s + 'T00:00:00'); return `${d.getMonth()+1}月${d.getDate()}日`; } catch { return s; }
 }
-ReactDOM.createRoot(document.getElementById("msg")).render(<App/>);
+function isOverdue(due) { return due && new Date(due + 'T23:59:59') < new Date(); }
+function qs(sel) { return document.querySelector(sel); }
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+
+// ── タブ切り替え ──────────────────────────────
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('#tab-today,#tab-plan,#tab-log').forEach(d => d.classList.add('hidden'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  if (tab === 'log') renderLog();
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+// ── 日付表示 ──────────────────────────────────
+(function() {
+  const d = new Date();
+  qs('#day-date').textContent = d.toLocaleDateString('ja-JP', {month:'long', day:'numeric'});
+  qs('#day-weekday').textContent = d.toLocaleDateString('ja-JP', {weekday:'long'}).toUpperCase();
+  const meta = LS.get('meta') || {};
+  let s = 0;
+  for (let i = 0; i < 60; i++) {
+    const dd = new Date(); dd.setDate(dd.getDate() - i);
+    const k = dd.toISOString().slice(0,10);
+    if (meta[k]?.comment || meta[k]?.proMemos?.some(x=>x)) s++;
+    else if (i > 0) break;
+  }
+  if (s > 1) qs('#streak').textContent = s + '日連続';
+})();
+
+// ── レンズ ────────────────────────────────────
+function renderLenses() {
+  const wrap = qs('#lens-wrap');
+  wrap.innerHTML = '';
+  LENSES.forEach(l => {
+    const b = el('button', 'lens-btn' + (state.lens === l ? ' active' : ''));
+    b.textContent = l;
+    b.addEventListener('click', () => { state.lens = l; renderLenses(); });
+    wrap.appendChild(b);
+  });
+}
+renderLenses();
+
+// ── 写真アップロード ───────────────────────────
+async function handlePhotoFile(file) {
+  if (!file) return;
+  const blob = new Blob([await file.arrayBuffer()], {type: file.type || 'image/jpeg'});
+  await IDB.set('main_' + state.today, blob);
+  if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
+  state.photoObjUrl = URL.createObjectURL(blob);
+  renderPhotoZone();
+}
+
+function renderPhotoZone() {
+  const drop = qs('#photo-drop');
+  if (state.photoObjUrl) {
+    drop.innerHTML = '';
+    drop.style.height = 'auto';
+    const wrap = el('div', 'photo-wrap');
+    const img = el('img'); img.src = state.photoObjUrl;
+    const btn = el('button', 'del-btn'); btn.textContent = '削除';
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await IDB.del('main_' + state.today);
+      if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
+      state.photoObjUrl = null;
+      drop.style.height = '160px';
+      renderPhotoZone();
+    });
+    wrap.appendChild(img); wrap.appendChild(btn);
+    drop.appendChild(wrap);
+    drop.onclick = null;
+  } else {
+    drop.innerHTML = '<span class="plus">+</span><span class="hint">写真をドロップ or クリック</span><span class="sub">原画質で保存</span>';
+    drop.onclick = () => qs('#photo-input').click();
+  }
+}
+
+qs('#photo-input').addEventListener('change', e => handlePhotoFile(e.target.files[0]));
+qs('#photo-drop').addEventListener('dragover', e => e.preventDefault());
+qs('#photo-drop').addEventListener('drop', e => { e.preventDefault(); handlePhotoFile(e.dataTransfer.files[0]); });
+qs('#photo-drop').onclick = () => qs('#photo-input').click();
+
+// ── プロ研究 ──────────────────────────────────
+function renderProGrid() {
+  const grid = qs('#pro-grid');
+  grid.innerHTML = '';
+  const proMemos = (LS.get('meta') || {})[state.today]?.proMemos || ['','',''];
+  [0,1,2].forEach(i => {
+    const slot = el('div', 'pro-slot');
+    const drop = el('div', 'pro-drop');
+    if (state.proObjUrls[i]) {
+      const img = el('img'); img.src = state.proObjUrls[i];
+      const btn = el('button', 'pro-del'); btn.textContent = '×';
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        await IDB.del('pro' + i + '_' + state.today);
+        if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
+        state.proObjUrls[i] = null;
+        renderProGrid();
+      });
+      drop.appendChild(img); drop.appendChild(btn);
+      drop.onclick = null;
+    } else {
+      drop.innerHTML = '<span style="font-size:14px;color:#1e1e1e">+</span><span style="font-size:9px;color:#333;letter-spacing:.1em">' + (i+1) + '</span>';
+      const inp = el('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none';
+      inp.addEventListener('change', async e => {
+        const file = e.target.files[0]; if (!file) return;
+        const blob = new Blob([await file.arrayBuffer()], {type: file.type});
+        await IDB.set('pro' + i + '_' + state.today, blob);
+        if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
+        state.proObjUrls[i] = URL.createObjectURL(blob);
+        renderProGrid();
+      });
+      drop.appendChild(inp);
+      drop.addEventListener('dragover', e => e.preventDefault());
+      drop.addEventListener('drop', async e => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0]; if (!file) return;
+        const blob = new Blob([await file.arrayBuffer()], {type: file.type});
+        await IDB.set('pro' + i + '_' + state.today, blob);
+        if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
+        state.proObjUrls[i] = URL.createObjectURL(blob);
+        renderProGrid();
+      });
+      drop.onclick = () => inp.click();
+    }
+    const memo = el('input');
+    memo.placeholder = 'なぜ良いか ' + (i+1);
+    memo.value = proMemos[i] || '';
+    memo.style.fontSize = '11px';
+    memo.id = 'pro-memo-' + i;
+    slot.appendChild(drop); slot.appendChild(memo);
+    grid.appendChild(slot);
+  });
+}
+renderProGrid();
+
+// ── 保存 ──────────────────────────────────────
+qs('#save-btn').addEventListener('click', () => {
+  const meta = LS.get('meta') || {};
+  meta[state.today] = {
+    comment: qs('#photo-comment').value,
+    lens: state.lens,
+    hasPhoto: !!state.photoObjUrl,
+    proMemos: [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || ''),
+  };
+  LS.set('meta', meta);
+  const msg = qs('#saved-msg');
+  msg.classList.remove('hidden');
+  setTimeout(() => msg.classList.add('hidden'), 2000);
+});
+
+// ── 課題 ──────────────────────────────────────
+function renderTasks() {
+  const tasks = state.tasks;
+  qs('#task-empty').style.display = (tasks.length === 0 && !state.scriptUrl) ? 'block' : 'none';
+  const list = qs('#task-list');
+  list.innerHTML = '';
+  const pending = tasks.filter(t => !state.tasksDone[t.id||t.title+t.due]);
+  qs('#task-count').textContent = pending.length > 0 ? pending.length + '件' : '';
+  tasks.forEach(t => {
+    const k = t.id || t.title + t.due;
+    const done = !!state.tasksDone[k];
+    const over = isOverdue(t.due) && !done;
+    const row = el('div', 'task-row');
+    const cb = el('div', 'cb' + (done ? ' done' : ''));
+    cb.addEventListener('click', () => {
+      state.tasksDone[k] = !state.tasksDone[k];
+      LS.set('tasks_done', state.tasksDone);
+      renderTasks();
+    });
+    const info = el('div');
+    info.style.flex = '1';
+    const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
+    title.textContent = t.title;
+    const meta = el('div', 'task-meta');
+    if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
+    if (t.due) { const due = el('span', 'task-due' + (over ? ' overdue' : '')); due.textContent = fmtFull(t.due) + (over ? ' · 期限切れ' : ''); meta.appendChild(due); }
+    info.appendChild(title); info.appendChild(meta);
+    row.appendChild(cb); row.appendChild(info);
+    list.appendChild(row);
+  });
+}
+
+async function syncTasks(url) {
+  const target = url || state.scriptUrl;
+  if (!target) return;
+  qs('#sync-btn').textContent = '...';
+  qs('#sync-btn').disabled = true;
+  qs('#task-error').classList.add('hidden');
+  try {
+    const res = await fetch(target, {redirect:'follow'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error('JSONではない応答です。URLを直接ブラウザで開いて確認してください'); }
+    if (data.error) throw new Error(data.error);
+    const list = Array.isArray(data) ? data : (data.tasks || []);
+    state.tasks = list;
+    LS.set('tasks_cache', {tasks: list, fetchedAt: new Date().toISOString()});
+    renderTasks();
+  } catch(e) {
+    qs('#task-error-msg').textContent = e.message === 'Failed to fetch'
+      ? '接続失敗。デプロイ設定で「アクセスできるユーザー：全員」になっているか確認してください'
+      : e.message;
+    qs('#task-error').classList.remove('hidden');
+  }
+  qs('#sync-btn').textContent = 'SYNC';
+  qs('#sync-btn').disabled = false;
+}
+
+qs('#url-toggle-btn').addEventListener('click', () => {
+  const panel = qs('#url-panel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) qs('#url-input').value = state.scriptUrl;
+});
+qs('#url-cancel-btn').addEventListener('click', () => qs('#url-panel').classList.add('hidden'));
+qs('#url-save-btn').addEventListener('click', () => {
+  const url = qs('#url-input').value.trim();
+  state.scriptUrl = url;
+  LS.set('script_url', url);
+  qs('#url-panel').classList.add('hidden');
+  syncTasks(url);
+});
+qs('#sync-btn').addEventListener('click', () => syncTasks());
+
+// ── プラン ────────────────────────────────────
+function renderWeek(id) {
+  state.activeWeek = id;
+  document.querySelectorAll('.week-tab').forEach(b => b.classList.toggle('active', parseInt(b.dataset.id) === id));
+  const w = WEEKS.find(x => x.id === id);
+  const checks = state.checks;
+  const ck = 'w' + id + '_main';
+  qs('#week-content').innerHTML = `
+    <div class="week-title">${w.theme}<span class="week-dates">${w.dates}</span></div>
+    <div class="constraint"><div class="lbl" style="margin-bottom:6px">縛り</div><p>${w.constraint}</p></div>
+    <div class="mission-grid">
+      <div class="mission-box"><div class="lbl">平日ミッション</div><p>${w.weekday}</p></div>
+      <div class="mission-box"><div class="lbl">週末ミッション</div><p>${w.weekend}</p></div>
+    </div>
+    <div class="check-section">
+      <div class="lbl">週末チェック</div>
+      <div class="check-row" id="week-check-row">
+        <div class="cb ${checks[ck]?'done':''}" id="week-cb"></div>
+        <div class="check-text ${checks[ck]?'done':''}" id="week-check-text">${w.check}</div>
+      </div>
+    </div>
+    <div class="progress-section">
+      <div class="lbl" style="margin-bottom:12px">全体進捗</div>
+      <div class="progress-bar">${WEEKS.map(wk=>`<div class="progress-seg ${checks['w'+wk.id+'_main']?'done':''}"></div>`).join('')}</div>
+      <div class="progress-label">${WEEKS.filter(wk=>checks['w'+wk.id+'_main']).length} / 6 COMPLETE</div>
+    </div>
+  `;
+  qs('#week-check-row').addEventListener('click', () => {
+    state.checks[ck] = !state.checks[ck];
+    LS.set('checks', state.checks);
+    renderWeek(id);
+  });
+}
+
+function initPlan() {
+  const tabs = qs('#week-tabs');
+  tabs.innerHTML = '';
+  WEEKS.forEach(w => {
+    const b = el('button', 'week-tab' + (w.id === 1 ? ' active' : ''));
+    b.textContent = 'W' + w.id;
+    b.dataset.id = w.id;
+    b.addEventListener('click', () => renderWeek(w.id));
+    tabs.appendChild(b);
+  });
+  renderWeek(1);
+}
+initPlan();
+
+// ── ログ ──────────────────────────────────────
+async function renderLog() {
+  const meta = LS.get('meta') || {};
+  const dates = Object.keys(meta).sort((a,b) => b > a ? 1 : -1);
+  qs('#log-count').textContent = dates.length + ' ENTRIES';
+  const list = qs('#log-list');
+  list.innerHTML = '';
+  if (dates.length === 0) {
+    const e = el('div', 'log-empty');
+    e.innerHTML = 'まだ記録がありません<br>今日タブから最初の1枚を記録しよう';
+    list.appendChild(e); return;
+  }
+  for (const date of dates) {
+    const m = meta[date] || {};
+    const entry = el('div', 'log-entry');
+    const thumb = el('div', 'log-thumb');
+    const blob = await IDB.get('main_' + date);
+    if (blob) {
+      const img = el('img');
+      img.src = URL.createObjectURL(blob);
+      thumb.appendChild(img);
+    } else {
+      const empty = el('div', 'log-thumb-empty'); empty.textContent = 'NO IMG';
+      thumb.appendChild(empty);
+    }
+    const info = el('div');
+    const metaRow = el('div', 'log-meta');
+    const dateSpan = el('span', 'log-date'); dateSpan.textContent = fmtFull(date);
+    metaRow.appendChild(dateSpan);
+    if (m.lens) { const tag = el('span', 'tag'); tag.textContent = m.lens; metaRow.appendChild(tag); }
+    info.appendChild(metaRow);
+    if (m.comment) { const c = el('div', 'log-comment'); c.textContent = m.comment; info.appendChild(c); }
+    if (m.proMemos?.filter(x=>x).length > 0) {
+      const pro = el('div', 'log-pro');
+      const lbl = el('span', 'log-pro-label'); lbl.textContent = 'PRO STUDY ×' + m.proMemos.filter(x=>x).length;
+      pro.appendChild(lbl); info.appendChild(pro);
+    }
+    entry.appendChild(thumb); entry.appendChild(info);
+    list.appendChild(entry);
+  }
+}
+
+// ── 初期データ読み込み ─────────────────────────
+(async function init() {
+  const meta = LS.get('meta') || {};
+  const today = state.today;
+  if (meta[today]) {
+    qs('#photo-comment').value = meta[today].comment || '';
+    const savedLens = meta[today].lens;
+    if (savedLens) { state.lens = savedLens; renderLenses(); }
+  }
+  const blob = await IDB.get('main_' + today);
+  if (blob) {
+    state.photoObjUrl = URL.createObjectURL(blob);
+    renderPhotoZone();
+  }
+  for (let i = 0; i < 3; i++) {
+    const b = await IDB.get('pro' + i + '_' + today);
+    if (b) state.proObjUrls[i] = URL.createObjectURL(b);
+  }
+  renderProGrid();
+  const tc = LS.get('tasks_cache');
+  if (tc && tc.tasks && (Date.now() - new Date(tc.fetchedAt).getTime() < 3600000)) {
+    state.tasks = tc.tasks;
+    renderTasks();
+  } else if (state.scriptUrl) {
+    renderTasks();
+  } else {
+    renderTasks();
+  }
+})();
 </script>
-</body></html>
+</body>
+</html>
