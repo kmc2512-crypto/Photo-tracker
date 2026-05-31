@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>写真成長記録</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -292,8 +292,8 @@ function App(){
           <div>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:36}}>
               <div>
-                <div style={{fontFamily:M,fontSize:18,fontWeight:400,letterSpacing:".1em",lineHeight:1}}>{new Date().toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"})}</div>
-                <div style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".15em",marginTop:6}}>{new Date().toLocaleDateString("ja-JP",{weekday:"short"}).toUpperCase()}</div>
+                <div style={{fontFamily:"'Space Grotesk','Noto Sans JP',sans-serif",fontSize:28,fontWeight:700,letterSpacing:"-.01em",lineHeight:1}>{new Date().toLocaleDateString("ja-JP",{month:"long",day:"numeric"})}</div>
+                <div style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".15em",marginTop:6}}>{new Date().toLocaleDateString("ja-JP",{weekday:"long"})}</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:12,paddingTop:4}}>
                 {saved&&<span style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".1em"}}>保存済み</span>}
