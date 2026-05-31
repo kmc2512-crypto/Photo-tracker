@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>写真成長記録</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -196,7 +196,7 @@ function App(){
     setTasksLoading(false);
   },[scriptUrl]);
 
-  const saveUrl=useCallback(()=>{setScriptUrl(urlInput);lset("script_url",urlInput);setEditingUrl(false);loadTasks(urlInput);},[urlInput,loadTasks]);
+  const saveUrl=useCallback(()=>{setScriptUrl(urlInput);lset("script_url",urlInput);setEditingUrl(false);setTimeout(()=>loadTasks(urlInput),100);},[urlInput,loadTasks]);
 
   const saveDay=useCallback(async()=>{
     const m=lget("meta")||{};
@@ -292,7 +292,7 @@ function App(){
           <div>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:36}}>
               <div>
-                <div style={{fontFamily:"'Space Grotesk','Noto Sans JP',sans-serif",fontSize:28,fontWeight:700,letterSpacing:"-.01em",lineHeight:1}>{new Date().toLocaleDateString("ja-JP",{month:"long",day:"numeric"})}</div>
+                <div style={{fontFamily:"'Space Grotesk',-apple-system,sans-serif",fontSize:28,fontWeight:700,letterSpacing:"-.01em",lineHeight:1}>{new Date().toLocaleDateString("ja-JP",{month:"long",day:"numeric"})}</div>
                 <div style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".15em",marginTop:6}}>{new Date().toLocaleDateString("ja-JP",{weekday:"long"})}</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:12,paddingTop:4}}>
@@ -514,7 +514,23 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+class ErrorBoundary extends React.Component {
+  constructor(props){ super(props); this.state={hasError:false,error:null}; }
+  static getDerivedStateFromError(e){ return {hasError:true,error:e}; }
+  render(){
+    if(this.state.hasError) return (
+      <div style={{padding:"40px 32px",fontFamily:"'DM Mono',monospace",color:"#888",fontSize:12,lineHeight:2}}>
+        <div style={{color:"#e8e8e8",marginBottom:12}}>エラーが発生しました</div>
+        <div style={{color:"#555",fontSize:11}}>{String(this.state.error)}</div>
+        <button onClick={()=>window.location.reload()} style={{marginTop:20,background:"none",border:"1px solid #333",color:"#888",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontSize:10,padding:"6px 16px",letterSpacing:".1em"}}>再読み込み</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App/></ErrorBoundary>);
+
 </script>
 </body>
 </html>
