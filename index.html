@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>test</title></head>
 <body style="background:#080808;color:#e8e8e8;font-family:monospace;padding:40px">
-<div id="msg">JS動いてない</div>
+<div id="msg">step 0</div>
 <script>
-document.getElementById('msg').textContent = 'JS動いてる ✓';
+document.getElementById('msg').textContent = 'step 1: JS OK';
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script>
+document.getElementById('msg').textContent = typeof React !== 'undefined' ? 'step 2: React OK' : 'step 2: React FAILED';
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+document.getElementById('msg').textContent = typeof ReactDOM !== 'undefined' ? 'step 3: ReactDOM OK' : 'step 3: ReactDOM FAILED';
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script>
+document.getElementById('msg').textContent = typeof Babel !== 'undefined' ? 'step 4: Babel OK' : 'step 4: Babel FAILED';
+</script>
+<script type="text/babel">
+function App() {
+  return <div>step 5: JSX OK ✓</div>;
+}
+ReactDOM.createRoot(document.getElementById("msg")).render(<App/>);
 </script>
 </body></html>
