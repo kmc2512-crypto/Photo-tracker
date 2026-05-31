@@ -292,8 +292,8 @@ function App(){
           <div>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:36}}>
               <div>
-                <div style={{fontFamily:S,fontSize:26,fontWeight:800,letterSpacing:"-.02em",lineHeight:1}}>{new Date().toLocaleDateString("ja-JP",{month:"long",day:"numeric"})}</div>
-                <div style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".15em",marginTop:6}}>{new Date().toLocaleDateString("ja-JP",{weekday:"long"}).toUpperCase()}</div>
+                <div style={{fontFamily:M,fontSize:18,fontWeight:400,letterSpacing:".1em",lineHeight:1}}>{new Date().toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"})}</div>
+                <div style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".15em",marginTop:6}}>{new Date().toLocaleDateString("ja-JP",{weekday:"short"}).toUpperCase()}</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:12,paddingTop:4}}>
                 {saved&&<span style={{fontFamily:M,fontSize:10,color:C.dim,letterSpacing:".1em"}}>保存済み</span>}
