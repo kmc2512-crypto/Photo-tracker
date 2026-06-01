@@ -112,6 +112,21 @@ button{cursor:pointer}
 .log-pro{display:flex;gap:5px;align-items:center;margin-top:6px}
 .log-pro-label{font-size:9px;color:#333;letter-spacing:.08em}
 .hidden{display:none}
+.detail-back{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;color:#555;letter-spacing:.12em;text-transform:uppercase;padding:0;margin-bottom:28px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.detail-back:hover{color:#e8e8e8}
+.detail-date{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
+.detail-lens{display:inline-block;border:1px solid #1e1e1e;color:#555;font-size:10px;letter-spacing:.04em;padding:3px 8px;margin-bottom:24px}
+.detail-photo{width:100%;margin-bottom:24px}
+.detail-photo img{width:100%;max-height:600px;object-fit:contain;display:block;background:#050505}
+.detail-no-photo{height:160px;background:#0a0a0a;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1a1a1a;letter-spacing:.1em;margin-bottom:24px}
+.detail-section{border-top:1px solid #141414;padding-top:16px;margin-bottom:28px}
+.detail-comment{font-size:13px;color:#aaa;line-height:1.9;letter-spacing:.02em;margin-top:10px}
+.detail-pro-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:14px}
+.detail-pro-img{width:100%;height:120px;object-fit:cover;display:block;background:#0e0e0e;margin-bottom:8px}
+.detail-pro-empty{width:100%;height:120px;background:#0a0a0a;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1a1a1a;letter-spacing:.1em;margin-bottom:8px}
+.detail-pro-memo{font-size:11px;color:#666;line-height:1.7;letter-spacing:.02em}
+.log-entry{cursor:pointer}
+.log-entry:hover .log-date{color:#fff}
 </style>
 </head>
 <body>
@@ -206,11 +221,17 @@ button{cursor:pointer}
 
   <!-- LOG -->
   <div id="tab-log" class="hidden">
-    <div class="log-header">
-      <h1>ログ一覧</h1>
-      <p id="log-count">0 ENTRIES</p>
+    <div id="log-list-view">
+      <div class="log-header">
+        <h1>ログ一覧</h1>
+        <p id="log-count">0 ENTRIES</p>
+      </div>
+      <div id="log-list"></div>
     </div>
-    <div id="log-list"></div>
+    <div id="log-detail-view" class="hidden">
+      <button class="detail-back" id="detail-back-btn">← 一覧に戻る</button>
+      <div id="detail-content"></div>
+    </div>
   </div>
 
 </div>
@@ -611,6 +632,69 @@ function initPlan() {
 initPlan();
 
 // ── ログ ──────────────────────────────────────
+// ── ログ詳細表示 ──────────────────────────────
+async function showDetail(date) {
+  // 一覧を隠して詳細を表示（C言語の画面切り替えに相当）
+  qs('#log-list-view').classList.add('hidden');
+  qs('#log-detail-view').classList.remove('hidden');
+
+  const meta = LS.get('meta') || {};
+  const m = meta[date] || {};
+  const detail = qs('#detail-content');
+  detail.innerHTML = '';
+
+  // 日付・レンズ
+  const dateEl = el('div', 'detail-date'); dateEl.textContent = fmtFull(date);
+  detail.appendChild(dateEl);
+  if (m.lens) { const lensEl = el('div', 'detail-lens'); lensEl.textContent = m.lens; detail.appendChild(lensEl); }
+
+  // メイン写真
+  const blob = await IDB.get('main_' + date);
+  if (blob) {
+    const wrap = el('div', 'detail-photo');
+    const img = el('img'); img.src = URL.createObjectURL(blob);
+    wrap.appendChild(img); detail.appendChild(wrap);
+  } else {
+    const noPhoto = el('div', 'detail-no-photo'); noPhoto.textContent = 'NO PHOTO';
+    detail.appendChild(noPhoto);
+  }
+
+  // 気づきコメント
+  if (m.comment) {
+    const sec = el('div', 'detail-section');
+    const lbl = el('div', 'lbl'); lbl.textContent = '今日の気づき';
+    const comment = el('div', 'detail-comment'); comment.textContent = m.comment;
+    sec.appendChild(lbl); sec.appendChild(comment);
+    detail.appendChild(sec);
+  }
+
+  // プロ研究
+  const proBlobs = await Promise.all([0,1,2].map(i => IDB.get('pro' + i + '_' + date)));
+  const proMemos = m.proMemos || ['','',''];
+  if (proBlobs.some(b => b) || proMemos.some(x => x)) {
+    const sec = el('div', 'detail-section');
+    const lbl = el('div', 'lbl'); lbl.textContent = 'プロ研究';
+    const grid = el('div', 'detail-pro-grid');
+    [0,1,2].forEach(i => {
+      const item = el('div', 'detail-pro-item');
+      if (proBlobs[i]) {
+        const img = el('img', 'detail-pro-img'); img.src = URL.createObjectURL(proBlobs[i]);
+        item.appendChild(img);
+      } else {
+        const empty = el('div', 'detail-pro-empty'); empty.textContent = i+1;
+        item.appendChild(empty);
+      }
+      if (proMemos[i]) {
+        const memo = el('div', 'detail-pro-memo'); memo.textContent = proMemos[i];
+        item.appendChild(memo);
+      }
+      grid.appendChild(item);
+    });
+    sec.appendChild(lbl); sec.appendChild(grid);
+    detail.appendChild(sec);
+  }
+}
+
 async function renderLog() {
   const meta = LS.get('meta') || {};
   const dates = Object.keys(meta).sort((a,b) => b > a ? 1 : -1);
@@ -648,9 +732,16 @@ async function renderLog() {
       pro.appendChild(lbl); info.appendChild(pro);
     }
     entry.appendChild(thumb); entry.appendChild(info);
+    entry.addEventListener('click', () => showDetail(date));
     list.appendChild(entry);
   }
 }
+
+// ── 詳細→一覧戻るボタン ───────────────────────
+qs('#detail-back-btn').addEventListener('click', () => {
+  qs('#log-detail-view').classList.add('hidden');
+  qs('#log-list-view').classList.remove('hidden');
+});
 
 // ── 初期データ読み込み ─────────────────────────
 (async function init() {
