@@ -262,6 +262,46 @@ const LS = {
   get: k => { try { const v = localStorage.getItem('ptr_' + k); return v ? JSON.parse(v) : null; } catch { return null; } },
   set: (k, v) => { try { localStorage.setItem('ptr_' + k, JSON.stringify(v)); } catch {} }
 };
+// ── Supabase ──────────────────────────────────
+const SB_URL = 'https://eskeovyymgferdbqotti.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVza2Vvdnl5bWdmZXJkYnFvdHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODE1MzksImV4cCI6MjA5NTg1NzUzOX0.y22KuSGf7nKzYlGxDU-K4ryoB7xLAXGoJALHji_t0Eg';
+
+const SB = {
+  async upsert(date, data) {
+    try {
+      const res = await fetch(SB_URL + '/rest/v1/logs', {
+        method: 'POST',
+        headers: {
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          date,
+          comment: data.comment || '',
+          lens: data.lens || '',
+          pro_memos: data.proMemos || [],
+          updated_at: new Date().toISOString()
+        })
+      });
+      return res.ok;
+    } catch(e) { console.error('SB upsert:', e); return false; }
+  },
+  async fetchAll() {
+    try {
+      const res = await fetch(SB_URL + '/rest/v1/logs?select=*', {
+        headers: {
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY
+        }
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch(e) { console.error('SB fetch:', e); return null; }
+  }
+};
+
 
 // ── 定数 ──────────────────────────────────────
 const LENSES = ['55mm f2.8', 'Sigma 28-70', '16-50', '55-210', 'スマホ'];
@@ -431,15 +471,18 @@ function renderProGrid() {
 renderProGrid();
 
 // ── 保存 ──────────────────────────────────────
-qs('#save-btn').addEventListener('click', () => {
+qs('#save-btn').addEventListener('click', async () => {
   const meta = LS.get('meta') || {};
-  meta[state.today] = {
+  const dayData = {
     comment: qs('#photo-comment').value,
     lens: state.lens,
     hasPhoto: !!state.photoObjUrl,
     proMemos: [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || ''),
   };
+  meta[state.today] = dayData;
   LS.set('meta', meta);
+  // Supabaseにも保存
+  await SB.upsert(state.today, dayData);
   const msg = qs('#saved-msg');
   msg.classList.remove('hidden');
   setTimeout(() => msg.classList.add('hidden'), 2000);
@@ -631,11 +674,42 @@ async function renderLog() {
   const tc = LS.get('tasks_cache');
   if (tc && tc.tasks && (Date.now() - new Date(tc.fetchedAt).getTime() < 3600000)) {
     state.tasks = tc.tasks;
-    renderTasks();
-  } else if (state.scriptUrl) {
-    renderTasks();
-  } else {
-    renderTasks();
+  }
+  renderTasks();
+
+  // Supabaseから最新データを取得してlocalStorageにマージ
+  const rows = await SB.fetchAll();
+  if (rows && rows.length > 0) {
+    const meta = LS.get('meta') || {};
+    rows.forEach(row => {
+      // Supabaseのデータの方が新しい場合は上書き
+      const local = meta[row.date];
+      const sbUpdated = new Date(row.updated_at).getTime();
+      const localUpdated = local?._updated || 0;
+      if (!local || sbUpdated > localUpdated) {
+        meta[row.date] = {
+          comment: row.comment || '',
+          lens: row.lens || '',
+          hasPhoto: local?.hasPhoto || false,
+          proMemos: row.pro_memos || [],
+          _updated: sbUpdated
+        };
+      }
+    });
+    LS.set('meta', meta);
+    // 今日のデータを反映
+    const todayMeta = meta[state.today];
+    if (todayMeta) {
+      if (!qs('#photo-comment').value) {
+        qs('#photo-comment').value = todayMeta.comment || '';
+      }
+      if (todayMeta.lens) { state.lens = todayMeta.lens; renderLenses(); }
+      const proMemos = todayMeta.proMemos || [];
+      [0,1,2].forEach(i => {
+        const inp = qs('#pro-memo-' + i);
+        if (inp && !inp.value) inp.value = proMemos[i] || '';
+      });
+    }
   }
 })();
 </script>
