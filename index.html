@@ -269,7 +269,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const SB = {
   async upsert(date, data) {
     try {
-      const res = await fetch(SB_URL + '/rest/v1/logs', {
+      const res = await fetch(SB_URL + '/rest/v1/logs?on_conflict=date', {
         method: 'POST',
         headers: {
           'apikey': SB_KEY,
