@@ -127,6 +127,36 @@ button{cursor:pointer}
 .detail-pro-memo{font-size:11px;color:#666;line-height:1.7;letter-spacing:.02em}
 .log-entry{cursor:pointer}
 .log-entry:hover .log-date{color:#fff}
+/* 学習タブ */
+.learn-header{margin-bottom:32px}
+.learn-week-badge{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#444;margin-bottom:8px}
+.learn-week-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px}
+.learn-week-sub{font-size:11px;color:#555;letter-spacing:.04em}
+.learn-section{margin-bottom:36px}
+.learn-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #141414;cursor:pointer}
+.learn-section-title{font-size:13px;font-weight:500;letter-spacing:.02em}
+.learn-section-badge{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid #1e1e1e;color:#444}
+.learn-section-badge.shooting{border-color:#334;color:#667}
+.learn-section-badge.editing{border-color:#443;color:#776}
+.learn-body{padding:16px 0 20px}
+.learn-goal{font-size:11px;color:#888;letter-spacing:.04em;margin-bottom:16px;padding:10px 14px;background:#0c0c0c;border-left:2px solid #222}
+.learn-theory{font-size:12px;color:#777;line-height:2;letter-spacing:.02em;margin-bottom:20px;white-space:pre-wrap}
+.learn-yt{margin-bottom:20px}
+.learn-yt-link{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0c0c0c;border:1px solid #1a1a1a;text-decoration:none;color:#e8e8e8}
+.learn-yt-link:hover{border-color:#333}
+.learn-yt-icon{font-size:14px;flex-shrink:0}
+.learn-yt-text{font-size:11px;color:#777;letter-spacing:.03em}
+.learn-practice{margin-bottom:20px}
+.learn-practice-text{font-size:12px;color:#aaa;line-height:1.9;letter-spacing:.02em;margin-top:8px;padding:12px 14px;background:#0c0c0c;border-left:2px solid #e8e8e820}
+.learn-checklist{margin-bottom:20px}
+.learn-check-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid #0e0e0e;cursor:pointer}
+.learn-check-item:last-child{border-bottom:none}
+.learn-check-text{font-size:12px;color:#777;line-height:1.6;letter-spacing:.02em}
+.learn-check-text.done{color:#333;text-decoration:line-through}
+.learn-memo{margin-top:16px}
+.learn-memo textarea{border:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:10px 12px;font-size:11px;background:#0a0a0a;line-height:1.8}
+.learn-save-btn{margin-top:10px;background:#e8e8e8;border:none;color:#080808;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:7px 18px;cursor:pointer}
+.learn-save-btn:hover{background:#fff}
 .week-card{border:1px solid #141414;padding:20px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
 .week-card:hover{border-color:#2a2a2a}
 .week-card.active{border-color:#444}
@@ -152,6 +182,7 @@ button{cursor:pointer}
   <span class="nav-title">写真成長記録</span>
   <div class="nav-tabs">
     <button class="tab-btn active" data-tab="today">今日</button>
+    <button class="tab-btn" data-tab="learn">学習</button>
     <button class="tab-btn" data-tab="plan">プラン</button>
     <button class="tab-btn" data-tab="log">ログ</button>
   </div>
@@ -236,6 +267,11 @@ button{cursor:pointer}
     <div id="week-content"></div>
   </div>
 
+  <!-- LEARN -->
+  <div id="tab-learn" class="hidden">
+    <div id="learn-content"></div>
+  </div>
+
   <!-- LOG -->
   <div id="tab-log" class="hidden">
     <div id="log-list-view">
@@ -254,6 +290,181 @@ button{cursor:pointer}
 </div>
 
 <script>
+
+const CURRICULUM = [
+  {
+    week: 1,
+    shooting: {
+      theme: "光を読む",
+      goal: "朝・夕の光の違いを体で覚える",
+      theory: `光には「質」と「方向」がある。同じ場所でも朝6時と昼12時では全く別の写真になる。\n\n・マジックアワー（日の出後30分・日没前30分）→ 光が柔らかくオレンジ
+・昼間の光 → 硬くて影が強い、色が平坦\n
+α6400の設定：f2.8、SS1/500〜1/1000、ISO Auto(上限3200)、RAW必須`,
+      youtube: [{title:"光の方向と質を理解する（逆光・順光・斜光）", url:"https://www.youtube.com/results?search_query=%E5%85%89%E3%81%AE%E6%96%B9%E5%90%91+%E5%86%99%E7%9C%9F+%E9%80%86%E5%85%89+%E9%A0%86%E5%85%89+%E8%A7%A3%E8%AA%AC"}],
+      practice: "同じ場所を朝・昼・夕の3回撮り比べる。設定を変えずに時間帯だけ変える。3枚をログに貼って「一番好きな光はどれか・なぜか」を書く。",
+      checklist: ["朝（6〜8時）に撮影した","夕方（16〜18時）に撮影した","同じ場所・同じ被写体で撮り比べた","ログに気づきを書いた"]
+    },
+    editing: {
+      theme: "Lightroomの基礎パネルを完全理解",
+      goal: "露光量・コントラスト・ハイライト・シャドウの役割を体で覚える",
+      theory: `Lightroomの基本4スライダーの意味：\n\n・露光量 → 写真全体の明るさ。+1で約2倍明るく
+・コントラスト → 明暗の差。上げると立体感が出るが不自然になりやすい
+・ハイライト → 明るい部分だけ調整。白飛びを抑えたいときは下げる
+・シャドウ → 暗い部分だけ調整。見えなくなった部分を復元したいときは上げる\n
+コツ：まずハイライトを-70〜-100、シャドウを+30〜+50にしてから露光量で全体を整える`,
+      youtube: [{title:"Lightroom 基礎 ライトパネル 解説", url:"https://www.youtube.com/results?search_query=Lightroom+%E5%9F%BA%E7%A4%8E+%E3%83%A9%E3%82%A4%E3%83%88%E3%83%91%E3%83%8D%E3%83%AB+%E8%A7%A3%E8%AA%AC"}],
+      practice: "昨日撮った写真1枚を使い、①露光量だけ変えた版、②ハイライト-100・シャドウ+50版、③自分のベスト版の3パターンを書き出してログに貼る。違いをコメントに書く。",
+      checklist: ["露光量スライダーを±1で試した","ハイライト・シャドウの違いを確認した","3パターン書き出した","ベスト版の理由をコメントに書いた"]
+    }
+  },
+  {
+    week: 2,
+    shooting: {
+      theme: "ストーリーを作る",
+      goal: "1つのテーマで5枚連続で語れる写真を撮る",
+      theory: `1枚の写真ではなく「流れ」で見せる技術。\n\n・引き（全体）→ 寄り（主役）→ 超寄り（ディテール）の3点セット
+・場所の「始まり→中間→終わり」を意識する
+・5枚で小さな物語を作る\n
+先輩カメラマンとの差はここ。1枚だけ上手い人は多い。5枚で語れる人は少ない。`,
+      youtube: [{title:"写真 ストーリーテリング 組写真 作り方", url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F+%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AA%E3%83%BC%E3%83%86%E3%83%AA%E3%83%B3%E3%82%B0+%E7%B5%84%E5%86%99%E7%9C%9F"}],
+      practice: "1つの場所かテーマで5枚撮る。「なぜこの順番で並べるか」をログに書く。",
+      checklist: ["テーマを1つ決めた","5枚撮った","順番と理由をログに書いた","引き・寄り・超寄りを意識した"]
+    },
+    editing: {
+      theme: "色を操る",
+      goal: "色温度・HSLパネルで自分好みの色調を作る",
+      theory: `色の調整は2段階ある。\n\n【第1段階：ホワイトバランス】
+・色温度 → 上げると暖色（オレンジ）、下げると寒色（青）
+・色かぶり補正 → 緑↔マゼンタの調整\n
+【第2段階：HSLパネル】
+・H（色相）→ 色の種類を変える（青空を水色に、緑を黄緑に）
+・S（彩度）→ 色の濃さ
+・L（輝度）→ その色だけ明暗調整\n
+コツ：オレンジ（肌・土）とティールブルー（空・影）を意識するとプロっぽくなる`,
+      youtube: [{title:"Lightroom HSL カラーグレーディング 解説", url:"https://www.youtube.com/results?search_query=Lightroom+HSL+%E3%82%AB%E3%83%A9%E3%83%BC%E3%82%B0%E3%83%AC%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0"}],
+      practice: "同じ写真をオレンジ・ティール系とフィルム風モノクロの2パターンで現像してログに貼る。どちらが自分らしいかコメントに書く。",
+      checklist: ["色温度を±500で試した","HSLパネルのオレンジを操作した","2パターン現像した","好みの色調をコメントに書いた"]
+    }
+  },
+  {
+    week: 3,
+    shooting: {
+      theme: "引き算",
+      goal: "主役1つだけのフレームを作る",
+      theory: `上手い写真と下手な写真の最大の差は「情報量の整理」。\n\n・主役以外は全部「ノイズ」
+・ノイズを消す方法：①近づく ②絞りを開ける（f2.8） ③アングルを変える ④ズームで圧縮\n
+チェックリスト：
+「この写真で一番見てほしいものは何か？」
+「それ以外で目立っているものはあるか？」
+→ あれば撮り直すか編集でトリミング`,
+      youtube: [{title:"写真 構図 引き算 シンプル プロ解説", url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F+%E6%A7%8B%E5%9B%B3+%E5%BC%95%E3%81%8D%E7%AE%97+%E3%82%B7%E3%83%B3%E3%83%97%E3%83%AB"}],
+      practice: "1枚撮ったら「主役以外で目立っているものリスト」をコメントに書く。それを消すための撮り直しか編集をして比較をログに貼る。",
+      checklist: ["ノイズリストを書いた","撮り直しかトリミングで対処した","before/afterをログに貼った","主役が明確になったか確認した"]
+    },
+    editing: {
+      theme: "トーンカーブとテクスチャ",
+      goal: "カーブでコントラストを自在に操る",
+      theory: `トーンカーブはスライダーより細かく明暗をコントロールできる。\n\n・S字カーブ → コントラスト強め（ドラマチック）
+・逆S字カーブ → マットな仕上がり（フィルム風）
+・中間トーンだけ持ち上げ → 自然なコントラスト\n
+テクスチャ・明瞭度・かすみの除去の違い：
+・テクスチャ +15〜25 → 葉や肌などの中程度のディテール
+・明瞭度 +10〜20 → 全体的なエッジ強調
+・かすみの除去 → 霧がかった写真専用（使いすぎ厳禁）`,
+      youtube: [{title:"Lightroom トーンカーブ 使い方 初心者", url:"https://www.youtube.com/results?search_query=Lightroom+%E3%83%88%E3%83%BC%E3%83%B3%E3%82%AB%E3%83%BC%E3%83%96+%E4%BD%BF%E3%81%84%E6%96%B9+%E5%88%9D%E5%BF%83%E8%80%85"}],
+      practice: "S字カーブ版・逆S字カーブ版・フラットカーブ版の3パターンを同じ写真で作ってログに貼る。",
+      checklist: ["S字カーブを作った","逆S字カーブを作った","テクスチャを±20で試した","3パターン比較をログに記録した"]
+    }
+  },
+  {
+    week: 4,
+    shooting: {
+      theme: "光を狙って撮る",
+      goal: "光の種類を意図的に選んで撮影する",
+      theory: `これまで「光を読む」を練習した。今週は「光を選んで狙う」フェーズ。\n\n・逆光 → 被写体の輪郭が光る。フレアが出る。「希望・詩的」な印象
+・斜光 → 立体感が出る。テクスチャが強調される。「力強い」印象  
+・曇り光 → 均一で柔らかい。ポートレートに最適。「穏やか」な印象\n
+今週のミッション：3種類全部を意図的に選んで1枚ずつ撮る`,
+      youtube: [{title:"撮影 光の種類 逆光 斜光 活用法", url:"https://www.youtube.com/results?search_query=%E6%92%AE%E5%BD%B1+%E5%85%89%E3%81%AE%E7%A8%AE%E9%A1%9E+%E9%80%86%E5%85%89+%E6%96%9C%E5%85%89+%E6%B4%BB%E7%94%A8%E6%B3%95"}],
+      practice: "逆光・斜光・曇り光の3枚を撮ってログに貼る。それぞれ「どんな印象を出したかったか」をコメントに書く。",
+      checklist: ["逆光で1枚撮った","斜光で1枚撮った","曇り光（または室内光）で1枚撮った","意図した印象をコメントに書いた"]
+    },
+    editing: {
+      theme: "カラーグレーディング",
+      goal: "カラーミキサーとカラーグレーディングで世界観を作る",
+      theory: `ここまでの編集は「補正」。今週からは「表現」。\n\n【カラーグレーディング（旧分割トーン）】
+・シャドウに色を入れる → 影に青を入れるとシネマ風
+・ハイライトに色を入れる → 光にオレンジを入れると映画的
+・ミッドトーン → 全体の色の印象を決める\n
+先輩カメラマンが「なんかプロっぽい」色調を出せるのはここ。
+同じ写真でも色調の方向性で全く別物になる。`,
+      youtube: [{title:"Lightroom カラーグレーディング 映画風 シネマルック", url:"https://www.youtube.com/results?search_query=Lightroom+%E3%82%AB%E3%83%A9%E3%83%BC%E3%82%B0%E3%83%AC%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0+%E6%98%A0%E7%94%BB%E9%A2%A8"}],
+      practice: "1枚の写真をシネマ風（シャドウ：青、ハイライト：オレンジ）とナチュラル風の2パターンで現像してログに貼る。",
+      checklist: ["カラーグレーディングパネルを開いた","シャドウに青を入れた","ハイライトにオレンジを入れた","2パターン比較をログに記録した"]
+    }
+  },
+  {
+    week: 5,
+    shooting: {
+      theme: "先輩・プロを解剖する",
+      goal: "好きな1枚を選んで完全模倣する",
+      theory: `模倣は盗みではなく最高の学習法。\n\n分析する4点：
+1. 光の方向（どこから光が来ているか）
+2. 焦点距離の推測（広角・標準・望遠）
+3. 絞り（ボケ量から推測）
+4. 色調の方向性（暖色・寒色・モノクロ）\n
+完全に再現できなくていい。「なぜ自分の写真と違うか」を言語化できることが目的。`,
+      youtube: [{title:"プロの写真を分析 模倣 上達法", url:"https://www.youtube.com/results?search_query=%E3%83%97%E3%83%AD%E3%81%AE%E5%86%99%E7%9C%9F+%E5%88%86%E6%9E%90+%E6%A8%A1%E5%80%A3+%E4%B8%8A%E9%81%94%E6%B3%95"}],
+      practice: "先輩かプロカメラマンの写真を1枚選んで模倣する。元写真と自分の写真を並べてログに貼り「3つの違い」をコメントに書く。",
+      checklist: ["模倣したい1枚を選んだ","光の方向・焦点距離・絞りを推測した","実際に撮影した","元写真と比較して3つの違いを書いた"]
+    },
+    editing: {
+      theme: "先輩の色調を再現する",
+      goal: "好きな色調を分析してLightroomで再現する",
+      theory: `色調の「盗み方」：\n\n1. 好きな写真を見てシャドウの色（影が青いか茶色いか）を確認
+2. ハイライトの色（光が白いかオレンジかを確認）
+3. 全体の彩度（鮮やかか落ち着いているか）
+4. コントラスト（眠い感じかシャープか）\n
+これをLightroomで再現していく。完璧じゃなくていい。
+「なぜ違うか」を言語化できれば次に活きる。`,
+      youtube: [{title:"好きな写真の色調 Lightroom 再現 方法", url:"https://www.youtube.com/results?search_query=%E5%A5%BD%E3%81%8D%E3%81%AA%E5%86%99%E7%9C%9F+%E8%89%B2%E8%AA%BF+Lightroom+%E5%86%8D%E7%8F%BE"}],
+      practice: "先輩かプロの写真を1枚選んで色調を分析し、自分の写真で再現を試みる。ログに元写真・自分の現像版・差分メモを貼る。",
+      checklist: ["参考写真の色調を分析した","シャドウ・ハイライトの色を特定した","Lightroomで再現を試みた","差分を言語化してコメントに書いた"]
+    }
+  },
+  {
+    week: 6,
+    shooting: {
+      theme: "自分のスタイルを固める",
+      goal: "「自分はこういう写真が撮りたい」を1文で言えるようにする",
+      theory: `5週間分のログを全部振り返る。\n\n確認する3点：
+1. 自分が一番楽しかった撮影はどれか
+2. 一番気に入っている写真はどれか  
+3. 繰り返し撮っている被写体・光・構図は何か\n
+これが「自分のスタイル」の原型。まだ決まらなくていい。でも今週で言語化する。
+言語化できた人が次のステップ（稼ぐ）に進める。`,
+      youtube: [{title:"写真家 スタイル 確立 自分らしさ 見つけ方", url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F%E5%AE%B6+%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB+%E7%A2%BA%E7%AB%8B+%E8%87%AA%E5%88%86%E3%82%89%E3%81%97%E3%81%95"}],
+      practice: "全ログを見返して「好きな被写体ベスト3」「好きな光ベスト1」「好きな色調の傾向」をコメントに書く。SNSに5枚投稿する。",
+      checklist: ["全ログを見返した","好きな被写体ベスト3を書いた","好きな光を書いた","SNSに5枚投稿した"]
+    },
+    editing: {
+      theme: "自分のプリセットを作る",
+      goal: "自分の色調をLightroomのプリセットとして保存する",
+      theory: `プリセット = 自分の編集設定を1クリックで適用できるように保存したもの。\n\nプロカメラマンは必ず自分のプリセットを持っている。
+これがあると編集速度が10倍になり、写真に一貫性が出る。\n
+作り方：
+1. 自分のベスト現像を1枚仕上げる
+2. 現像パネル右クリック→「プリセットを作成」
+3. 全項目にチェック→名前をつけて保存
+4. 別の写真に適用してみる→微調整する\n
+これが「自分のスタイル」の編集版。`,
+      youtube: [{title:"Lightroom プリセット 作成 保存 方法", url:"https://www.youtube.com/results?search_query=Lightroom+%E3%83%97%E3%83%AA%E3%82%BB%E3%83%83%E3%83%88+%E4%BD%9C%E6%88%90+%E4%BF%9D%E5%AD%98+%E6%96%B9%E6%B3%95"}],
+      practice: "自分のベスト現像設定でプリセットを作る。別の5枚に適用してみて、調整が必要な箇所をコメントに書く。",
+      checklist: ["ベスト現像設定を1枚仕上げた","プリセットを作成・保存した","5枚に適用した","微調整が必要な点をコメントに書いた"]
+    }
+  }
+];
+
 // ── IndexedDB ─────────────────────────────────
 const IDB = (() => {
   let db = null;
@@ -378,9 +589,10 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 function switchTab(tab) {
   state.tab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('#tab-today,#tab-plan,#tab-log').forEach(d => d.classList.add('hidden'));
+  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log').forEach(d => d.classList.add('hidden'));
   document.getElementById('tab-' + tab).classList.remove('hidden');
   if (tab === 'log') renderLog();
+  if (tab === 'learn') renderLearn();
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -599,6 +811,147 @@ qs('#url-save-btn').addEventListener('click', () => {
   syncTasks(url);
 });
 qs('#sync-btn').addEventListener('click', () => syncTasks());
+
+// ── 学習タブ ──────────────────────────────────
+// 解説: 現在のWeek（ログ数から計算）に対応するカリキュラムを表示する
+// C言語で言うと配列のインデックスで対応する構造体を取り出すイメージ
+
+function getCurrentWeek() {
+  const meta = LS.get('meta') || {};
+  const logCount = Object.keys(meta).filter(d => meta[d]?.comment).length;
+  // 5回ごとに次のWeekへ（最大Week6）
+  return Math.min(Math.floor(logCount / 5) + 1, 6);
+}
+
+function renderLearn() {
+  const container = qs('#learn-content');
+  container.innerHTML = '';
+  const weekNum = getCurrentWeek();
+  const cur = CURRICULUM.find(c => c.week === weekNum);
+  if (!cur) return;
+
+  // ヘッダー
+  const header = el('div', 'learn-header');
+  header.innerHTML = `
+    <div class="learn-week-badge">WEEK ${weekNum} / 6</div>
+    <div class="learn-week-title">今週のカリキュラム</div>
+    <div class="learn-week-sub">ログを5回記録するとWeek${weekNum+1}に進みます</div>
+  `;
+  container.appendChild(header);
+
+  // 撮影編・編集編の2セクション
+  const sections = [
+    { key: 'shooting', label: '撮影編', badge: 'shooting', data: cur.shooting },
+    { key: 'editing',  label: '編集編', badge: 'editing',  data: cur.editing  }
+  ];
+
+  sections.forEach(({ key, label, badge, data }) => {
+    const savedChecks = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
+    const savedMemo   = LS.get('learn_memo_w'   + weekNum + '_' + key) || '';
+    const isOpen = LS.get('learn_open_' + key) !== false; // デフォルト開く
+
+    const section = el('div', 'learn-section');
+
+    // ヘッダー（クリックで開閉）
+    const secHeader = el('div', 'learn-section-header');
+    const doneCount = data.checklist.filter((_, i) => savedChecks[i]).length;
+    secHeader.innerHTML = `
+      <div>
+        <div class="learn-section-title">${label}：${data.theme}</div>
+        <div style="font-size:10px;color:#444;margin-top:3px;letter-spacing:.04em">${data.goal}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;color:${doneCount===data.checklist.length?'#e8e8e8':'#444'}">${doneCount}/${data.checklist.length}</span>
+        <span class="learn-section-badge ${badge}">${label.slice(0,2)}</span>
+      </div>
+    `;
+
+    const body = el('div', 'learn-body');
+    if (!isOpen) body.style.display = 'none';
+
+    secHeader.addEventListener('click', () => {
+      const open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : 'block';
+      LS.set('learn_open_' + key, !open);
+    });
+
+    // 目標
+    const goal = el('div', 'learn-goal');
+    goal.textContent = '目標：' + data.goal;
+    body.appendChild(goal);
+
+    // 解説テキスト
+    const theoryWrap = el('div', 'learn-theory-wrap');
+    const theoryLbl = el('div', 'lbl'); theoryLbl.style.marginBottom = '8px'; theoryLbl.textContent = '解説';
+    const theory = el('div', 'learn-theory'); theory.textContent = data.theory;
+    theoryWrap.appendChild(theoryLbl); theoryWrap.appendChild(theory);
+    body.appendChild(theoryWrap);
+
+    // YouTube
+    if (data.youtube && data.youtube.length > 0) {
+      const ytWrap = el('div', 'learn-yt');
+      const ytLbl = el('div', 'lbl'); ytLbl.style.marginBottom = '8px'; ytLbl.textContent = '参考動画';
+      ytWrap.appendChild(ytLbl);
+      data.youtube.forEach(yt => {
+        const link = el('a', 'learn-yt-link');
+        link.href = yt.url; link.target = '_blank'; link.rel = 'noopener';
+        link.innerHTML = `<span class="learn-yt-icon">▶</span><span class="learn-yt-text">${yt.title}</span>`;
+        ytWrap.appendChild(link);
+      });
+      body.appendChild(ytWrap);
+    }
+
+    // 実践課題
+    const practiceWrap = el('div', 'learn-practice');
+    const practiceLbl = el('div', 'lbl'); practiceLbl.style.marginBottom = '8px'; practiceLbl.textContent = '実践課題';
+    const practiceText = el('div', 'learn-practice-text'); practiceText.textContent = data.practice;
+    practiceWrap.appendChild(practiceLbl); practiceWrap.appendChild(practiceText);
+    body.appendChild(practiceWrap);
+
+    // チェックリスト
+    const checkWrap = el('div', 'learn-checklist');
+    const checkLbl = el('div', 'lbl'); checkLbl.style.marginBottom = '8px'; checkLbl.textContent = 'チェックリスト';
+    checkWrap.appendChild(checkLbl);
+    data.checklist.forEach((item, i) => {
+      const row = el('div', 'learn-check-item');
+      const checks = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
+      const isDone = !!checks[i];
+      const cb = el('div', 'cb' + (isDone ? ' done' : ''));
+      const txt = el('div', 'learn-check-text' + (isDone ? ' done' : ''));
+      txt.textContent = item;
+      row.appendChild(cb); row.appendChild(txt);
+      row.addEventListener('click', () => {
+        const cur = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
+        cur[i] = !cur[i];
+        LS.set('learn_checks_w' + weekNum + '_' + key, cur);
+        renderLearn(); // 再描画
+      });
+      checkWrap.appendChild(row);
+    });
+    body.appendChild(checkWrap);
+
+    // 成果メモ
+    const memoWrap = el('div', 'learn-memo');
+    const memoLbl = el('div', 'lbl'); memoLbl.style.marginBottom = '8px'; memoLbl.textContent = '成果メモ';
+    const memoTA = document.createElement('textarea');
+    memoTA.rows = 3;
+    memoTA.placeholder = '実践してみてどうだったか・気づいたこと・次に試したいことを書く';
+    memoTA.value = savedMemo;
+    memoTA.style.cssText = 'border:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:10px 12px;font-size:11px;background:#0a0a0a;line-height:1.8';
+    const memoBtn = el('button', 'learn-save-btn');
+    memoBtn.textContent = 'メモを保存';
+    memoBtn.addEventListener('click', () => {
+      LS.set('learn_memo_w' + weekNum + '_' + key, memoTA.value);
+      memoBtn.textContent = '保存しました ✓';
+      setTimeout(() => memoBtn.textContent = 'メモを保存', 2000);
+    });
+    memoWrap.appendChild(memoLbl); memoWrap.appendChild(memoTA); memoWrap.appendChild(memoBtn);
+    body.appendChild(memoWrap);
+
+    section.appendChild(secHeader); section.appendChild(body);
+    container.appendChild(section);
+  });
+}
 
 // ── プラン ────────────────────────────────────
 
