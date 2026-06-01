@@ -127,6 +127,23 @@ button{cursor:pointer}
 .detail-pro-memo{font-size:11px;color:#666;line-height:1.7;letter-spacing:.02em}
 .log-entry{cursor:pointer}
 .log-entry:hover .log-date{color:#fff}
+.week-card{border:1px solid #141414;padding:20px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
+.week-card:hover{border-color:#2a2a2a}
+.week-card.active{border-color:#444}
+.week-card.complete{border-left:2px solid #e8e8e8}
+.week-card.active.complete{border-color:#e8e8e8}
+.week-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.week-card-title{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700}
+.week-card-status{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:#333}
+.week-card-status.done{color:#e8e8e8}
+.week-card-sub{font-size:10px;color:#333;letter-spacing:.06em;margin-bottom:12px}
+.week-progress-wrap{margin-bottom:6px}
+.week-progress-track{height:2px;background:#141414;width:100%}
+.week-progress-fill{height:2px;background:#e8e8e8;transition:width .3s}
+.week-progress-label{font-size:9px;color:#333;letter-spacing:.1em;margin-top:5px}
+.week-detail{margin-top:16px;padding-top:16px;border-top:1px solid #141414}
+.week-detail .constraint{margin-bottom:16px}
+.week-detail .mission-grid{margin-bottom:0}
 </style>
 </head>
 <body>
@@ -584,50 +601,98 @@ qs('#url-save-btn').addEventListener('click', () => {
 qs('#sync-btn').addEventListener('click', () => syncTasks());
 
 // ── プラン ────────────────────────────────────
-function renderWeek(id) {
-  state.activeWeek = id;
-  document.querySelectorAll('.week-tab').forEach(b => b.classList.toggle('active', parseInt(b.dataset.id) === id));
-  const w = WEEKS.find(x => x.id === id);
-  const checks = state.checks;
-  const ck = 'w' + id + '_main';
-  qs('#week-content').innerHTML = `
-    <div class="week-title">${w.theme}<span class="week-dates">${w.dates}</span></div>
-    <div class="constraint"><div class="lbl" style="margin-bottom:6px">縛り</div><p>${w.constraint}</p></div>
-    <div class="mission-grid">
-      <div class="mission-box"><div class="lbl">平日ミッション</div><p>${w.weekday}</p></div>
-      <div class="mission-box"><div class="lbl">週末ミッション</div><p>${w.weekend}</p></div>
+
+// 各Weekのログ記録回数を計算する関数
+// 解説: localStorageのmetaを全部見てcommentがあるものをカウント
+// C言語で言うと配列を走査してnull以外の要素数を数えるイメージ
+function getWeekLogCount(weekId) {
+  const meta = LS.get('meta') || {};
+  const w = WEEKS.find(x => x.id === weekId);
+  if (!w) return 0;
+  // Weekの開始・終了日をパース（例: "5/28〜6/3"）
+  // シンプルに全ログのうちcommentがある日数を返す（日付範囲は目安として表示のみ）
+  // 実際のカウントは累計ログ数をWeekごとに5件ずつ割り当てる
+  const allDates = Object.keys(meta).filter(d => meta[d]?.comment).sort();
+  const start = (weekId - 1) * 5;
+  const end = weekId * 5;
+  return Math.min(allDates.length - start, 5) < 0 ? 0 : Math.min(allDates.length - start, 5);
+}
+
+// Week完了判定: 5回ログを記録したらcomplete
+function isWeekComplete(weekId) {
+  return getWeekLogCount(weekId) >= 5;
+}
+
+function renderPlan() {
+  const container = qs('#week-content');
+  container.innerHTML = '';
+
+  // 全体サマリー
+  const completedCount = WEEKS.filter(w => isWeekComplete(w.id)).length;
+  const totalLogs = Object.keys(LS.get('meta') || {}).filter(d => (LS.get('meta')||{})[d]?.comment).length;
+  const summary = el('div');
+  summary.style.cssText = 'margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid #141414';
+  summary.innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+      <span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700">${totalLogs}</span>
+      <span style="font-size:10px;color:#444;letter-spacing:.12em">LOGS TOTAL</span>
     </div>
-    <div class="check-section">
-      <div class="lbl">週末チェック</div>
-      <div class="check-row" id="week-check-row">
-        <div class="cb ${checks[ck]?'done':''}" id="week-cb"></div>
-        <div class="check-text ${checks[ck]?'done':''}" id="week-check-text">${w.check}</div>
-      </div>
+    <div style="display:flex;gap:3px;margin-bottom:6px">
+      ${WEEKS.map(w => {
+        const count = getWeekLogCount(w.id);
+        const pct = Math.min(count / 5 * 100, 100);
+        return `<div style="flex:1;height:3px;background:#141414;position:relative;overflow:hidden">
+          <div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:${isWeekComplete(w.id)?'#e8e8e8':'#444'}"></div>
+        </div>`;
+      }).join('')}
     </div>
-    <div class="progress-section">
-      <div class="lbl" style="margin-bottom:12px">全体進捗</div>
-      <div class="progress-bar">${WEEKS.map(wk=>`<div class="progress-seg ${checks['w'+wk.id+'_main']?'done':''}"></div>`).join('')}</div>
-      <div class="progress-label">${WEEKS.filter(wk=>checks['w'+wk.id+'_main']).length} / 6 COMPLETE</div>
-    </div>
+    <div style="font-size:9px;color:#333;letter-spacing:.12em">${completedCount} / 6 WEEKS COMPLETE</div>
   `;
-  qs('#week-check-row').addEventListener('click', () => {
-    state.checks[ck] = !state.checks[ck];
-    LS.set('checks', state.checks);
-    renderWeek(id);
+  container.appendChild(summary);
+
+  // 各Weekカード
+  WEEKS.forEach(w => {
+    const count = getWeekLogCount(w.id);
+    const complete = isWeekComplete(w.id);
+    const isActive = state.activeWeek === w.id;
+
+    const card = el('div', `week-card${complete?' complete':''}${isActive?' active':''}`);
+    card.innerHTML = `
+      <div class="week-card-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:9px;color:#444;letter-spacing:.12em;font-family:'DM Mono',monospace">W${w.id}</span>
+          <span class="week-card-title">${w.theme}</span>
+        </div>
+        <span class="week-card-status ${complete?'done':''}">${complete ? 'COMPLETE ✓' : count + ' / 5'}</span>
+      </div>
+      <div class="week-card-sub">${w.dates} · 縛り: ${w.constraint}</div>
+      <div class="week-progress-wrap">
+        <div class="week-progress-track">
+          <div class="week-progress-fill" style="width:${Math.min(count/5*100,100)}%"></div>
+        </div>
+        <div class="week-progress-label">${count}/5 ログ記録</div>
+      </div>
+      ${isActive ? `
+      <div class="week-detail">
+        <div class="constraint"><div class="lbl" style="margin-bottom:6px">縛り</div><p>${w.constraint}</p></div>
+        <div class="mission-grid">
+          <div class="mission-box"><div class="lbl">平日ミッション</div><p>${w.weekday}</p></div>
+          <div class="mission-box"><div class="lbl">週末ミッション</div><p>${w.weekend}</p></div>
+        </div>
+      </div>` : ''}
+    `;
+    card.addEventListener('click', () => {
+      state.activeWeek = (isActive ? 0 : w.id); // トグル動作
+      renderPlan();
+    });
+    container.appendChild(card);
   });
 }
 
 function initPlan() {
-  const tabs = qs('#week-tabs');
-  tabs.innerHTML = '';
-  WEEKS.forEach(w => {
-    const b = el('button', 'week-tab' + (w.id === 1 ? ' active' : ''));
-    b.textContent = 'W' + w.id;
-    b.dataset.id = w.id;
-    b.addEventListener('click', () => renderWeek(w.id));
-    tabs.appendChild(b);
-  });
-  renderWeek(1);
+  // week-tabsは不要なので非表示
+  qs('#week-tabs').style.display = 'none';
+  renderPlan();
 }
 initPlan();
 
