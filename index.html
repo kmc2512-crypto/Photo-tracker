@@ -236,7 +236,7 @@ button{cursor:pointer}
     <!-- 写真記録 -->
     <div class="section">
       <div class="lbl" style="margin-bottom:4px">写真記録</div>
-      <div style="font-size:10px;color:#444;letter-spacing:.06em;margin-bottom:14px;line-height:1.8">原画質で保存されます</div>
+      
       <div class="drop-zone" id="photo-drop" style="height:160px;margin-bottom:14px">
         <span class="plus">+</span>
         <span class="hint">写真をドロップ or クリック</span>
@@ -1220,6 +1220,24 @@ qs('#detail-back-btn').addEventListener('click', () => {
       });
     }
   }
+
+  // ── 日付チェック・自動リセット ────────────────
+  // 前回開いた日と今日が違ければUIだけリセット（ログデータは保持）
+  const lastDate = LS.get('last_opened_date');
+  if (lastDate && lastDate !== state.today) {
+    qs('#photo-comment').value = '';
+    state.lens = LENSES[0];
+    renderLenses();
+    state.photoObjUrl = null;
+    state.proObjUrls = [null, null, null];
+    renderPhotoZone();
+    [0,1,2].forEach(i => {
+      const inp = qs('#pro-memo-' + i);
+      if (inp) inp.value = '';
+    });
+    renderProGrid();
+  }
+  LS.set('last_opened_date', state.today);
 })();
 </script>
 </body>
