@@ -1141,6 +1141,79 @@ async function showEditMode(date, container, triggerBtn) {
   commentTA.style.cssText = 'border:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:8px 12px;font-size:12px;background:#0a0a0a;line-height:1.8;margin-bottom:14px';
   wrap.appendChild(commentTA);
 
+  // プロ研究写真・メモ編集
+  const proLbl = el('div', 'lbl');
+  proLbl.textContent = 'プロ研究';
+  proLbl.style.cssText = 'margin-top:16px;margin-bottom:8px';
+  wrap.appendChild(proLbl);
+
+  const proGrid = el('div');
+  proGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px';
+
+  const newProBlobs = [null, null, null];
+  const existingProBlobs = await Promise.all([0,1,2].map(i => IDB.get('pro' + i + '_' + date)));
+  const proMemos = [...(m.proMemos || ['','',''])];
+
+  const renderEditProGrid = () => {
+    proGrid.innerHTML = '';
+    [0,1,2].forEach(i => {
+      const slot = el('div');
+      const drop = el('div');
+      drop.style.cssText = 'border:1px dashed #1a1a1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;cursor:pointer;margin-bottom:6px;position:relative';
+
+      const blob = newProBlobs[i] || existingProBlobs[i];
+      if (blob) {
+        drop.style.height = 'auto';
+        const img = el('img');
+        img.src = URL.createObjectURL(blob);
+        img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block';
+        const delBtn = el('button');
+        delBtn.textContent = '×';
+        delBtn.style.cssText = 'position:absolute;top:3px;right:3px;background:rgba(8,8,8,.9);border:1px solid #333;color:#888;cursor:pointer;font-family:"DM Mono",monospace;font-size:9px;padding:2px 5px';
+        delBtn.addEventListener('click', async e => {
+          e.stopPropagation();
+          newProBlobs[i] = null;
+          existingProBlobs[i] = null;
+          await IDB.del('pro' + i + '_' + date);
+          renderEditProGrid();
+        });
+        drop.appendChild(img);
+        drop.appendChild(delBtn);
+      } else {
+        drop.style.height = '70px';
+        drop.innerHTML = '<span style="font-size:12px;color:#1e1e1e">+</span><span style="font-size:9px;color:#333;letter-spacing:.1em">' + (i+1) + '</span>';
+      }
+
+      const proInput = document.createElement('input');
+      proInput.type = 'file'; proInput.accept = 'image/*'; proInput.style.display = 'none';
+      proInput.addEventListener('change', async e => {
+        const file = e.target.files[0]; if (!file) return;
+        newProBlobs[i] = new Blob([await file.arrayBuffer()], {type: file.type});
+        renderEditProGrid();
+      });
+      drop.addEventListener('dragover', e => e.preventDefault());
+      drop.addEventListener('drop', async e => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0]; if (!file) return;
+        newProBlobs[i] = new Blob([await file.arrayBuffer()], {type: file.type});
+        renderEditProGrid();
+      });
+      drop.appendChild(proInput);
+      if (!blob) drop.addEventListener('click', () => proInput.click());
+
+      const memoInp = document.createElement('input');
+      memoInp.placeholder = 'なぜ良いか ' + (i+1);
+      memoInp.value = proMemos[i] || '';
+      memoInp.style.fontSize = '11px';
+      memoInp.addEventListener('input', e => { proMemos[i] = e.target.value; });
+
+      slot.appendChild(drop); slot.appendChild(memoInp);
+      proGrid.appendChild(slot);
+    });
+  };
+  renderEditProGrid();
+  wrap.appendChild(proGrid);
+
   // 保存ボタン
   const saveBtn = el('button', 'save-btn');
   saveBtn.textContent = '保存する';
@@ -1148,18 +1221,22 @@ async function showEditMode(date, container, triggerBtn) {
   saveBtn.addEventListener('click', async () => {
     saveBtn.textContent = '保存中...';
 
-    // 写真をIndexedDBに保存
-    if (newPhotoBlob) {
-      await IDB.set('main_' + date, newPhotoBlob);
+    // メイン写真をIndexedDBに保存
+    if (newPhotoBlob) await IDB.set('main_' + date, newPhotoBlob);
+
+    // プロ写真をIndexedDBに保存
+    for (let i = 0; i < 3; i++) {
+      if (newProBlobs[i]) await IDB.set('pro' + i + '_' + date, newProBlobs[i]);
     }
 
     // メタデータを更新
     const meta = LS.get('meta') || {};
     meta[date] = {
-      ...( meta[date] || {} ),
+      ...(meta[date] || {}),
       comment: commentTA.value,
       lens: editLens,
       hasPhoto: !!(newPhotoBlob || existingBlob),
+      proMemos: proMemos,
     };
     LS.set('meta', meta);
 
@@ -1167,10 +1244,7 @@ async function showEditMode(date, container, triggerBtn) {
     await SB.upsert(date, meta[date]);
 
     saveBtn.textContent = '保存しました ✓';
-    setTimeout(() => {
-      // 詳細ビューを再描画
-      showDetail(date);
-    }, 800);
+    setTimeout(() => showDetail(date), 800);
   });
   wrap.appendChild(saveBtn);
   container.appendChild(wrap);
