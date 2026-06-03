@@ -653,9 +653,9 @@ function renderPhotoZone() {
     const wrap = el('div', 'photo-wrap');
     const img = el('img'); img.src = state.photoObjUrl;
     const btn = el('button', 'del-btn'); btn.textContent = '削除';
-    btn.addEventListener('click', async e => {
+    btn.addEventListener('click', e => {
       e.stopPropagation();
-      await IDB.del('main_' + state.today);
+      // UIだけリセット（IndexedDBは消さない→ログに残る）
       if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
       state.photoObjUrl = null;
       drop.style.height = '160px';
@@ -1394,21 +1394,35 @@ qs('#detail-back-btn').addEventListener('click', () => {
 
 // ── 初期データ読み込み ─────────────────────────
 (async function init() {
-  const meta = LS.get('meta') || {};
   const today = state.today;
-  if (meta[today]) {
+
+  // ── 日付チェック（最初に行う）──────────────
+  // 前回開いた日と今日が違う場合はUIをリセット
+  // データ読み込みより先に判定することが重要
+  const lastDate = LS.get('last_opened_date');
+  const isNewDay = lastDate && lastDate !== today;
+  LS.set('last_opened_date', today);
+
+  const meta = LS.get('meta') || {};
+
+  // 同じ日なら保存済みデータを復元、新しい日なら空のまま
+  if (!isNewDay && meta[today]) {
     qs('#photo-comment').value = meta[today].comment || '';
     const savedLens = meta[today].lens;
     if (savedLens) { state.lens = savedLens; renderLenses(); }
   }
-  const blob = await IDB.get('main_' + today);
-  if (blob) {
-    state.photoObjUrl = URL.createObjectURL(blob);
-    renderPhotoZone();
-  }
-  for (let i = 0; i < 3; i++) {
-    const b = await IDB.get('pro' + i + '_' + today);
-    if (b) state.proObjUrls[i] = URL.createObjectURL(b);
+
+  // 写真も同じ日のみ復元
+  if (!isNewDay) {
+    const blob = await IDB.get('main_' + today);
+    if (blob) {
+      state.photoObjUrl = URL.createObjectURL(blob);
+      renderPhotoZone();
+    }
+    for (let i = 0; i < 3; i++) {
+      const b = await IDB.get('pro' + i + '_' + today);
+      if (b) state.proObjUrls[i] = URL.createObjectURL(b);
+    }
   }
   renderProGrid();
   const tc = LS.get('tasks_cache');
