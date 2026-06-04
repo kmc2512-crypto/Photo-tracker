@@ -1466,23 +1466,6 @@ qs('#detail-back-btn').addEventListener('click', () => {
     }
   }
 
-  // ── 日付チェック・自動リセット ────────────────
-  // 前回開いた日と今日が違ければUIだけリセット（ログデータは保持）
-  const lastDate = LS.get('last_opened_date');
-  if (lastDate && lastDate !== state.today) {
-    qs('#photo-comment').value = '';
-    state.lens = LENSES[0];
-    renderLenses();
-    state.photoObjUrl = null;
-    state.proObjUrls = [null, null, null];
-    renderPhotoZone();
-    [0,1,2].forEach(i => {
-      const inp = qs('#pro-memo-' + i);
-      if (inp) inp.value = '';
-    });
-    renderProGrid();
-  }
-  LS.set('last_opened_date', state.today);
 })();
 </script>
 </body>
