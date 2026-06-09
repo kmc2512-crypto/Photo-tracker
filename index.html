@@ -269,6 +269,80 @@ button{cursor:pointer}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
+
+/* ── Todo ── */
+.todo-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.todo-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:28px}
+.todo-add-form .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.todo-add-form input[type=text]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;flex:1;min-width:140px}
+.todo-add-form input[type=date]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;width:140px;color:var(--fg);background:transparent}
+.todo-add-form input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.6)}
+.todo-filters{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:20px;width:fit-content}
+.todo-filter-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:6px 14px;transition:all .15s}
+.todo-filter-btn.active{background:var(--fg);color:var(--bg)}
+/* ガントチャート */
+.gantt-wrap{overflow-x:auto;margin-bottom:32px}
+.gantt-table{min-width:600px;width:100%}
+.gantt-head{display:grid;gap:0;border-bottom:1px solid var(--border);margin-bottom:4px}
+.gantt-head-label{font-size:9px;color:var(--fg6);letter-spacing:.1em;padding:4px 0}
+.gantt-row{display:grid;align-items:center;padding:6px 0;border-bottom:1px solid var(--bg3);min-height:36px}
+.gantt-task-name{font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:8px}
+.gantt-task-name.done{color:var(--fg7);text-decoration:line-through}
+.gantt-task-name.overdue{color:var(--overdue)}
+.gantt-bar-cell{position:relative;height:20px}
+.gantt-bar{position:absolute;height:14px;top:3px;background:var(--fg5);border-radius:0;display:flex;align-items:center;padding:0 6px;min-width:4px;transition:background .15s}
+.gantt-bar.overdue{background:var(--overdue)}
+.gantt-bar.done{background:var(--fg8);opacity:.5}
+.gantt-bar-label{font-size:9px;color:var(--bg);letter-spacing:.04em;white-space:nowrap;overflow:hidden}
+.gantt-today-line{position:absolute;top:0;bottom:0;width:1px;background:var(--fg);opacity:.4;pointer-events:none}
+.gantt-date-tick{position:absolute;top:0;font-size:8px;color:var(--fg7);letter-spacing:.04em;transform:translateX(-50%)}
+
+/* ── タイマー ── */
+.timer-wrap{display:flex;flex-direction:column;align-items:center;padding:40px 0}
+.timer-mode-tabs{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:40px}
+.timer-mode-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--fg5);padding:8px 20px;transition:all .15s}
+.timer-mode-btn.active{background:var(--fg);color:var(--bg)}
+.timer-display{font-family:'Space Grotesk',sans-serif;font-size:80px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-bottom:8px;color:var(--fg);transition:color .3s}
+.timer-display.running{color:var(--fg)}
+.timer-display.break{color:var(--fg4)}
+.timer-session-label{font-size:10px;letter-spacing:.18em;color:var(--fg5);margin-bottom:40px;text-transform:uppercase}
+.timer-controls{display:flex;gap:12px;margin-bottom:40px}
+.timer-btn{background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.12em;font-weight:500;padding:12px 32px;transition:opacity .15s}
+.timer-btn:hover{opacity:.85}
+.timer-btn.secondary{background:none;border:1px solid var(--border2);color:var(--fg4)}
+.timer-btn.secondary:hover{border-color:var(--fg5);color:var(--fg)}
+.timer-progress{width:280px;height:2px;background:var(--border);margin-bottom:40px;position:relative}
+.timer-progress-fill{height:2px;background:var(--fg);transition:width .5s linear}
+.timer-sets{font-size:11px;color:var(--fg5);letter-spacing:.1em;margin-bottom:32px}
+.timer-log{width:100%;max-width:400px;border-top:1px solid var(--border);padding-top:20px}
+.timer-log-title{font-size:9px;letter-spacing:.18em;color:var(--fg5);margin-bottom:12px}
+.timer-log-entry{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3);font-size:11px;color:var(--fg4)}
+.timer-log-empty{font-size:11px;color:var(--fg7);letter-spacing:.06em}
+.timer-custom{display:flex;gap:12px;align-items:center;margin-bottom:32px}
+.timer-custom input[type=number]{width:60px;text-align:center;font-size:14px;border-bottom:1px solid var(--border2)}
+.timer-custom label{font-size:10px;color:var(--fg5);letter-spacing:.1em}
+
+/* ── クリップ ── */
+.clip-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:24px}
+.clip-add-form textarea{border:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:12px;margin-bottom:8px;line-height:1.7;resize:none}
+.clip-add-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.clip-add-row input[type=text]{border-bottom:1px solid var(--border2);font-size:11px;flex:1;min-width:120px;padding:4px 0}
+.clip-tag-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:20px}
+.clip-tag-btn{background:none;border:1px solid var(--border2);color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;padding:3px 10px;transition:all .15s}
+.clip-tag-btn.active{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.clip-search{border-bottom:1px solid var(--border2);margin-bottom:20px;padding:8px 0;font-size:12px}
+.clip-item{border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;position:relative;transition:border-color .15s}
+.clip-item:hover{border-color:var(--border3)}
+.clip-item-url{font-size:11px;color:var(--fg4);letter-spacing:.03em;margin-bottom:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.clip-item-url a{color:var(--fg4);text-decoration:none}
+.clip-item-url a:hover{color:var(--fg)}
+.clip-item-note{font-size:12px;color:var(--fg2);line-height:1.7;letter-spacing:.02em;margin-bottom:8px}
+.clip-item-tags{display:flex;gap:5px;flex-wrap:wrap}
+.clip-item-meta{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.clip-item-date{font-size:9px;color:var(--fg6);letter-spacing:.08em}
+.clip-del-btn{background:none;border:none;color:var(--fg7);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;padding:0;cursor:pointer}
+.clip-del-btn:hover{color:var(--overdue)}
+.clip-empty{font-size:11px;color:var(--fg7);letter-spacing:.06em;padding:20px 0}
 </style>
 </head>
 <body>
@@ -279,6 +353,9 @@ button{cursor:pointer}
     <button class="tab-btn" data-tab="learn">学習</button>
     <button class="tab-btn" data-tab="plan">プラン</button>
     <button class="tab-btn" data-tab="log">ログ</button>
+    <button class="tab-btn" data-tab="todo">Todo</button>
+    <button class="tab-btn" data-tab="timer">タイマー</button>
+    <button class="tab-btn" data-tab="clip">クリップ</button>
   </div>
   <div class="nav-right">
     <span class="streak" id="streak"></span>
@@ -308,41 +385,6 @@ button{cursor:pointer}
       </div>
       <div class="pb-arrow">学習へ →</div>
     </div>
-    <!-- 通知許可バナー -->
-    <div class="notif-banner hidden" id="notif-banner">
-      <p>課題の締め切り通知を受け取りますか？</p>
-      <div class="notif-banner-btns">
-        <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
-        <button class="ghost-btn" id="notif-deny-btn">あとで</button>
-      </div>
-    </div>
-    <!-- 課題 -->
-    <div class="section">
-      <div class="row-between">
-        <div class="row-gap">
-          <span class="lbl">課題</span>
-          <span id="task-count" style="font-size:10px;color:var(--fg4)"></span>
-        </div>
-        <div class="row-gap">
-          <button class="ghost-btn" id="url-toggle-btn">URL設定</button>
-          <button class="ghost-btn" id="sync-btn">SYNC</button>
-        </div>
-      </div>
-      <div class="notice hidden" id="url-panel">
-        <p>Apps Scriptをデプロイして発行されたURLを貼る<br>※デプロイ設定の「アクセスできるユーザー」を<strong>「全員」</strong>に設定</p>
-        <div class="url-input-wrap">
-          <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/...">
-        </div>
-        <div class="url-btns">
-          <button class="save-btn" id="url-save-btn">保存してSYNC</button>
-          <button class="ghost-btn" id="url-cancel-btn">キャンセル</button>
-        </div>
-      </div>
-      <div class="notice hidden" id="task-error"><p id="task-error-msg"></p></div>
-      <div id="task-empty" style="font-size:11px;color:var(--fg6);padding:16px 0;letter-spacing:.05em">「URL設定」からApps ScriptのURLを登録してください</div>
-      <div id="task-list"></div>
-    </div>
-    <div class="section-div"></div>
     <!-- 写真記録 -->
     <div class="section">
       <div class="lbl" style="margin-bottom:4px">写真記録</div>
@@ -396,7 +438,6 @@ button{cursor:pointer}
         <h1>ログ一覧</h1>
         <p id="log-count">0 ENTRIES</p>
       </div>
-      <!-- ビュー切り替え -->
       <div class="log-view-toggle">
         <button class="log-view-btn active" id="log-view-list-btn">リスト</button>
         <button class="log-view-btn" id="log-view-cal-btn">カレンダー</button>
@@ -408,6 +449,122 @@ button{cursor:pointer}
       <button class="detail-back" id="detail-back-btn">← 一覧に戻る</button>
       <div id="detail-content"></div>
     </div>
+  </div>
+
+  <!-- TODO -->
+  <div id="tab-todo" class="hidden">
+    <div class="todo-header">
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">Todo</div>
+        <div style="font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px" id="todo-count">0 TASKS</div>
+      </div>
+      <div style="display:flex;gap:8px;padding-top:4px">
+        <button class="ghost-btn" id="todo-url-btn">GAS連携</button>
+        <button class="ghost-btn" id="todo-sync-btn">SYNC</button>
+      </div>
+    </div>
+    <!-- 通知バナー -->
+    <div class="notif-banner hidden" id="notif-banner">
+      <p>課題の締め切り通知を受け取りますか？</p>
+      <div class="notif-banner-btns">
+        <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
+        <button class="ghost-btn" id="notif-deny-btn">あとで</button>
+      </div>
+    </div>
+    <!-- GAS URL設定 -->
+    <div class="notice hidden" id="todo-url-panel">
+      <p>Apps ScriptのURLを貼る（スプレッドシートからタスクを同期）</p>
+      <div class="url-input-wrap"><input type="text" id="todo-url-input" placeholder="https://script.google.com/macros/s/..."></div>
+      <div class="url-btns">
+        <button class="save-btn" id="todo-url-save-btn">保存してSYNC</button>
+        <button class="ghost-btn" id="todo-url-cancel-btn">キャンセル</button>
+      </div>
+    </div>
+    <div class="notice hidden" id="todo-error"><p id="todo-error-msg"></p></div>
+    <!-- 手動追加フォーム -->
+    <div class="todo-add-form">
+      <div class="lbl" style="margin-bottom:10px">タスクを追加</div>
+      <div class="form-row">
+        <input type="text" id="todo-title-input" placeholder="タスク名">
+        <input type="date" id="todo-due-input">
+      </div>
+      <div class="form-row">
+        <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:200px">
+        <button class="save-btn" id="todo-add-btn" style="white-space:nowrap">追加</button>
+      </div>
+    </div>
+    <!-- フィルタ -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="todo-filters">
+        <button class="todo-filter-btn active" data-filter="all">すべて</button>
+        <button class="todo-filter-btn" data-filter="active">未完了</button>
+        <button class="todo-filter-btn" data-filter="done">完了</button>
+      </div>
+      <div class="log-view-toggle" style="margin-bottom:0;width:auto">
+        <button class="log-view-btn active" id="todo-view-list-btn" style="padding:6px 14px">リスト</button>
+        <button class="log-view-btn" id="todo-view-gantt-btn" style="padding:6px 14px">ガント</button>
+      </div>
+    </div>
+    <!-- リストビュー -->
+    <div id="todo-list-view"><div id="todo-list"></div></div>
+    <!-- ガントビュー -->
+    <div id="todo-gantt-view" class="hidden">
+      <div class="gantt-wrap"><div id="gantt-inner"></div></div>
+    </div>
+  </div>
+
+  <!-- TIMER -->
+  <div id="tab-timer" class="hidden">
+    <div class="timer-wrap">
+      <div class="timer-mode-tabs">
+        <button class="timer-mode-btn active" data-mode="pomodoro">ポモドーロ</button>
+        <button class="timer-mode-btn" data-mode="short">短休憩</button>
+        <button class="timer-mode-btn" data-mode="long">長休憩</button>
+        <button class="timer-mode-btn" data-mode="custom">カスタム</button>
+      </div>
+      <div class="timer-custom hidden" id="timer-custom-row">
+        <label>集中</label>
+        <input type="number" id="custom-work-min" value="25" min="1" max="99">
+        <label>分　休憩</label>
+        <input type="number" id="custom-break-min" value="5" min="1" max="99">
+        <label>分</label>
+      </div>
+      <div class="timer-display" id="timer-display">25:00</div>
+      <div class="timer-session-label" id="timer-session-label">集中セッション</div>
+      <div class="timer-progress"><div class="timer-progress-fill" id="timer-progress-fill" style="width:100%"></div></div>
+      <div class="timer-sets" id="timer-sets">セット 1 / 4</div>
+      <div class="timer-controls">
+        <button class="timer-btn" id="timer-start-btn">START</button>
+        <button class="timer-btn secondary" id="timer-reset-btn">RESET</button>
+      </div>
+      <div class="timer-log" id="timer-log-wrap">
+        <div class="timer-log-title">今日のセッション記録</div>
+        <div id="timer-log-list"><div class="timer-log-empty">まだ記録がありません</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIP -->
+  <div id="tab-clip" class="hidden">
+    <div class="log-header">
+      <h1>クリップ</h1>
+      <p id="clip-count">0 ITEMS</p>
+    </div>
+    <!-- 検索 -->
+    <input type="text" class="clip-search" id="clip-search" placeholder="検索...">
+    <!-- タグフィルタ -->
+    <div class="clip-tag-filter" id="clip-tag-filter"></div>
+    <!-- 追加フォーム -->
+    <div class="clip-add-form">
+      <div class="lbl" style="margin-bottom:10px">クリップを追加</div>
+      <textarea id="clip-note-input" rows="2" placeholder="メモ・URL・記事タイトルなど"></textarea>
+      <div class="clip-add-row">
+        <input type="text" id="clip-url-input" placeholder="URL（任意）">
+        <input type="text" id="clip-tags-input" placeholder="タグ（カンマ区切り）" style="max-width:180px">
+        <button class="save-btn" id="clip-add-btn">追加</button>
+      </div>
+    </div>
+    <div id="clip-list"></div>
   </div>
 </div>
 
@@ -533,10 +690,12 @@ qs('#theme-btn').addEventListener('click', () => {
 function switchTab(tab) {
   state.tab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log').forEach(d => d.classList.add('hidden'));
+  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip').forEach(d => d.classList.add('hidden'));
   document.getElementById('tab-' + tab).classList.remove('hidden');
   if (tab === 'log') renderLog();
   if (tab === 'learn') renderLearn();
+  if (tab === 'todo') renderTodo();
+  if (tab === 'clip') renderClip();
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -621,6 +780,466 @@ qs('#notif-deny-btn').addEventListener('click', () => {
   qs('#notif-banner').classList.add('hidden');
   LS.set('notif', 'later');
 });
+
+// ══════════════════════════════════════════════
+// ── Todo ──────────────────────────────────────
+// ══════════════════════════════════════════════
+// GASからのタスクはstate.tasks、手動タスクはLS('manual_tasks')に分離
+function getAllTasks() {
+  const manual = LS.get('manual_tasks') || [];
+  return [...state.tasks, ...manual];
+}
+
+state.todoFilter = 'all';
+state.todoView = 'list';
+
+function renderTodo() {
+  const allTasks = getAllTasks();
+  const filter = state.todoFilter;
+  const filtered = allTasks.filter(t => {
+    const k = t.id || t.title + t.due;
+    const done = !!state.tasksDone[k];
+    if (filter === 'active') return !done;
+    if (filter === 'done') return done;
+    return true;
+  });
+
+  const pending = allTasks.filter(t => !state.tasksDone[t.id||t.title+t.due]);
+  qs('#todo-count').textContent = pending.length + ' TASKS';
+
+  if (state.todoView === 'list') {
+    qs('#todo-list-view').classList.remove('hidden');
+    qs('#todo-gantt-view').classList.add('hidden');
+    const list = qs('#todo-list');
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="log-empty">タスクがありません</div>';
+      return;
+    }
+    filtered.sort((a,b) => {
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due < b.due ? -1 : 1;
+    }).forEach(t => {
+      const k = t.id || t.title + t.due;
+      const done = !!state.tasksDone[k];
+      const over = isOverdue(t.due) && !done;
+      const row = el('div', 'task-row');
+      const cb = el('div', 'cb' + (done ? ' done' : ''));
+      cb.addEventListener('click', () => {
+        state.tasksDone[k] = !state.tasksDone[k];
+        LS.set('tasks_done', state.tasksDone);
+        renderTodo();
+      });
+      const info = el('div'); info.style.flex = '1';
+      const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
+      title.textContent = t.title;
+      const meta = el('div', 'task-meta');
+      if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
+      if (t.due) {
+        const due = el('span', 'task-due' + (over ? ' overdue' : ''));
+        due.textContent = fmtFull(t.due) + (over ? ' · 期限切れ' : ''); meta.appendChild(due);
+      }
+      // 手動タスクは削除ボタン
+      if (t._manual) {
+        const del = el('button', 'clip-del-btn'); del.textContent = '削除';
+        del.style.marginLeft = 'auto';
+        del.addEventListener('click', () => {
+          const manual = LS.get('manual_tasks') || [];
+          LS.set('manual_tasks', manual.filter(x => (x.id||x.title+x.due) !== k));
+          renderTodo();
+        });
+        meta.appendChild(del);
+      }
+      info.appendChild(title); info.appendChild(meta);
+      row.appendChild(cb); row.appendChild(info);
+      list.appendChild(row);
+    });
+  } else {
+    qs('#todo-list-view').classList.add('hidden');
+    qs('#todo-gantt-view').classList.remove('hidden');
+    renderGantt(filtered);
+  }
+}
+
+function renderGantt(tasks) {
+  const wrap = qs('#gantt-inner');
+  wrap.innerHTML = '';
+  const withDue = tasks.filter(t => t.due).sort((a,b) => a.due < b.due ? -1 : 1);
+  if (withDue.length === 0) {
+    wrap.innerHTML = '<div class="log-empty">締め切りのあるタスクがありません</div>';
+    return;
+  }
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  // 範囲: 過去7日〜最後の締め切りの翌日 or 最低30日
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() - 7);
+  const maxDue = new Date(withDue[withDue.length-1].due + 'T00:00:00');
+  const endDate = new Date(Math.max(maxDue.getTime() + 86400000, today.getTime() + 23*86400000));
+  const totalDays = Math.round((endDate - minDate) / 86400000);
+  const NAME_W = 140;
+
+  // ヘッダー（日付目盛り）
+  const head = el('div');
+  head.style.cssText = `display:flex;padding-left:${NAME_W}px;margin-bottom:4px;position:relative;height:24px`;
+  const tickInterval = totalDays <= 14 ? 1 : totalDays <= 31 ? 3 : 7;
+  for (let i = 0; i <= totalDays; i += tickInterval) {
+    const d = new Date(minDate); d.setDate(d.getDate() + i);
+    const tick = el('div', 'gantt-date-tick');
+    tick.style.left = (i / totalDays * 100) + '%';
+    tick.textContent = (d.getMonth()+1) + '/' + d.getDate();
+    head.appendChild(tick);
+  }
+  wrap.appendChild(head);
+
+  // 今日の縦線用コンテナ
+  const body = el('div'); body.style.position = 'relative';
+  const todayPct = ((today - minDate) / (endDate - minDate) * 100).toFixed(2);
+  const todayLine = el('div', 'gantt-today-line');
+  todayLine.style.left = todayPct + '%';
+  body.appendChild(todayLine);
+
+  withDue.forEach(t => {
+    const k = t.id || t.title + t.due;
+    const done = !!state.tasksDone[k];
+    const over = isOverdue(t.due) && !done;
+    const dueDate = new Date(t.due + 'T00:00:00');
+    // 開始: due-7日 or minDate
+    const startDate = new Date(Math.max(dueDate.getTime() - 7*86400000, minDate.getTime()));
+    const leftPct = ((startDate - minDate) / (endDate - minDate) * 100);
+    const widthPct = ((dueDate - startDate) / (endDate - minDate) * 100);
+
+    const row = el('div', 'gantt-row');
+    row.style.gridTemplateColumns = `${NAME_W}px 1fr`;
+    row.style.display = 'grid';
+
+    const nameCell = el('div', 'gantt-task-name' + (done?' done':over?' overdue':''));
+    nameCell.textContent = t.title;
+    if (t.subject) nameCell.title = t.subject + ' — ' + t.title;
+
+    const barCell = el('div', 'gantt-bar-cell');
+    const bar = el('div', 'gantt-bar' + (done?' done':over?' overdue':''));
+    bar.style.left = Math.max(0, leftPct).toFixed(2) + '%';
+    bar.style.width = Math.max(0.5, widthPct).toFixed(2) + '%';
+    const barLabel = el('span', 'gantt-bar-label');
+    barLabel.textContent = fmtFull(t.due);
+    bar.appendChild(barLabel);
+    barCell.appendChild(bar);
+    const cb = el('div', 'cb' + (done?' done':'')); cb.style.cssText='position:absolute;right:4px;top:50%;transform:translateY(-50%)';
+    cb.addEventListener('click', () => { state.tasksDone[k]=!state.tasksDone[k]; LS.set('tasks_done',state.tasksDone); renderTodo(); });
+    barCell.appendChild(cb);
+    row.appendChild(nameCell); row.appendChild(barCell);
+    body.appendChild(row);
+  });
+  wrap.appendChild(body);
+}
+
+// Todo フィルタ・ビュー切り替え
+document.querySelectorAll('.todo-filter-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.todo-filter-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.todoFilter = b.dataset.filter;
+    renderTodo();
+  });
+});
+qs('#todo-view-list-btn').addEventListener('click', () => {
+  state.todoView = 'list';
+  qs('#todo-view-list-btn').classList.add('active');
+  qs('#todo-view-gantt-btn').classList.remove('active');
+  renderTodo();
+});
+qs('#todo-view-gantt-btn').addEventListener('click', () => {
+  state.todoView = 'gantt';
+  qs('#todo-view-gantt-btn').classList.add('active');
+  qs('#todo-view-list-btn').classList.remove('active');
+  renderTodo();
+});
+
+// 手動タスク追加
+qs('#todo-add-btn').addEventListener('click', () => {
+  const title = qs('#todo-title-input').value.trim();
+  if (!title) return;
+  const manual = LS.get('manual_tasks') || [];
+  manual.push({
+    id: 'manual_' + Date.now(),
+    title,
+    due: qs('#todo-due-input').value || '',
+    subject: qs('#todo-subject-input').value.trim(),
+    _manual: true
+  });
+  LS.set('manual_tasks', manual);
+  qs('#todo-title-input').value = '';
+  qs('#todo-due-input').value = '';
+  qs('#todo-subject-input').value = '';
+  renderTodo();
+});
+
+// GAS連携
+qs('#todo-url-btn').addEventListener('click', () => {
+  qs('#todo-url-panel').classList.toggle('hidden');
+  if (!qs('#todo-url-panel').classList.contains('hidden')) qs('#todo-url-input').value = state.scriptUrl;
+});
+qs('#todo-url-cancel-btn').addEventListener('click', () => qs('#todo-url-panel').classList.add('hidden'));
+qs('#todo-url-save-btn').addEventListener('click', () => {
+  const url = qs('#todo-url-input').value.trim();
+  state.scriptUrl = url;
+  LS.set('script_url', url);
+  qs('#todo-url-panel').classList.add('hidden');
+  syncTodoTasks(url);
+});
+qs('#todo-sync-btn').addEventListener('click', () => syncTodoTasks());
+
+async function syncTodoTasks(url) {
+  const target = url || state.scriptUrl;
+  if (!target) { qs('#todo-error-msg').textContent='GAS URLを設定してください'; qs('#todo-error').classList.remove('hidden'); return; }
+  qs('#todo-sync-btn').textContent = '...';
+  qs('#todo-sync-btn').disabled = true;
+  qs('#todo-error').classList.add('hidden');
+  try {
+    const res = await fetch(target, {redirect:'follow'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error('JSON応答ではありません'); }
+    state.tasks = Array.isArray(data) ? data : (data.tasks || []);
+    LS.set('tasks_cache', {tasks: state.tasks, fetchedAt: new Date().toISOString()});
+    renderTodo();
+    if (LS.get('notif') === 'granted') scheduleTaskNotifications();
+  } catch(e) {
+    qs('#todo-error-msg').textContent = e.message;
+    qs('#todo-error').classList.remove('hidden');
+  }
+  qs('#todo-sync-btn').textContent = 'SYNC';
+  qs('#todo-sync-btn').disabled = false;
+}
+
+// ══════════════════════════════════════════════
+// ── ポモドーロタイマー ─────────────────────────
+// ══════════════════════════════════════════════
+const TIMER_MODES = {
+  pomodoro: { work: 25, break: 5, label: 'ポモドーロ' },
+  short:    { work: 0,  break: 5, label: '短休憩' },
+  long:     { work: 0,  break: 15, label: '長休憩' },
+  custom:   { work: 25, break: 5, label: 'カスタム' },
+};
+
+const timerState = {
+  mode: 'pomodoro',
+  phase: 'work',   // 'work' | 'break'
+  secondsLeft: 25 * 60,
+  totalSeconds: 25 * 60,
+  running: false,
+  interval: null,
+  set: 1,
+  maxSets: 4,
+  log: LS.get('timer_log_today') || [],
+};
+
+function timerWorkSecs() {
+  if (timerState.mode === 'custom') return parseInt(qs('#custom-work-min').value || 25) * 60;
+  return TIMER_MODES[timerState.mode].work * 60;
+}
+function timerBreakSecs() {
+  if (timerState.mode === 'custom') return parseInt(qs('#custom-break-min').value || 5) * 60;
+  return TIMER_MODES[timerState.mode].break * 60;
+}
+
+function updateTimerDisplay() {
+  const m = String(Math.floor(timerState.secondsLeft / 60)).padStart(2, '0');
+  const s = String(timerState.secondsLeft % 60).padStart(2, '0');
+  qs('#timer-display').textContent = m + ':' + s;
+  const pct = timerState.secondsLeft / timerState.totalSeconds * 100;
+  qs('#timer-progress-fill').style.width = pct + '%';
+  const isBreak = timerState.phase === 'break';
+  qs('#timer-display').className = 'timer-display' + (timerState.running ? (isBreak ? ' break' : ' running') : '');
+  qs('#timer-session-label').textContent = isBreak ? '休憩中' : '集中セッション';
+  qs('#timer-sets').textContent = `セット ${timerState.set} / ${timerState.maxSets}`;
+  qs('#timer-start-btn').textContent = timerState.running ? 'PAUSE' : 'START';
+}
+
+function timerTick() {
+  timerState.secondsLeft--;
+  if (timerState.secondsLeft <= 0) {
+    clearInterval(timerState.interval);
+    timerState.running = false;
+    // 通知
+    if (Notification.permission === 'granted') {
+      new Notification(timerState.phase === 'work' ? '⏰ 集中完了！休憩しよう' : '▶ 休憩終了！次のセッションへ', { icon: '/Photo-tracker/icon-192.png' });
+    }
+    // ログ記録（集中フェーズ完了時）
+    if (timerState.phase === 'work') {
+      const entry = { time: new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), mins: Math.round(timerState.totalSeconds/60), set: timerState.set };
+      timerState.log.push(entry);
+      LS.set('timer_log_today', timerState.log);
+      renderTimerLog();
+      // 次フェーズへ
+      timerState.phase = 'break';
+      timerState.totalSeconds = timerBreakSecs();
+      timerState.secondsLeft = timerState.totalSeconds;
+    } else {
+      timerState.set = timerState.set < timerState.maxSets ? timerState.set + 1 : 1;
+      timerState.phase = 'work';
+      timerState.totalSeconds = timerWorkSecs();
+      timerState.secondsLeft = timerState.totalSeconds;
+    }
+    updateTimerDisplay();
+    return;
+  }
+  updateTimerDisplay();
+}
+
+qs('#timer-start-btn').addEventListener('click', () => {
+  if (timerState.running) {
+    clearInterval(timerState.interval);
+    timerState.running = false;
+  } else {
+    timerState.running = true;
+    timerState.interval = setInterval(timerTick, 1000);
+  }
+  updateTimerDisplay();
+});
+
+qs('#timer-reset-btn').addEventListener('click', () => {
+  clearInterval(timerState.interval);
+  timerState.running = false;
+  timerState.phase = 'work';
+  timerState.set = 1;
+  timerState.totalSeconds = timerWorkSecs();
+  timerState.secondsLeft = timerState.totalSeconds;
+  updateTimerDisplay();
+});
+
+document.querySelectorAll('.timer-mode-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.timer-mode-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    clearInterval(timerState.interval);
+    timerState.running = false;
+    timerState.mode = b.dataset.mode;
+    timerState.phase = 'work';
+    timerState.set = 1;
+    qs('#timer-custom-row').classList.toggle('hidden', timerState.mode !== 'custom');
+    if (timerState.mode === 'short' || timerState.mode === 'long') {
+      timerState.phase = 'break';
+      timerState.totalSeconds = timerBreakSecs();
+    } else {
+      timerState.totalSeconds = timerWorkSecs();
+    }
+    timerState.secondsLeft = timerState.totalSeconds;
+    updateTimerDisplay();
+  });
+});
+
+['#custom-work-min','#custom-break-min'].forEach(id => {
+  qs(id).addEventListener('change', () => {
+    clearInterval(timerState.interval);
+    timerState.running = false;
+    timerState.totalSeconds = timerState.phase === 'work' ? timerWorkSecs() : timerBreakSecs();
+    timerState.secondsLeft = timerState.totalSeconds;
+    updateTimerDisplay();
+  });
+});
+
+function renderTimerLog() {
+  const list = qs('#timer-log-list');
+  if (timerState.log.length === 0) { list.innerHTML = '<div class="timer-log-empty">まだ記録がありません</div>'; return; }
+  list.innerHTML = '';
+  [...timerState.log].reverse().slice(0, 10).forEach(e => {
+    const row = el('div', 'timer-log-entry');
+    row.innerHTML = `<span>${e.time}</span><span style="color:var(--fg3)">${e.mins}分 集中</span><span>セット${e.set}</span>`;
+    list.appendChild(row);
+  });
+}
+updateTimerDisplay();
+renderTimerLog();
+
+// ══════════════════════════════════════════════
+// ── クリップボード ────────────────────────────
+// ══════════════════════════════════════════════
+state.clipTagFilter = 'all';
+
+function getClips() { return LS.get('clips') || []; }
+function saveClips(clips) { LS.set('clips', clips); }
+
+function getAllClipTags() {
+  const clips = getClips();
+  const tags = new Set(['all']);
+  clips.forEach(c => (c.tags||[]).forEach(t => tags.add(t)));
+  return [...tags];
+}
+
+function renderClip() {
+  const clips = getClips();
+  const q = (qs('#clip-search').value || '').toLowerCase();
+  const tagF = state.clipTagFilter;
+  const filtered = clips.filter(c => {
+    const matchTag = tagF === 'all' || (c.tags||[]).includes(tagF);
+    const matchQ = !q || c.note.toLowerCase().includes(q) || (c.url||'').toLowerCase().includes(q) || (c.tags||[]).join(' ').toLowerCase().includes(q);
+    return matchTag && matchQ;
+  }).sort((a,b) => b.createdAt - a.createdAt);
+
+  qs('#clip-count').textContent = clips.length + ' ITEMS';
+
+  // タグフィルタ
+  const tagWrap = qs('#clip-tag-filter');
+  tagWrap.innerHTML = '';
+  getAllClipTags().forEach(tag => {
+    const b = el('button', 'clip-tag-btn' + (state.clipTagFilter === tag ? ' active' : ''));
+    b.textContent = tag === 'all' ? 'すべて' : tag;
+    b.addEventListener('click', () => { state.clipTagFilter = tag; renderClip(); });
+    tagWrap.appendChild(b);
+  });
+
+  const list = qs('#clip-list');
+  list.innerHTML = '';
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="clip-empty">クリップがありません</div>';
+    return;
+  }
+  filtered.forEach(c => {
+    const item = el('div', 'clip-item');
+    if (c.url) {
+      const urlDiv = el('div', 'clip-item-url');
+      const a = el('a'); a.href = c.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = c.url;
+      urlDiv.appendChild(a); item.appendChild(urlDiv);
+    }
+    if (c.note) { const note = el('div', 'clip-item-note'); note.textContent = c.note; item.appendChild(note); }
+    if (c.tags && c.tags.length > 0) {
+      const tagsDiv = el('div', 'clip-item-tags');
+      c.tags.forEach(t => { const tag = el('span', 'tag'); tag.textContent = t; tagsDiv.appendChild(tag); });
+      item.appendChild(tagsDiv);
+    }
+    const meta = el('div', 'clip-item-meta');
+    const date = el('div', 'clip-item-date');
+    date.textContent = new Date(c.createdAt).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const del = el('button', 'clip-del-btn'); del.textContent = '削除';
+    del.addEventListener('click', () => {
+      const clips2 = getClips().filter(x => x.id !== c.id);
+      saveClips(clips2); renderClip();
+    });
+    meta.appendChild(date); meta.appendChild(del);
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+}
+
+qs('#clip-add-btn').addEventListener('click', () => {
+  const note = qs('#clip-note-input').value.trim();
+  if (!note) return;
+  const rawTags = qs('#clip-tags-input').value.trim();
+  const tags = rawTags ? rawTags.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  const clips = getClips();
+  clips.push({ id: 'clip_' + Date.now(), note, url: qs('#clip-url-input').value.trim(), tags, createdAt: Date.now() });
+  saveClips(clips);
+  qs('#clip-note-input').value = '';
+  qs('#clip-url-input').value = '';
+  qs('#clip-tags-input').value = '';
+  renderClip();
+});
+
+qs('#clip-search').addEventListener('input', renderClip);
 
 // ── レンズ ─────────────────────────────────
 function renderLenses() {
@@ -778,78 +1397,6 @@ qs('#save-btn').addEventListener('click', async () => {
   setTimeout(() => msg.classList.add('hidden'), 2000);
   renderProgressBanner();
 });
-
-// ── 課題 ──────────────────────────────────────
-function renderTasks() {
-  const tasks = state.tasks;
-  qs('#task-empty').style.display = (tasks.length === 0 && !state.scriptUrl) ? 'block' : 'none';
-  const list = qs('#task-list');
-  list.innerHTML = '';
-  const pending = tasks.filter(t => !state.tasksDone[t.id||t.title+t.due]);
-  qs('#task-count').textContent = pending.length > 0 ? pending.length + '件' : '';
-  tasks.forEach(t => {
-    const k = t.id || t.title + t.due;
-    const done = !!state.tasksDone[k];
-    const over = isOverdue(t.due) && !done;
-    const row = el('div', 'task-row');
-    const cb = el('div', 'cb' + (done ? ' done' : ''));
-    cb.addEventListener('click', () => {
-      state.tasksDone[k] = !state.tasksDone[k];
-      LS.set('tasks_done', state.tasksDone);
-      renderTasks();
-    });
-    const info = el('div'); info.style.flex = '1';
-    const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
-    title.textContent = t.title;
-    const meta = el('div', 'task-meta');
-    if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
-    if (t.due) { const due = el('span', 'task-due' + (over ? ' overdue' : '')); due.textContent = fmtFull(t.due) + (over ? ' · 期限切れ' : ''); meta.appendChild(due); }
-    info.appendChild(title); info.appendChild(meta);
-    row.appendChild(cb); row.appendChild(info);
-    list.appendChild(row);
-  });
-}
-
-async function syncTasks(url) {
-  const target = url || state.scriptUrl;
-  if (!target) return;
-  qs('#sync-btn').textContent = '...';
-  qs('#sync-btn').disabled = true;
-  qs('#task-error').classList.add('hidden');
-  try {
-    const res = await fetch(target, {redirect:'follow'});
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { throw new Error('JSONではない応答です'); }
-    if (data.error) throw new Error(data.error);
-    state.tasks = Array.isArray(data) ? data : (data.tasks || []);
-    LS.set('tasks_cache', {tasks: state.tasks, fetchedAt: new Date().toISOString()});
-    renderTasks();
-    if (LS.get('notif') === 'granted') scheduleTaskNotifications();
-  } catch(e) {
-    qs('#task-error-msg').textContent = e.message === 'Failed to fetch'
-      ? '接続失敗。デプロイ設定で「アクセスできるユーザー：全員」になっているか確認してください' : e.message;
-    qs('#task-error').classList.remove('hidden');
-  }
-  qs('#sync-btn').textContent = 'SYNC';
-  qs('#sync-btn').disabled = false;
-}
-
-qs('#url-toggle-btn').addEventListener('click', () => {
-  const panel = qs('#url-panel');
-  panel.classList.toggle('hidden');
-  if (!panel.classList.contains('hidden')) qs('#url-input').value = state.scriptUrl;
-});
-qs('#url-cancel-btn').addEventListener('click', () => qs('#url-panel').classList.add('hidden'));
-qs('#url-save-btn').addEventListener('click', () => {
-  const url = qs('#url-input').value.trim();
-  state.scriptUrl = url;
-  LS.set('script_url', url);
-  qs('#url-panel').classList.add('hidden');
-  syncTasks(url);
-});
-qs('#sync-btn').addEventListener('click', () => syncTasks());
 
 // ── 学習タブ ──────────────────────────────────
 function getCurrentWeek() {
@@ -1225,9 +1772,10 @@ qs('#detail-back-btn').addEventListener('click', () => renderLog());
 
 // ── 初期化 ────────────────────────────────────
 (function() {
+  // キャッシュ済みGASタスクを復元
   const cache = LS.get('tasks_cache');
-  if (cache && cache.tasks) { state.tasks = cache.tasks; renderTasks(); }
-  if (state.scriptUrl) syncTasks();
+  if (cache && cache.tasks) { state.tasks = cache.tasks; }
+  // 通知バナー（Todoタブに移動したので起動時は非表示のまま）
 })();
 
 renderPlan();
