@@ -4,185 +4,271 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>写真成長記録</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#080808">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <style>
+/* ── CSS変数でダーク/ライト切り替え ── */
+:root {
+  --bg: #080808;
+  --bg2: #0c0c0c;
+  --bg3: #0e0e0e;
+  --bg4: #141414;
+  --bg5: #1a1a1a;
+  --bg6: #1e1e1e;
+  --fg: #e8e8e8;
+  --fg2: #aaa;
+  --fg3: #777;
+  --fg4: #555;
+  --fg5: #444;
+  --fg6: #333;
+  --fg7: #2a2a2a;
+  --fg8: #222;
+  --border: #141414;
+  --border2: #1e1e1e;
+  --border3: #2a2a2a;
+  --del-bg: rgba(8,8,8,.88);
+  --pro-del-bg: rgba(8,8,8,.9);
+  --lb-bg: rgba(0,0,0,.85);
+  --input-bg: #0a0a0a;
+  --save-bg: #e8e8e8;
+  --save-fg: #080808;
+  --overdue: #cc6666;
+  --constraint-border: #441a1a;
+  --constraint-fg: #884444;
+  --nav-bg: #080808;
+}
+html.light {
+  --bg: #f5f5f3;
+  --bg2: #eeeeec;
+  --bg3: #e8e8e6;
+  --bg4: #dededc;
+  --bg5: #d4d4d2;
+  --bg6: #cacac8;
+  --fg: #111111;
+  --fg2: #333;
+  --fg3: #555;
+  --fg4: #666;
+  --fg5: #777;
+  --fg6: #888;
+  --fg7: #999;
+  --fg8: #aaa;
+  --border: #dededc;
+  --border2: #cacac8;
+  --border3: #bbbbb9;
+  --del-bg: rgba(245,245,243,.92);
+  --pro-del-bg: rgba(245,245,243,.95);
+  --lb-bg: rgba(0,0,0,.75);
+  --input-bg: #eeeeed;
+  --save-bg: #111111;
+  --save-fg: #f5f5f3;
+  --overdue: #b03030;
+  --constraint-border: #c08888;
+  --constraint-fg: #884444;
+  --nav-bg: #f5f5f3;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;background:#080808;color:#e8e8e8;font-family:'DM Mono',monospace}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#222}
-input,textarea{font-family:'DM Mono',monospace;background:transparent;border:none;border-bottom:1px solid #222;color:#e8e8e8;outline:none;width:100%;padding:8px 0;font-size:12px;line-height:1.7;resize:none}
-input:focus,textarea:focus{border-bottom-color:#444}
-input::placeholder,textarea::placeholder{color:#333}
+html,body{min-height:100%;background:var(--bg);color:var(--fg);font-family:'DM Mono',monospace;transition:background .2s,color .2s}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--fg8)}
+input,textarea{font-family:'DM Mono',monospace;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--fg);outline:none;width:100%;padding:8px 0;font-size:12px;line-height:1.7;resize:none;transition:color .2s,border-color .2s}
+input:focus,textarea:focus{border-bottom-color:var(--fg5)}
+input::placeholder,textarea::placeholder{color:var(--fg6)}
 button{cursor:pointer}
-.nav{border-bottom:1px solid #141414;display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;background:#080808;z-index:10;height:48px}
+.nav{border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;background:var(--nav-bg);z-index:10;height:48px;transition:background .2s}
 .nav-title{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
 .nav-tabs{display:flex}
-.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding:0 20px;height:48px;color:#333;border-bottom:2px solid transparent}
-.tab-btn:hover{color:#777}
-.tab-btn.active{color:#e8e8e8;border-bottom-color:#e8e8e8}
-.streak{font-size:10px;color:#333;letter-spacing:.1em}
+.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding:0 16px;height:48px;color:var(--fg6);border-bottom:2px solid transparent}
+.tab-btn:hover{color:var(--fg3)}
+.tab-btn.active{color:var(--fg);border-bottom-color:var(--fg)}
+.nav-right{display:flex;align-items:center;gap:12px}
+.streak{font-size:10px;color:var(--fg6);letter-spacing:.1em}
+.theme-btn{background:none;border:1px solid var(--border2);color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;padding:4px 10px;transition:all .15s}
+.theme-btn:hover{border-color:var(--fg5);color:var(--fg)}
 .main{max-width:640px;margin:0 auto;padding:40px 32px 80px}
-.day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:36px}
+.day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
 .day-date{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1}
-.day-weekday{font-size:10px;color:#444;letter-spacing:.18em;margin-top:8px}
-.save-btn{background:#e8e8e8;border:none;color:#080808;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:8px 20px}
-.save-btn:hover{background:#fff}
-.saved-msg{font-size:10px;color:#444;letter-spacing:.1em}
+.day-weekday{font-size:10px;color:var(--fg5);letter-spacing:.18em;margin-top:8px}
+/* 進捗バナー */
+.progress-banner{background:var(--bg2);border:1px solid var(--border);padding:14px 16px;margin-bottom:28px;display:flex;align-items:center;gap:16px;cursor:pointer;text-decoration:none}
+.progress-banner:hover{border-color:var(--border3)}
+.pb-left{flex:1}
+.pb-week{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:4px}
+.pb-theme{font-size:13px;color:var(--fg);letter-spacing:.02em}
+.pb-track{height:2px;background:var(--border);margin-top:10px;position:relative}
+.pb-fill{height:2px;background:var(--fg);transition:width .4s}
+.pb-label{font-size:9px;color:var(--fg6);letter-spacing:.1em;margin-top:5px}
+.pb-arrow{font-size:11px;color:var(--fg6);letter-spacing:.08em;flex-shrink:0}
+.save-btn{background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:8px 20px;transition:opacity .15s}
+.save-btn:hover{opacity:.85}
+.saved-msg{font-size:10px;color:var(--fg5);letter-spacing:.1em}
 .section{margin-bottom:40px}
-.section-div{border-top:1px solid #141414;margin:0 0 40px}
-.lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#444}
+.section-div{border-top:1px solid var(--border);margin:0 0 40px}
+.lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5)}
 .row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .row-gap{display:flex;align-items:center;gap:12px}
-.ghost-btn{background:none;border:1px solid #1e1e1e;color:#555;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:6px 14px}
-.ghost-btn:hover{border-color:#444;color:#e8e8e8}
+.ghost-btn{background:none;border:1px solid var(--border2);color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:6px 14px;transition:all .15s}
+.ghost-btn:hover{border-color:var(--fg5);color:var(--fg)}
 .ghost-btn:disabled{opacity:.25;cursor:default}
-.notice{background:#0c0c0c;border:1px solid #1a1a1a;padding:14px 16px;margin-bottom:16px}
-.notice p{font-size:11px;color:#555;line-height:1.9}
-.notice strong{color:#888}
+.notice{background:var(--bg2);border:1px solid var(--bg5);padding:14px 16px;margin-bottom:16px}
+.notice p{font-size:11px;color:var(--fg4);line-height:1.9}
+.notice strong{color:var(--fg3)}
 .url-input-wrap{margin-top:12px}
-.url-input-wrap input{background:#0a0a0a;border:1px solid #1e1e1e!important;border-bottom:1px solid #1e1e1e!important;padding:8px 12px;font-size:11px}
-.url-input-wrap input:focus{border-color:#444!important;border-bottom-color:#444!important}
+.url-input-wrap input{background:var(--input-bg);border:1px solid var(--border2)!important;border-bottom:1px solid var(--border2)!important;padding:8px 12px;font-size:11px}
+.url-input-wrap input:focus{border-color:var(--fg5)!important;border-bottom-color:var(--fg5)!important}
 .url-btns{display:flex;gap:8px;margin-top:12px}
-.task-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #111}
+.task-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--bg4)}
 .task-row:last-child{border-bottom:none}
-.cb{width:13px;height:13px;border:1px solid #2a2a2a;flex-shrink:0;margin-top:3px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.cb.done{background:#e8e8e8;border-color:#e8e8e8}
-.cb.done::after{content:'✓';color:#080808;font-size:9px;font-weight:700;line-height:1}
+.cb{width:13px;height:13px;border:1px solid var(--border3);flex-shrink:0;margin-top:3px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cb.done{background:var(--fg);border-color:var(--fg)}
+.cb.done::after{content:'✓';color:var(--bg);font-size:9px;font-weight:700;line-height:1}
 .task-title{font-size:13px;letter-spacing:.02em;line-height:1.6}
-.task-title.done{color:#2a2a2a;text-decoration:line-through}
-.task-title.overdue{color:#cc6666}
+.task-title.done{color:var(--fg7);text-decoration:line-through}
+.task-title.overdue{color:var(--overdue)}
 .task-meta{display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center}
-.tag{display:inline-block;border:1px solid #1e1e1e;color:#444;font-size:10px;letter-spacing:.04em;padding:3px 8px}
-.task-due{font-size:11px;color:#444;letter-spacing:.05em}
-.task-due.overdue{color:#cc6666}
-.drop-zone{border:1px dashed #1e1e1e;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;position:relative}
-.drop-zone:hover{border-color:#333}
-.drop-zone .plus{font-size:18px;color:#1e1e1e}
-.drop-zone .hint{font-size:10px;color:#444;letter-spacing:.12em}
-.drop-zone .sub{font-size:9px;color:#2a2a2a;letter-spacing:.08em}
+.tag{display:inline-block;border:1px solid var(--border2);color:var(--fg5);font-size:10px;letter-spacing:.04em;padding:3px 8px}
+.task-due{font-size:11px;color:var(--fg5);letter-spacing:.05em}
+.task-due.overdue{color:var(--overdue)}
+.drop-zone{border:1px dashed var(--border2);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;position:relative}
+.drop-zone:hover{border-color:var(--border3)}
+.drop-zone .plus{font-size:18px;color:var(--border2)}
+.drop-zone .hint{font-size:10px;color:var(--fg5);letter-spacing:.12em}
+.drop-zone .sub{font-size:9px;color:var(--fg7);letter-spacing:.08em}
 .photo-wrap{position:relative;width:100%}
-.photo-wrap img{width:100%;max-height:500px;object-fit:contain;display:block;background:#050505}
-.del-btn{position:absolute;top:10px;right:10px;background:rgba(8,8,8,.88);border:1px solid #2a2a2a;color:#888;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;letter-spacing:.06em}
-.del-btn:hover{color:#e8e8e8;border-color:#555}
+.photo-wrap img{width:100%;max-height:500px;object-fit:contain;display:block;background:var(--bg2)}
+.del-btn{position:absolute;top:10px;right:10px;background:var(--del-bg);border:1px solid var(--border3);color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;letter-spacing:.06em}
+.del-btn:hover{color:var(--fg);border-color:var(--fg4)}
 .lens-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
-.lens-btn{background:none;border:1px solid #1a1a1a;color:#444;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;padding:4px 10px}
-.lens-btn:hover{border-color:#333;color:#aaa}
-.lens-btn.active{border-color:#444;color:#e8e8e8}
+.lens-btn{background:none;border:1px solid var(--bg5);color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;padding:4px 10px;transition:all .15s}
+.lens-btn:hover{border-color:var(--border3);color:var(--fg2)}
+.lens-btn.active{border-color:var(--fg5);color:var(--fg)}
 .pro-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .pro-slot{}
-.pro-drop{border:1px dashed #1a1a1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;height:80px;cursor:pointer;margin-bottom:8px;position:relative}
-.pro-drop:hover{border-color:#2a2a2a}
+.pro-drop{border:1px dashed var(--bg5);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;height:80px;cursor:pointer;margin-bottom:8px;position:relative}
+.pro-drop:hover{border-color:var(--border3)}
 .pro-drop img{width:100%;height:80px;object-fit:cover;display:block}
-.pro-del{position:absolute;top:4px;right:4px;background:rgba(8,8,8,.9);border:1px solid #2a2a2a;color:#888;font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px}
-.week-tabs{display:flex;border-bottom:1px solid #141414;margin-bottom:28px}
-.week-tab{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:#333;padding:8px 0;border-bottom:2px solid transparent;margin-right:20px}
-.week-tab:hover{color:#777}
-.week-tab.active{color:#e8e8e8;border-bottom-color:#e8e8e8}
+.pro-del{position:absolute;top:4px;right:4px;background:var(--pro-del-bg);border:1px solid var(--border3);color:var(--fg4);font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px}
+/* カレンダー */
+.log-view-toggle{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border2)}
+.log-view-btn{flex:1;background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:8px 0;transition:all .15s}
+.log-view-btn.active{background:var(--fg);color:var(--bg)}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.cal-month{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700}
+.cal-arrow{background:none;border:1px solid var(--border2);color:var(--fg5);font-family:'DM Mono',monospace;font-size:12px;padding:4px 12px;cursor:pointer;transition:all .15s}
+.cal-arrow:hover{border-color:var(--fg5);color:var(--fg)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:24px}
+.cal-dow{font-size:9px;color:var(--fg6);letter-spacing:.08em;text-align:center;padding:4px 0}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--fg6);border-radius:0;position:relative;cursor:default}
+.cal-day.has-log{background:var(--bg3);color:var(--fg);cursor:pointer;border:1px solid var(--border)}
+.cal-day.has-log:hover{background:var(--bg4);border-color:var(--border3)}
+.cal-day.today{outline:1px solid var(--fg4)}
+.cal-day.has-log.today{outline:1px solid var(--fg)}
+.cal-dot{width:4px;height:4px;background:var(--fg);border-radius:50%;position:absolute;bottom:4px;left:50%;transform:translateX(-50%)}
+.week-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:28px}
+.week-tab{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--fg6);padding:8px 0;border-bottom:2px solid transparent;margin-right:20px}
+.week-tab:hover{color:var(--fg3)}
+.week-tab.active{color:var(--fg);border-bottom-color:var(--fg)}
 .week-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;display:flex;align-items:baseline;gap:14px;margin-bottom:24px}
-.week-dates{font-size:10px;color:#444;letter-spacing:.08em;font-family:'DM Mono',monospace}
-.constraint{border-left:2px solid #441a1a;padding-left:16px;margin-bottom:28px}
-.constraint .lbl{color:#441a1a;margin-bottom:6px}
-.constraint p{font-size:12px;color:#884444;line-height:1.7;letter-spacing:.02em}
+.week-dates{font-size:10px;color:var(--fg5);letter-spacing:.08em;font-family:'DM Mono',monospace}
+.constraint{border-left:2px solid var(--constraint-border);padding-left:16px;margin-bottom:28px}
+.constraint .lbl{color:var(--constraint-border);margin-bottom:6px}
+.constraint p{font-size:12px;color:var(--constraint-fg);line-height:1.7;letter-spacing:.02em}
 .mission-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
-.mission-box{border-top:1px solid #141414;padding-top:14px}
+.mission-box{border-top:1px solid var(--border);padding-top:14px}
 .mission-box .lbl{margin-bottom:10px}
-.mission-box p{font-size:11px;color:#666;line-height:1.9;letter-spacing:.02em}
-.check-section{border-top:1px solid #141414;padding-top:16px;margin-bottom:32px}
+.mission-box p{font-size:11px;color:var(--fg4);line-height:1.9;letter-spacing:.02em}
+.check-section{border-top:1px solid var(--border);padding-top:16px;margin-bottom:32px}
 .check-section .lbl{margin-bottom:12px}
 .check-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;cursor:pointer}
-.check-text{font-size:12px;color:#999;line-height:1.6;letter-spacing:.02em}
-.check-text.done{color:#333;text-decoration:line-through}
-.progress-section{border-top:1px solid #141414;padding-top:20px}
-.progress-section .lbl{margin-bottom:12px}
-.progress-bar{display:flex;gap:3px;margin-bottom:8px}
-.progress-seg{flex:1;height:2px;background:#141414}
-.progress-seg.done{background:#e8e8e8}
-.progress-label{font-size:10px;color:#444;letter-spacing:.08em}
-.log-header{margin-bottom:36px}
+.check-text{font-size:12px;color:var(--fg2);line-height:1.6;letter-spacing:.02em}
+.check-text.done{color:var(--fg7);text-decoration:line-through}
+.log-header{margin-bottom:28px}
 .log-header h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em}
-.log-header p{font-size:10px;color:#444;letter-spacing:.15em;margin-top:6px}
-.log-empty{font-size:11px;color:#333;line-height:3;letter-spacing:.08em}
-.log-entry{display:grid;grid-template-columns:80px 1fr;gap:16px;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid #0c0c0c}
-.log-thumb{background:#0e0e0e;height:80px;overflow:hidden}
+.log-header p{font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px}
+.log-empty{font-size:11px;color:var(--fg6);line-height:3;letter-spacing:.08em}
+.log-entry{display:grid;grid-template-columns:80px 1fr;gap:16px;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--bg3);cursor:pointer}
+.log-entry:hover .log-date{color:var(--fg)}
+.log-thumb{background:var(--bg3);height:80px;overflow:hidden}
 .log-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.log-thumb-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1a1a1a;letter-spacing:.1em}
-.log-date{font-size:12px;color:#e8e8e8;letter-spacing:.04em}
+.log-thumb-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--bg5);letter-spacing:.1em}
+.log-date{font-size:12px;color:var(--fg);letter-spacing:.04em}
 .log-meta{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
-.log-comment{font-size:11px;color:#555;line-height:1.7;letter-spacing:.01em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.log-comment{font-size:11px;color:var(--fg4);line-height:1.7;letter-spacing:.01em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .log-pro{display:flex;gap:5px;align-items:center;margin-top:6px}
-.log-pro-label{font-size:9px;color:#333;letter-spacing:.08em}
+.log-pro-label{font-size:9px;color:var(--fg6);letter-spacing:.08em}
 .hidden{display:none}
-.detail-back{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;color:#555;letter-spacing:.12em;text-transform:uppercase;padding:0;margin-bottom:28px;display:flex;align-items:center;gap:8px;cursor:pointer}
-.detail-back:hover{color:#e8e8e8}
+.detail-back{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--fg4);letter-spacing:.12em;text-transform:uppercase;padding:0;margin-bottom:28px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.detail-back:hover{color:var(--fg)}
 .detail-date{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
-.detail-lens{display:inline-block;border:1px solid #1e1e1e;color:#555;font-size:10px;letter-spacing:.04em;padding:3px 8px;margin-bottom:24px}
+.detail-lens{display:inline-block;border:1px solid var(--border2);color:var(--fg4);font-size:10px;letter-spacing:.04em;padding:3px 8px;margin-bottom:24px}
 .detail-photo{width:100%;margin-bottom:24px}
-.detail-photo img{width:100%;max-height:600px;object-fit:contain;display:block;background:#050505}
-.detail-no-photo{height:160px;background:#0a0a0a;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1a1a1a;letter-spacing:.1em;margin-bottom:24px}
-.detail-section{border-top:1px solid #141414;padding-top:16px;margin-bottom:28px}
-.detail-comment{font-size:13px;color:#aaa;line-height:1.9;letter-spacing:.02em;margin-top:10px}
+.detail-photo img{width:100%;max-height:600px;object-fit:contain;display:block;background:var(--bg2)}
+.detail-no-photo{height:160px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--bg5);letter-spacing:.1em;margin-bottom:24px}
+.detail-section{border-top:1px solid var(--border);padding-top:16px;margin-bottom:28px}
+.detail-comment{font-size:13px;color:var(--fg2);line-height:1.9;letter-spacing:.02em;margin-top:10px}
 .detail-pro-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:14px}
-.detail-pro-img{width:100%;height:120px;object-fit:cover;display:block;background:#0e0e0e;margin-bottom:8px}
-.detail-pro-empty{width:100%;height:120px;background:#0a0a0a;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1a1a1a;letter-spacing:.1em;margin-bottom:8px}
-.detail-pro-memo{font-size:11px;color:#666;line-height:1.7;letter-spacing:.02em}
-.edit-btn{background:none;border:1px solid #1e1e1e;color:#555;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:5px 14px;cursor:pointer;margin-top:16px}
-.edit-btn:hover{border-color:#444;color:#e8e8e8}
-.edit-mode-wrap{margin-top:16px;padding-top:16px;border-top:1px solid #141414}
-.edit-mode-wrap .lbl{margin-bottom:8px}
-.edit-drop{border:1px dashed #1e1e1e;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;margin-bottom:14px}
-.lightbox{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.lightbox img{width:640px;max-width:95vw;max-height:500px;object-fit:contain;display:block}
-.lightbox-close{position:fixed;top:16px;right:20px;color:#888;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.1em;cursor:pointer}
+.detail-pro-img{width:100%;height:120px;object-fit:cover;display:block;background:var(--bg3);margin-bottom:8px}
+.detail-pro-empty{width:100%;height:120px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--bg5);letter-spacing:.1em;margin-bottom:8px}
+.detail-pro-memo{font-size:11px;color:var(--fg4);line-height:1.7;letter-spacing:.02em}
 .detail-pro-img-wrap{cursor:zoom-in}
-.edit-drop:hover{border-color:#333}
-.log-entry{cursor:pointer}
-.log-entry:hover .log-date{color:#fff}
+.lightbox{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--lb-bg);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lightbox img{width:640px;max-width:95vw;max-height:500px;object-fit:contain;display:block}
+.lightbox-close{position:fixed;top:16px;right:20px;color:var(--fg4);font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.1em;cursor:pointer}
 .learn-header{margin-bottom:32px}
-.learn-week-badge{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#444;margin-bottom:8px}
+.learn-week-badge{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:8px}
 .learn-week-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px}
-.learn-week-sub{font-size:11px;color:#555;letter-spacing:.04em}
+.learn-week-sub{font-size:11px;color:var(--fg4);letter-spacing:.04em}
 .learn-section{margin-bottom:36px}
-.learn-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #141414;cursor:pointer}
+.learn-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--border);cursor:pointer}
 .learn-section-title{font-size:13px;font-weight:500;letter-spacing:.02em}
-.learn-section-badge{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid #1e1e1e;color:#444}
+.learn-section-badge{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--border2);color:var(--fg5)}
 .learn-section-badge.shooting{border-color:#334;color:#667}
 .learn-section-badge.editing{border-color:#443;color:#776}
 .learn-body{padding:16px 0 20px}
-.learn-goal{font-size:11px;color:#888;letter-spacing:.04em;margin-bottom:16px;padding:10px 14px;background:#0c0c0c;border-left:2px solid #222}
-.learn-theory{font-size:12px;color:#777;line-height:2;letter-spacing:.02em;margin-bottom:20px;white-space:pre-wrap}
+.learn-goal{font-size:11px;color:var(--fg3);letter-spacing:.04em;margin-bottom:16px;padding:10px 14px;background:var(--bg2);border-left:2px solid var(--border3)}
+.learn-theory{font-size:12px;color:var(--fg3);line-height:2;letter-spacing:.02em;margin-bottom:20px;white-space:pre-wrap}
 .learn-yt{margin-bottom:20px}
-.learn-yt-link{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0c0c0c;border:1px solid #1a1a1a;text-decoration:none;color:#e8e8e8}
-.learn-yt-link:hover{border-color:#333}
+.learn-yt-link{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bg5);text-decoration:none;color:var(--fg)}
+.learn-yt-link:hover{border-color:var(--border3)}
 .learn-yt-icon{font-size:14px;flex-shrink:0}
-.learn-yt-text{font-size:11px;color:#777;letter-spacing:.03em}
+.learn-yt-text{font-size:11px;color:var(--fg3);letter-spacing:.03em}
 .learn-practice{margin-bottom:20px}
-.learn-practice-text{font-size:12px;color:#aaa;line-height:1.9;letter-spacing:.02em;margin-top:8px;padding:12px 14px;background:#0c0c0c;border-left:2px solid #e8e8e820}
+.learn-practice-text{font-size:12px;color:var(--fg2);line-height:1.9;letter-spacing:.02em;margin-top:8px;padding:12px 14px;background:var(--bg2);border-left:2px solid var(--border3)}
 .learn-checklist{margin-bottom:20px}
-.learn-check-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid #0e0e0e;cursor:pointer}
+.learn-check-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--bg3);cursor:pointer}
 .learn-check-item:last-child{border-bottom:none}
-.learn-check-text{font-size:12px;color:#777;line-height:1.6;letter-spacing:.02em}
-.learn-check-text.done{color:#333;text-decoration:line-through}
+.learn-check-text{font-size:12px;color:var(--fg3);line-height:1.6;letter-spacing:.02em}
+.learn-check-text.done{color:var(--fg7);text-decoration:line-through}
 .learn-memo{margin-top:16px}
-.learn-memo textarea{border:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:10px 12px;font-size:11px;background:#0a0a0a;line-height:1.8}
-.learn-save-btn{margin-top:10px;background:#e8e8e8;border:none;color:#080808;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:7px 18px;cursor:pointer}
-.learn-save-btn:hover{background:#fff}
-.week-card{border:1px solid #141414;padding:20px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
-.week-card:hover{border-color:#2a2a2a}
-.week-card.active{border-color:#444}
-.week-card.complete{border-left:2px solid #e8e8e8}
-.week-card.active.complete{border-color:#e8e8e8}
+.learn-memo textarea{border:1px solid var(--bg5);border-bottom:1px solid var(--bg5);padding:10px 12px;font-size:11px;background:var(--input-bg);line-height:1.8}
+.learn-save-btn{margin-top:10px;background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:7px 18px;cursor:pointer;transition:opacity .15s}
+.learn-save-btn:hover{opacity:.85}
+.week-card{border:1px solid var(--border);padding:20px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
+.week-card:hover{border-color:var(--border3)}
+.week-card.active{border-color:var(--fg5)}
+.week-card.complete{border-left:2px solid var(--fg)}
+.week-card.active.complete{border-color:var(--fg)}
 .week-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .week-card-title{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700}
-.week-card-status{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:#333}
-.week-card-status.done{color:#e8e8e8}
-.week-card-sub{font-size:10px;color:#333;letter-spacing:.06em;margin-bottom:12px}
+.week-card-status{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--fg6)}
+.week-card-status.done{color:var(--fg)}
+.week-card-sub{font-size:10px;color:var(--fg6);letter-spacing:.06em;margin-bottom:12px}
 .week-progress-wrap{margin-bottom:6px}
-.week-progress-track{height:2px;background:#141414;width:100%}
-.week-progress-fill{height:2px;background:#e8e8e8;transition:width .3s}
-.week-progress-label{font-size:9px;color:#333;letter-spacing:.1em;margin-top:5px}
-.week-detail{margin-top:16px;padding-top:16px;border-top:1px solid #141414}
+.week-progress-track{height:2px;background:var(--border);width:100%}
+.week-progress-fill{height:2px;background:var(--fg);transition:width .3s}
+.week-progress-label{font-size:9px;color:var(--fg6);letter-spacing:.1em;margin-top:5px}
+.week-detail{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
 .week-detail .constraint{margin-bottom:16px}
 .week-detail .mission-grid{margin-bottom:0}
+/* バックアップ */
+.backup-section{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}
+.backup-section .lbl{margin-bottom:12px}
+.backup-btns{display:flex;gap:8px;flex-wrap:wrap}
+/* 通知バナー */
+.notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6}
+.notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -194,7 +280,10 @@ button{cursor:pointer}
     <button class="tab-btn" data-tab="plan">プラン</button>
     <button class="tab-btn" data-tab="log">ログ</button>
   </div>
-  <span class="streak" id="streak"></span>
+  <div class="nav-right">
+    <span class="streak" id="streak"></span>
+    <button class="theme-btn" id="theme-btn">☀</button>
+  </div>
 </nav>
 <div class="main">
   <!-- TODAY -->
@@ -209,12 +298,30 @@ button{cursor:pointer}
         <button class="save-btn" id="save-btn">SAVE</button>
       </div>
     </div>
+    <!-- 進捗バナー -->
+    <div class="progress-banner" id="progress-banner">
+      <div class="pb-left">
+        <div class="pb-week" id="pb-week"></div>
+        <div class="pb-theme" id="pb-theme"></div>
+        <div class="pb-track"><div class="pb-fill" id="pb-fill"></div></div>
+        <div class="pb-label" id="pb-label"></div>
+      </div>
+      <div class="pb-arrow">学習へ →</div>
+    </div>
+    <!-- 通知許可バナー -->
+    <div class="notif-banner hidden" id="notif-banner">
+      <p>課題の締め切り通知を受け取りますか？</p>
+      <div class="notif-banner-btns">
+        <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
+        <button class="ghost-btn" id="notif-deny-btn">あとで</button>
+      </div>
+    </div>
     <!-- 課題 -->
     <div class="section">
       <div class="row-between">
         <div class="row-gap">
           <span class="lbl">課題</span>
-          <span id="task-count" style="font-size:10px;color:#666"></span>
+          <span id="task-count" style="font-size:10px;color:var(--fg4)"></span>
         </div>
         <div class="row-gap">
           <button class="ghost-btn" id="url-toggle-btn">URL設定</button>
@@ -232,7 +339,7 @@ button{cursor:pointer}
         </div>
       </div>
       <div class="notice hidden" id="task-error"><p id="task-error-msg"></p></div>
-      <div id="task-empty" style="font-size:11px;color:#333;padding:16px 0;letter-spacing:.05em">「URL設定」からApps ScriptのURLを登録してください</div>
+      <div id="task-empty" style="font-size:11px;color:var(--fg6);padding:16px 0;letter-spacing:.05em">「URL設定」からApps ScriptのURLを登録してください</div>
       <div id="task-list"></div>
     </div>
     <div class="section-div"></div>
@@ -252,7 +359,7 @@ button{cursor:pointer}
     <!-- プロ研究 -->
     <div class="section">
       <div class="lbl" style="margin-bottom:4px">プロ研究</div>
-      <div style="font-size:10px;color:#444;letter-spacing:.06em;margin-bottom:18px;line-height:1.8">プロ写真家の作品を3枚アップして「なぜ良いか」を1行で</div>
+      <div style="font-size:10px;color:var(--fg5);letter-spacing:.06em;margin-bottom:18px;line-height:1.8">プロ写真家の作品を3枚アップして「なぜ良いか」を1行で</div>
       <div class="pro-grid" id="pro-grid"></div>
     </div>
   </div>
@@ -263,8 +370,18 @@ button{cursor:pointer}
       <h1>週間プラン</h1>
       <p>6 WEEK INTENSIVE</p>
     </div>
-    <div class="week-tabs" id="week-tabs"></div>
     <div id="week-content"></div>
+    <!-- バックアップ・リストア -->
+    <div class="backup-section">
+      <div class="lbl" style="margin-bottom:12px">バックアップ / リストア</div>
+      <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">メタデータ（コメント・レンズ・進捗）をJSONファイルに書き出します。写真データはデバイスに依存するためエクスポートされません。</p>
+      <div class="backup-btns">
+        <button class="save-btn" id="backup-export-btn">書き出す</button>
+        <button class="ghost-btn" id="backup-import-btn">読み込む</button>
+        <input type="file" accept=".json" id="backup-file-input" class="hidden">
+      </div>
+      <p id="backup-msg" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
+    </div>
   </div>
 
   <!-- LEARN -->
@@ -279,7 +396,13 @@ button{cursor:pointer}
         <h1>ログ一覧</h1>
         <p id="log-count">0 ENTRIES</p>
       </div>
+      <!-- ビュー切り替え -->
+      <div class="log-view-toggle">
+        <button class="log-view-btn active" id="log-view-list-btn">リスト</button>
+        <button class="log-view-btn" id="log-view-cal-btn">カレンダー</button>
+      </div>
       <div id="log-list"></div>
+      <div id="log-cal" class="hidden"></div>
     </div>
     <div id="log-detail-view" class="hidden">
       <button class="detail-back" id="detail-back-btn">← 一覧に戻る</button>
@@ -290,123 +413,24 @@ button{cursor:pointer}
 
 <script>
 const CURRICULUM = [
-  {
-    week: 1,
-    shooting: {
-      theme: "光を読む",
-      goal: "朝・夕の光の違いを体で覚える",
-      theory: `光には「質」と「方向」がある。同じ場所でも朝6時と昼12時では全く別の写真になる。\n\n・マジックアワー（日の出後30分・日没前30分）→ 光が柔らかくオレンジ\n・昼間の光 → 硬くて影が強い、色が平坦\n\nα6400の設定：f2.8、SS1/500〜1/1000、ISO Auto(上限3200)、RAW必須`,
-      youtube: [{title:"光の方向と質を理解する（逆光・順光・斜光）", url:"https://www.youtube.com/results?search_query=%E5%85%89%E3%81%AE%E6%96%B9%E5%90%91+%E5%86%99%E7%9C%9F+%E9%80%86%E5%85%89+%E9%A0%86%E5%85%89+%E8%A7%A3%E8%AA%AC"}],
-      practice: "同じ場所を朝・昼・夕の3回撮り比べる。設定を変えずに時間帯だけ変える。3枚をログに貼って「一番好きな光はどれか・なぜか」を書く。",
-      checklist: ["朝（6〜8時）に撮影した","夕方（16〜18時）に撮影した","同じ場所・同じ被写体で撮り比べた","ログに気づきを書いた"]
-    },
-    editing: {
-      theme: "Lightroomの基礎パネルを完全理解",
-      goal: "露光量・コントラスト・ハイライト・シャドウの役割を体で覚える",
-      theory: `Lightroomの基本4スライダーの意味：\n\n・露光量 → 写真全体の明るさ。+1で約2倍明るく\n・コントラスト → 明暗の差。上げると立体感が出るが不自然になりやすい\n・ハイライト → 明るい部分だけ調整。白飛びを抑えたいときは下げる\n・シャドウ → 暗い部分だけ調整。見えなくなった部分を復元したいときは上げる\n\nコツ：まずハイライトを-70〜-100、シャドウを+30〜+50にしてから露光量で全体を整える`,
-      youtube: [{title:"Lightroom 基礎 ライトパネル 解説", url:"https://www.youtube.com/results?search_query=Lightroom+%E5%9F%BA%E7%A4%8E+%E3%83%A9%E3%82%A4%E3%83%88%E3%83%91%E3%83%8D%E3%83%AB+%E8%A7%A3%E8%AA%AC"}],
-      practice: "昨日撮った写真1枚を使い、①露光量だけ変えた版、②ハイライト-100・シャドウ+50版、③自分のベスト版の3パターンを書き出してログに貼る。違いをコメントに書く。",
-      checklist: ["露光量スライダーを±1で試した","ハイライト・シャドウの違いを確認した","3パターン書き出した","ベスト版の理由をコメントに書いた"]
-    }
-  },
-  {
-    week: 2,
-    shooting: {
-      theme: "ストーリーを作る",
-      goal: "1つのテーマで5枚連続で語れる写真を撮る",
-      theory: `1枚の写真ではなく「流れ」で見せる技術。\n\n・引き（全体）→ 寄り（主役）→ 超寄り（ディテール）の3点セット\n・場所の「始まり→中間→終わり」を意識する\n・5枚で小さな物語を作る\n\n先輩カメラマンとの差はここ。1枚だけ上手い人は多い。5枚で語れる人は少ない。`,
-      youtube: [{title:"写真 ストーリーテリング 組写真 作り方", url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F+%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AA%E3%83%BC%E3%83%86%E3%83%AA%E3%83%B3%E3%82%B0+%E7%B5%84%E5%86%99%E7%9C%9F"}],
-      practice: "1つの場所かテーマで5枚撮る。「なぜこの順番で並べるか」をログに書く。",
-      checklist: ["テーマを1つ決めた","5枚撮った","順番と理由をログに書いた","引き・寄り・超寄りを意識した"]
-    },
-    editing: {
-      theme: "色を操る",
-      goal: "色温度・HSLパネルで自分好みの色調を作る",
-      theory: `色の調整は2段階ある。\n\n【第1段階：ホワイトバランス】\n・色温度 → 上げると暖色（オレンジ）、下げると寒色（青）\n・色かぶり補正 → 緑↔マゼンタの調整\n\n【第2段階：HSLパネル】\n・H（色相）→ 色の種類を変える（青空を水色に、緑を黄緑に）\n・S（彩度）→ 色の濃さ\n・L（輝度）→ その色だけ明暗調整\n\nコツ：オレンジ（肌・土）とティールブルー（空・影）を意識するとプロっぽくなる`,
-      youtube: [{title:"Lightroom HSL カラーグレーディング 解説", url:"https://www.youtube.com/results?search_query=Lightroom+HSL+%E3%82%AB%E3%83%A9%E3%83%BC%E3%82%B0%E3%83%AC%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0"}],
-      practice: "同じ写真をオレンジ・ティール系とフィルム風モノクロの2パターンで現像してログに貼る。どちらが自分らしいかコメントに書く。",
-      checklist: ["色温度を±500で試した","HSLパネルのオレンジを操作した","2パターン現像した","好みの色調をコメントに書いた"]
-    }
-  },
-  {
-    week: 3,
-    shooting: {
-      theme: "引き算",
-      goal: "主役1つだけのフレームを作る",
-      theory: `上手い写真と下手な写真の最大の差は「情報量の整理」。\n\n・主役以外は全部「ノイズ」\n・ノイズを消す方法：①近づく ②絞りを開ける（f2.8） ③アングルを変える ④ズームで圧縮\n\nチェックリスト：\n「この写真で一番見てほしいものは何か？」\n「それ以外で目立っているものはあるか？」\n→ あれば撮り直すか編集でトリミング`,
-      youtube: [{title:"写真 構図 引き算 シンプル プロ解説", url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F+%E6%A7%8B%E5%9B%B3+%E5%BC%95%E3%81%8D%E7%AE%97+%E3%82%B7%E3%83%B3%E3%83%97%E3%83%AB"}],
-      practice: "1枚撮ったら「主役以外で目立っているものリスト」をコメントに書く。それを消すための撮り直しか編集をして比較をログに貼る。",
-      checklist: ["ノイズリストを書いた","撮り直しかトリミングで対処した","before/afterをログに貼った","主役が明確になったか確認した"]
-    },
-    editing: {
-      theme: "トーンカーブとテクスチャ",
-      goal: "カーブでコントラストを自在に操る",
-      theory: `トーンカーブはスライダーより細かく明暗をコントロールできる。\n\n・S字カーブ → コントラスト強め（ドラマチック）\n・逆S字カーブ → マットな仕上がり（フィルム風）\n・中間トーンだけ持ち上げ → 自然なコントラスト\n\nテクスチャ・明瞭度・かすみの除去の違い：\n・テクスチャ +15〜25 → 葉や肌などの中程度のディテール\n・明瞭度 +10〜20 → 全体的なエッジ強調\n・かすみの除去 → 霧がかった写真専用（使いすぎ厳禁）`,
-      youtube: [{title:"Lightroom トーンカーブ 使い方 初心者", url:"https://www.youtube.com/results?search_query=Lightroom+%E3%83%88%E3%83%BC%E3%83%B3%E3%82%AB%E3%83%BC%E3%83%96+%E4%BD%BF%E3%81%84%E6%96%B9+%E5%88%9D%E5%BF%83%E8%80%85"}],
-      practice: "S字カーブ版・逆S字カーブ版・フラットカーブ版の3パターンを同じ写真で作ってログに貼る。",
-      checklist: ["S字カーブを作った","逆S字カーブを作った","テクスチャを±20で試した","3パターン比較をログに記録した"]
-    }
-  },
-  {
-    week: 4,
-    shooting: {
-      theme: "光を狙って撮る",
-      goal: "光の種類を意図的に選んで撮影する",
-      theory: `これまで「光を読む」を練習した。今週は「光を選んで狙う」フェーズ。\n\n・逆光 → 被写体の輪郭が光る。フレアが出る。「希望・詩的」な印象\n・斜光 → 立体感が出る。テクスチャが強調される。「力強い」印象\n・曇り光 → 均一で柔らかい。ポートレートに最適。「穏やか」な印象\n\n今週のミッション：3種類全部を意図的に選んで1枚ずつ撮る`,
-      youtube: [{title:"撮影 光の種類 逆光 斜光 活用法", url:"https://www.youtube.com/results?search_query=%E6%92%AE%E5%BD%B1+%E5%85%89%E3%81%AE%E7%A8%AE%E9%A1%9E+%E9%80%86%E5%85%89+%E6%96%9C%E5%85%89+%E6%B4%BB%E7%94%A8%E6%B3%95"}],
-      practice: "逆光・斜光・曇り光の3枚を撮ってログに貼る。それぞれ「どんな印象を出したかったか」をコメントに書く。",
-      checklist: ["逆光で1枚撮った","斜光で1枚撮った","曇り光（または室内光）で1枚撮った","意図した印象をコメントに書いた"]
-    },
-    editing: {
-      theme: "カラーグレーディング",
-      goal: "カラーミキサーとカラーグレーディングで世界観を作る",
-      theory: `ここまでの編集は「補正」。今週からは「表現」。\n\n【カラーグレーディング（旧分割トーン）】\n・シャドウに色を入れる → 影に青を入れるとシネマ風\n・ハイライトに色を入れる → 光にオレンジを入れると映画的\n・ミッドトーン → 全体の色の印象を決める\n\n先輩カメラマンが「なんかプロっぽい」色調を出せるのはここ。\n同じ写真でも色調の方向性で全く別物になる。`,
-      youtube: [{title:"Lightroom カラーグレーディング 映画風 シネマルック", url:"https://www.youtube.com/results?search_query=Lightroom+%E3%82%AB%E3%83%A9%E3%83%BC%E3%82%B0%E3%83%AC%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0+%E6%98%A0%E7%94%BB%E9%A2%A8"}],
-      practice: "1枚の写真をシネマ風（シャドウ：青、ハイライト：オレンジ）とナチュラル風の2パターンで現像してログに貼る。",
-      checklist: ["カラーグレーディングパネルを開いた","シャドウに青を入れた","ハイライトにオレンジを入れた","2パターン比較をログに記録した"]
-    }
-  },
-  {
-    week: 5,
-    shooting: {
-      theme: "先輩・プロを解剖する",
-      goal: "好きな1枚を選んで完全模倣する",
-      theory: `模倣は盗みではなく最高の学習法。\n\n分析する4点：\n1. 光の方向（どこから光が来ているか）\n2. 焦点距離の推測（広角・標準・望遠）\n3. 絞り（ボケ量から推測）\n4. 色調の方向性（暖色・寒色・モノクロ）\n\n完全に再現できなくていい。「なぜ自分の写真と違うか」を言語化できることが目的。`,
-      youtube: [{title:"プロの写真を分析 模倣 上達法", url:"https://www.youtube.com/results?search_query=%E3%83%97%E3%83%AD%E3%81%AE%E5%86%99%E7%9C%9F+%E5%88%86%E6%9E%90+%E6%A8%A1%E5%80%A3+%E4%B8%8A%E9%81%94%E6%B3%95"}],
-      practice: "先輩かプロカメラマンの写真を1枚選んで模倣する。元写真と自分の写真を並べてログに貼り「3つの違い」をコメントに書く。",
-      checklist: ["模倣したい1枚を選んだ","光の方向・焦点距離・絞りを推測した","実際に撮影した","元写真と比較して3つの違いを書いた"]
-    },
-    editing: {
-      theme: "先輩の色調を再現する",
-      goal: "好きな色調を分析してLightroomで再現する",
-      theory: `色調の「盗み方」：\n\n1. 好きな写真を見てシャドウの色（影が青いか茶色いか）を確認\n2. ハイライトの色（光が白いかオレンジかを確認）\n3. 全体の彩度（鮮やかか落ち着いているか）\n4. コントラスト（眠い感じかシャープか）\n\nこれをLightroomで再現していく。完璧じゃなくていい。\n「なぜ違うか」を言語化できれば次に活きる。`,
-      youtube: [{title:"好きな写真の色調 Lightroom 再現 方法", url:"https://www.youtube.com/results?search_query=%E5%A5%BD%E3%81%8D%E3%81%AA%E5%86%99%E7%9C%9F+%E8%89%B2%E8%AA%BF+Lightroom+%E5%86%8D%E7%8F%BE"}],
-      practice: "先輩かプロの写真を1枚選んで色調を分析し、自分の写真で再現を試みる。ログに元写真・自分の現像版・差分メモを貼る。",
-      checklist: ["参考写真の色調を分析した","シャドウ・ハイライトの色を特定した","Lightroomで再現を試みた","差分を言語化してコメントに書いた"]
-    }
-  },
-  {
-    week: 6,
-    shooting: {
-      theme: "自分のスタイルを固める",
-      goal: "「自分はこういう写真が撮りたい」を1文で言えるようにする",
-      theory: `5週間分のログを全部振り返る。\n\n確認する3点：\n1. 自分が一番楽しかった撮影はどれか\n2. 一番気に入っている写真はどれか\n3. 繰り返し撮っている被写体・光・構図は何か\n\nこれが「自分のスタイル」の原型。まだ決まらなくていい。でも今週で言語化する。\n言語化できた人が次のステップ（稼ぐ）に進める。`,
-      youtube: [{title:"写真家 スタイル 確立 自分らしさ 見つけ方", url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F%E5%AE%B6+%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB+%E7%A2%BA%E7%AB%8B+%E8%87%AA%E5%88%86%E3%82%89%E3%81%97%E3%81%95"}],
-      practice: "全ログを見返して「好きな被写体ベスト3」「好きな光ベスト1」「好きな色調の傾向」をコメントに書く。SNSに5枚投稿する。",
-      checklist: ["全ログを見返した","好きな被写体ベスト3を書いた","好きな光を書いた","SNSに5枚投稿した"]
-    },
-    editing: {
-      theme: "自分のプリセットを作る",
-      goal: "自分の色調をLightroomのプリセットとして保存する",
-      theory: `プリセット = 自分の編集設定を1クリックで適用できるように保存したもの。\n\nプロカメラマンは必ず自分のプリセットを持っている。\nこれがあると編集速度が10倍になり、写真に一貫性が出る。\n\n作り方：\n1. 自分のベスト現像を1枚仕上げる\n2. 現像パネル右クリック→「プリセットを作成」\n3. 全項目にチェック→名前をつけて保存\n4. 別の写真に適用してみる→微調整する\n\nこれが「自分のスタイル」の編集版。`,
-      youtube: [{title:"Lightroom プリセット 作成 保存 方法", url:"https://www.youtube.com/results?search_query=Lightroom+%E3%83%97%E3%83%AA%E3%82%BB%E3%83%83%E3%83%88+%E4%BD%9C%E6%88%90+%E4%BF%9D%E5%AD%98+%E6%96%B9%E6%B3%95"}],
-      practice: "自分のベスト現像設定でプリセットを作る。別の5枚に適用してみて、調整が必要な箇所をコメントに書く。",
-      checklist: ["ベスト現像設定を1枚仕上げた","プリセットを作成・保存した","5枚に適用した","微調整が必要な点をコメントに書いた"]
-    }
-  }
+  {week:1,shooting:{theme:"光を読む",goal:"朝・夕の光の違いを体で覚える",theory:`光には「質」と「方向」がある。同じ場所でも朝6時と昼12時では全く別の写真になる。\n\n・マジックアワー（日の出後30分・日没前30分）→ 光が柔らかくオレンジ\n・昼間の光 → 硬くて影が強い、色が平坦\n\nα6400の設定：f2.8、SS1/500〜1/1000、ISO Auto(上限3200)、RAW必須`,youtube:[{title:"光の方向と質を理解する（逆光・順光・斜光）",url:"https://www.youtube.com/results?search_query=%E5%85%89%E3%81%AE%E6%96%B9%E5%90%91+%E5%86%99%E7%9C%9F+%E9%80%86%E5%85%89+%E9%A0%86%E5%85%89+%E8%A7%A3%E8%AA%AC"}],practice:"同じ場所を朝・昼・夕の3回撮り比べる。設定を変えずに時間帯だけ変える。3枚をログに貼って「一番好きな光はどれか・なぜか」を書く。",checklist:["朝（6〜8時）に撮影した","夕方（16〜18時）に撮影した","同じ場所・同じ被写体で撮り比べた","ログに気づきを書いた"]},editing:{theme:"Lightroomの基礎パネルを完全理解",goal:"露光量・コントラスト・ハイライト・シャドウの役割を体で覚える",theory:`Lightroomの基本4スライダーの意味：\n\n・露光量 → 写真全体の明るさ。+1で約2倍明るく\n・コントラスト → 明暗の差。上げると立体感が出るが不自然になりやすい\n・ハイライト → 明るい部分だけ調整。白飛びを抑えたいときは下げる\n・シャドウ → 暗い部分だけ調整。見えなくなった部分を復元したいときは上げる\n\nコツ：まずハイライトを-70〜-100、シャドウを+30〜+50にしてから露光量で全体を整える`,youtube:[{title:"Lightroom 基礎 ライトパネル 解説",url:"https://www.youtube.com/results?search_query=Lightroom+%E5%9F%BA%E7%A4%8E+%E3%83%A9%E3%82%A4%E3%83%88%E3%83%91%E3%83%8D%E3%83%AB+%E8%A7%A3%E8%AA%AC"}],practice:"昨日撮った写真1枚を使い、①露光量だけ変えた版、②ハイライト-100・シャドウ+50版、③自分のベスト版の3パターンを書き出してログに貼る。違いをコメントに書く。",checklist:["露光量スライダーを±1で試した","ハイライト・シャドウの違いを確認した","3パターン書き出した","ベスト版の理由をコメントに書いた"]}},
+  {week:2,shooting:{theme:"ストーリーを作る",goal:"1つのテーマで5枚連続で語れる写真を撮る",theory:`1枚の写真ではなく「流れ」で見せる技術。\n\n・引き（全体）→ 寄り（主役）→ 超寄り（ディテール）の3点セット\n・場所の「始まり→中間→終わり」を意識する\n・5枚で小さな物語を作る\n\n先輩カメラマンとの差はここ。1枚だけ上手い人は多い。5枚で語れる人は少ない。`,youtube:[{title:"写真 ストーリーテリング 組写真 作り方",url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F+%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AA%E3%83%BC%E3%83%86%E3%83%AA%E3%83%B3%E3%82%B0+%E7%B5%84%E5%86%99%E7%9C%9F"}],practice:"1つの場所かテーマで5枚撮る。「なぜこの順番で並べるか」をログに書く。",checklist:["テーマを1つ決めた","5枚撮った","順番と理由をログに書いた","引き・寄り・超寄りを意識した"]},editing:{theme:"色を操る",goal:"色温度・HSLパネルで自分好みの色調を作る",theory:`色の調整は2段階ある。\n\n【第1段階：ホワイトバランス】\n・色温度 → 上げると暖色（オレンジ）、下げると寒色（青）\n・色かぶり補正 → 緑↔マゼンタの調整\n\n【第2段階：HSLパネル】\n・H（色相）→ 色の種類を変える（青空を水色に、緑を黄緑に）\n・S（彩度）→ 色の濃さ\n・L（輝度）→ その色だけ明暗調整\n\nコツ：オレンジ（肌・土）とティールブルー（空・影）を意識するとプロっぽくなる`,youtube:[{title:"Lightroom HSL カラーグレーディング 解説",url:"https://www.youtube.com/results?search_query=Lightroom+HSL+%E3%82%AB%E3%83%A9%E3%83%BC%E3%82%B0%E3%83%AC%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0"}],practice:"同じ写真をオレンジ・ティール系とフィルム風モノクロの2パターンで現像してログに貼る。どちらが自分らしいかコメントに書く。",checklist:["色温度を±500で試した","HSLパネルのオレンジを操作した","2パターン現像した","好みの色調をコメントに書いた"]}},
+  {week:3,shooting:{theme:"引き算",goal:"主役1つだけのフレームを作る",theory:`上手い写真と下手な写真の最大の差は「情報量の整理」。\n\n・主役以外は全部「ノイズ」\n・ノイズを消す方法：①近づく ②絞りを開ける（f2.8） ③アングルを変える ④ズームで圧縮\n\nチェックリスト：\n「この写真で一番見てほしいものは何か？」\n「それ以外で目立っているものはあるか？」\n→ あれば撮り直すか編集でトリミング`,youtube:[{title:"写真 構図 引き算 シンプル プロ解説",url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F+%E6%A7%8B%E5%9B%B3+%E5%BC%95%E3%81%8D%E7%AE%97+%E3%82%B7%E3%83%B3%E3%83%97%E3%83%AB"}],practice:"1枚撮ったら「主役以外で目立っているものリスト」をコメントに書く。それを消すための撮り直しか編集をして比較をログに貼る。",checklist:["ノイズリストを書いた","撮り直しかトリミングで対処した","before/afterをログに貼った","主役が明確になったか確認した"]},editing:{theme:"トーンカーブとテクスチャ",goal:"カーブでコントラストを自在に操る",theory:`トーンカーブはスライダーより細かく明暗をコントロールできる。\n\n・S字カーブ → コントラスト強め（ドラマチック）\n・逆S字カーブ → マットな仕上がり（フィルム風）\n・中間トーンだけ持ち上げ → 自然なコントラスト\n\nテクスチャ・明瞭度・かすみの除去の違い：\n・テクスチャ +15〜25 → 葉や肌などの中程度のディテール\n・明瞭度 +10〜20 → 全体的なエッジ強調\n・かすみの除去 → 霧がかった写真専用（使いすぎ厳禁）`,youtube:[{title:"Lightroom トーンカーブ 使い方 初心者",url:"https://www.youtube.com/results?search_query=Lightroom+%E3%83%88%E3%83%BC%E3%83%B3%E3%82%AB%E3%83%BC%E3%83%96+%E4%BD%BF%E3%81%84%E6%96%B9+%E5%88%9D%E5%BF%83%E8%80%85"}],practice:"S字カーブ版・逆S字カーブ版・フラットカーブ版の3パターンを同じ写真で作ってログに貼る。",checklist:["S字カーブを作った","逆S字カーブを作った","テクスチャを±20で試した","3パターン比較をログに記録した"]}},
+  {week:4,shooting:{theme:"光を狙って撮る",goal:"光の種類を意図的に選んで撮影する",theory:`これまで「光を読む」を練習した。今週は「光を選んで狙う」フェーズ。\n\n・逆光 → 被写体の輪郭が光る。フレアが出る。「希望・詩的」な印象\n・斜光 → 立体感が出る。テクスチャが強調される。「力強い」印象\n・曇り光 → 均一で柔らかい。ポートレートに最適。「穏やか」な印象\n\n今週のミッション：3種類全部を意図的に選んで1枚ずつ撮る`,youtube:[{title:"撮影 光の種類 逆光 斜光 活用法",url:"https://www.youtube.com/results?search_query=%E6%92%AE%E5%BD%B1+%E5%85%89%E3%81%AE%E7%A8%AE%E9%A1%9E+%E9%80%86%E5%85%89+%E6%96%9C%E5%85%89+%E6%B4%BB%E7%94%A8%E6%B3%95"}],practice:"逆光・斜光・曇り光の3枚を撮ってログに貼る。それぞれ「どんな印象を出したかったか」をコメントに書く。",checklist:["逆光で1枚撮った","斜光で1枚撮った","曇り光（または室内光）で1枚撮った","意図した印象をコメントに書いた"]},editing:{theme:"カラーグレーディング",goal:"カラーミキサーとカラーグレーディングで世界観を作る",theory:`ここまでの編集は「補正」。今週からは「表現」。\n\n【カラーグレーディング（旧分割トーン）】\n・シャドウに色を入れる → 影に青を入れるとシネマ風\n・ハイライトに色を入れる → 光にオレンジを入れると映画的\n・ミッドトーン → 全体の色の印象を決める\n\n先輩カメラマンが「なんかプロっぽい」色調を出せるのはここ。\n同じ写真でも色調の方向性で全く別物になる。`,youtube:[{title:"Lightroom カラーグレーディング 映画風 シネマルック",url:"https://www.youtube.com/results?search_query=Lightroom+%E3%82%AB%E3%83%A9%E3%83%BC%E3%82%B0%E3%83%AC%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0+%E6%98%A0%E7%94%BB%E9%A2%A8"}],practice:"1枚の写真をシネマ風（シャドウ：青、ハイライト：オレンジ）とナチュラル風の2パターンで現像してログに貼る。",checklist:["カラーグレーディングパネルを開いた","シャドウに青を入れた","ハイライトにオレンジを入れた","2パターン比較をログに記録した"]}},
+  {week:5,shooting:{theme:"先輩・プロを解剖する",goal:"好きな1枚を選んで完全模倣する",theory:`模倣は盗みではなく最高の学習法。\n\n分析する4点：\n1. 光の方向（どこから光が来ているか）\n2. 焦点距離の推測（広角・標準・望遠）\n3. 絞り（ボケ量から推測）\n4. 色調の方向性（暖色・寒色・モノクロ）\n\n完全に再現できなくていい。「なぜ自分の写真と違うか」を言語化できることが目的。`,youtube:[{title:"プロの写真を分析 模倣 上達法",url:"https://www.youtube.com/results?search_query=%E3%83%97%E3%83%AD%E3%81%AE%E5%86%99%E7%9C%9F+%E5%88%86%E6%9E%90+%E6%A8%A1%E5%80%A3+%E4%B8%8A%E9%81%94%E6%B3%95"}],practice:"先輩かプロカメラマンの写真を1枚選んで模倣する。元写真と自分の写真を並べてログに貼り「3つの違い」をコメントに書く。",checklist:["模倣したい1枚を選んだ","光の方向・焦点距離・絞りを推測した","実際に撮影した","元写真と比較して3つの違いを書いた"]},editing:{theme:"先輩の色調を再現する",goal:"好きな色調を分析してLightroomで再現する",theory:`色調の「盗み方」：\n\n1. 好きな写真を見てシャドウの色（影が青いか茶色いか）を確認\n2. ハイライトの色（光が白いかオレンジかを確認）\n3. 全体の彩度（鮮やかか落ち着いているか）\n4. コントラスト（眠い感じかシャープか）\n\nこれをLightroomで再現していく。完璧じゃなくていい。\n「なぜ違うか」を言語化できれば次に活きる。`,youtube:[{title:"好きな写真の色調 Lightroom 再現 方法",url:"https://www.youtube.com/results?search_query=%E5%A5%BD%E3%81%8D%E3%81%AA%E5%86%99%E7%9C%9F+%E8%89%B2%E8%AA%BF+Lightroom+%E5%86%8D%E7%8F%BE"}],practice:"先輩かプロの写真を1枚選んで色調を分析し、自分の写真で再現を試みる。ログに元写真・自分の現像版・差分メモを貼る。",checklist:["参考写真の色調を分析した","シャドウ・ハイライトの色を特定した","Lightroomで再現を試みた","差分を言語化してコメントに書いた"]}},
+  {week:6,shooting:{theme:"自分のスタイルを固める",goal:"「自分はこういう写真が撮りたい」を1文で言えるようにする",theory:`5週間分のログを全部振り返る。\n\n確認する3点：\n1. 自分が一番楽しかった撮影はどれか\n2. 一番気に入っている写真はどれか\n3. 繰り返し撮っている被写体・光・構図は何か\n\nこれが「自分のスタイル」の原型。まだ決まらなくていい。でも今週で言語化する。\n言語化できた人が次のステップ（稼ぐ）に進める。`,youtube:[{title:"写真家 スタイル 確立 自分らしさ 見つけ方",url:"https://www.youtube.com/results?search_query=%E5%86%99%E7%9C%9F%E5%AE%B6+%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB+%E7%A2%BA%E7%AB%8B+%E8%87%AA%E5%88%86%E3%82%89%E3%81%97%E3%81%95"}],practice:"全ログを見返して「好きな被写体ベスト3」「好きな光ベスト1」「好きな色調の傾向」をコメントに書く。SNSに5枚投稿する。",checklist:["全ログを見返した","好きな被写体ベスト3を書いた","好きな光を書いた","SNSに5枚投稿した"]},editing:{theme:"自分のプリセットを作る",goal:"自分の色調をLightroomのプリセットとして保存する",theory:`プリセット = 自分の編集設定を1クリックで適用できるように保存したもの。\n\nプロカメラマンは必ず自分のプリセットを持っている。\nこれがあると編集速度が10倍になり、写真に一貫性が出る。\n\n作り方：\n1. 自分のベスト現像を1枚仕上げる\n2. 現像パネル右クリック→「プリセットを作成」\n3. 全項目にチェック→名前をつけて保存\n4. 別の写真に適用してみる→微調整する\n\nこれが「自分のスタイル」の編集版。`,youtube:[{title:"Lightroom プリセット 作成 保存 方法",url:"https://www.youtube.com/results?search_query=Lightroom+%E3%83%97%E3%83%AA%E3%82%BB%E3%83%83%E3%83%88+%E4%BD%9C%E6%88%90+%E4%BF%9D%E5%AD%98+%E6%96%B9%E6%B3%95"}],practice:"自分のベスト現像設定でプリセットを作る。別の5枚に適用してみて、調整が必要な箇所をコメントに書く。",checklist:["ベスト現像設定を1枚仕上げた","プリセットを作成・保存した","5枚に適用した","微調整が必要な点をコメントに書いた"]}}
 ];
 
-// ── IndexedDB ─────────────────────────────────
+const WEEKS = [
+  {id:1,dates:'5/28〜6/3',theme:'構図を体に叩き込む',constraint:'55mm f2.8のみ。ズーム禁止。足で動く。',weekday:'同じ被写体を三分割・日の丸・対角線の3構図で撮り比べる。学校の行き帰りでOK。',weekend:'1シーンにつき低・中・高の3アングル必須。同じ場所で30枚以上。',check:'3構図の撮り比べを見て「どれが一番伝わるか」を言えるか'},
+  {id:2,dates:'6/4〜6/10',theme:'光だけを追いかける',constraint:'撮影は朝7時前か夕方17時以降のみ。昼間は撮らない。',weekday:'登下校中に「今日一番いい光」を1枚だけ撮る。',weekend:'日の出撮影。同じ場所を6時・7時・8時の3回撮り比べる。',check:'「今日の光は何時が一番良かったか」を理由付きで言えるか'},
+  {id:3,dates:'6/11〜6/17',theme:'引き算を覚える',constraint:'1枚に写る「主役」は必ず1つだけ。2つあったら撮り直す。',weekday:'撮った写真を見て「主役以外で目立っているもの」を書き出す。',weekend:'Week1・Week2の写真100枚を見直してベスト10を選ぶ。',check:'ベスト10の選定理由が「光・構図・意図」の3軸で語れるか'},
+  {id:4,dates:'6/18〜6/24',theme:'プロを完全模倣する',constraint:'1人の写真家を決めて、その人の写真を完璧に模倣した1枚を撮る。',weekday:'選んだ写真家の作品を1枚分析。焦点距離・絞り・光の方向・距離を推測。',weekend:'分析した1枚を完全再現しに行く。場所・時間帯・構図を全部合わせる。',check:'元の写真と並べて「なぜ違うか」を3点言えるか'},
+  {id:5,dates:'6/25〜7/1',theme:'テーマで20枚撮る',constraint:'週の最初にテーマを1つ決める。それ以外は撮らない。',weekday:'テーマに沿った被写体だけを撮る。毎日最低3枚。',weekend:'20枚をLightroomで1フォルダに並べる。色調・明るさのトーンを統一。',check:'20枚を見知らぬ人に見せてテーマが伝わるか'},
+  {id:6,dates:'7/2〜7/8',theme:'外部の目にさらす',constraint:'自分で良いと思う写真を5枚、家族以外の人に見せて感想をもらう。',weekday:'SNS（Instagram・500px）にベスト写真を投稿。反応を記録する。',weekend:'Week1とWeek5の写真を並べて変化を言語化。6週間の総括を書く。',check:'「自分の写真はこういう写真だ」を1文で言えるか'},
+];
+
+// ── IndexedDB ──────────────────────────────
 const IDB = (() => {
   let db = null;
   function open() {
@@ -447,13 +471,11 @@ const IDB = (() => {
   };
 })();
 
-// ── localStorage ──────────────────────────────
 const LS = {
   get: k => { try { const v = localStorage.getItem('ptr_' + k); return v ? JSON.parse(v) : null; } catch { return null; } },
   set: (k, v) => { try { localStorage.setItem('ptr_' + k, JSON.stringify(v)); } catch {} }
 };
 
-// ── Supabase ──────────────────────────────────
 const SB_URL = 'https://eskeovyymgferdbqotti.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVza2Vvdnl5bWdmZXJkYnFvdHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODE1MzksImV4cCI6MjA5NTg1NzUzOX0.y22KuSGf7nKzYlGxDU-K4ryoB7xLAXGoJALHji_t0Eg';
 const SB = {
@@ -461,49 +483,16 @@ const SB = {
     try {
       const res = await fetch(SB_URL + '/rest/v1/logs?on_conflict=date', {
         method: 'POST',
-        headers: {
-          'apikey': SB_KEY,
-          'Authorization': 'Bearer ' + SB_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify({
-          date,
-          comment: data.comment || '',
-          lens: data.lens || '',
-          pro_memos: data.proMemos || [],
-          updated_at: new Date().toISOString()
-        })
+        headers: {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+        body: JSON.stringify({date, comment:data.comment||'', lens:data.lens||'', pro_memos:data.proMemos||[], updated_at:new Date().toISOString()})
       });
       return res.ok;
-    } catch(e) { console.error('SB upsert:', e); return false; }
-  },
-  async fetchAll() {
-    try {
-      const res = await fetch(SB_URL + '/rest/v1/logs?select=*', {
-        headers: {
-          'apikey': SB_KEY,
-          'Authorization': 'Bearer ' + SB_KEY
-        }
-      });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch(e) { console.error('SB fetch:', e); return null; }
+    } catch(e) { return false; }
   }
 };
 
-// ── 定数 ──────────────────────────────────────
 const LENSES = ['55mm f2.8', 'Sigma 28-70', '16-50', '55-210', 'スマホ'];
-const WEEKS = [
-  {id:1,dates:'5/28〜6/3',theme:'構図を体に叩き込む',constraint:'55mm f2.8のみ。ズーム禁止。足で動く。',weekday:'同じ被写体を三分割・日の丸・対角線の3構図で撮り比べる。学校の行き帰りでOK。',weekend:'1シーンにつき低・中・高の3アングル必須。同じ場所で30枚以上。',check:'3構図の撮り比べを見て「どれが一番伝わるか」を言えるか'},
-  {id:2,dates:'6/4〜6/10',theme:'光だけを追いかける',constraint:'撮影は朝7時前か夕方17時以降のみ。昼間は撮らない。',weekday:'登下校中に「今日一番いい光」を1枚だけ撮る。',weekend:'日の出撮影。同じ場所を6時・7時・8時の3回撮り比べる。',check:'「今日の光は何時が一番良かったか」を理由付きで言えるか'},
-  {id:3,dates:'6/11〜6/17',theme:'引き算を覚える',constraint:'1枚に写る「主役」は必ず1つだけ。2つあったら撮り直す。',weekday:'撮った写真を見て「主役以外で目立っているもの」を書き出す。',weekend:'Week1・Week2の写真100枚を見直してベスト10を選ぶ。',check:'ベスト10の選定理由が「光・構図・意図」の3軸で語れるか'},
-  {id:4,dates:'6/18〜6/24',theme:'プロを完全模倣する',constraint:'1人の写真家を決めて、その人の写真を完璧に模倣した1枚を撮る。',weekday:'選んだ写真家の作品を1枚分析。焦点距離・絞り・光の方向・距離を推測。',weekend:'分析した1枚を完全再現しに行く。場所・時間帯・構図を全部合わせる。',check:'元の写真と並べて「なぜ違うか」を3点言えるか'},
-  {id:5,dates:'6/25〜7/1',theme:'テーマで20枚撮る',constraint:'週の最初にテーマを1つ決める。それ以外は撮らない。',weekday:'テーマに沿った被写体だけを撮る。毎日最低3枚。',weekend:'20枚をLightroomで1フォルダに並べる。色調・明るさのトーンを統一。',check:'20枚を見知らぬ人に見せてテーマが伝わるか'},
-  {id:6,dates:'7/2〜7/8',theme:'外部の目にさらす',constraint:'自分で良いと思う写真を5枚、家族以外の人に見せて感想をもらう。',weekday:'SNS（Instagram・500px）にベスト写真を投稿。反応を記録する。',weekend:'Week1とWeek5の写真を並べて変化を言語化。6週間の総括を書く。',check:'「自分の写真はこういう写真だ」を1文で言えるか'},
-];
 
-// ── 状態 ──────────────────────────────────────
 const state = {
   today: new Date().toISOString().slice(0, 10),
   tab: 'today',
@@ -515,15 +504,30 @@ const state = {
   activeWeek: 1,
   photoObjUrl: null,
   proObjUrls: [null, null, null],
+  logView: 'list',
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth(),
 };
 
-// ── ユーティリティ ─────────────────────────────
 function fmtFull(s) {
   try { const d = new Date(s + 'T00:00:00'); return `${d.getMonth()+1}月${d.getDate()}日`; } catch { return s; }
 }
 function isOverdue(due) { return due && new Date(due + 'T23:59:59') < new Date(); }
 function qs(sel) { return document.querySelector(sel); }
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+
+// ── ライトモード切り替え ────────────────────────
+(function initTheme() {
+  const saved = LS.get('theme') || 'dark';
+  if (saved === 'light') document.documentElement.classList.add('light');
+  qs('#theme-btn').textContent = saved === 'light' ? '☽' : '☀';
+})();
+
+qs('#theme-btn').addEventListener('click', () => {
+  const isLight = document.documentElement.classList.toggle('light');
+  LS.set('theme', isLight ? 'light' : 'dark');
+  qs('#theme-btn').textContent = isLight ? '☽' : '☀';
+});
 
 // ── タブ切り替え ──────────────────────────────
 function switchTab(tab) {
@@ -536,7 +540,7 @@ function switchTab(tab) {
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
-// ── 日付表示 ──────────────────────────────────
+// ── 日付表示＋ストリーク ──────────────────────
 (function() {
   const d = new Date();
   qs('#day-date').textContent = d.toLocaleDateString('ja-JP', {month:'long', day:'numeric'});
@@ -552,7 +556,73 @@ document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', (
   if (s > 1) qs('#streak').textContent = s + '日連続';
 })();
 
-// ── レンズ ────────────────────────────────────
+// ── 進捗バナー ────────────────────────────────
+function renderProgressBanner() {
+  const meta = LS.get('meta') || {};
+  const logCount = Object.keys(meta).filter(d => meta[d]?.comment).length;
+  const weekNum = Math.min(Math.floor(logCount / 5) + 1, 6);
+  const logInWeek = logCount - (weekNum - 1) * 5;
+  const cur = CURRICULUM.find(c => c.week === weekNum);
+  if (!cur) return;
+  qs('#pb-week').textContent = `WEEK ${weekNum} / 6  ·  ${WEEKS[weekNum-1]?.theme || ''}`;
+  qs('#pb-theme').textContent = cur.shooting.theme + ' / ' + cur.editing.theme;
+  const pct = Math.min(100, Math.round((logInWeek / 5) * 100));
+  qs('#pb-fill').style.width = pct + '%';
+  qs('#pb-label').textContent = `今週 ${logInWeek}/5 ログ達成`;
+  qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
+}
+renderProgressBanner();
+
+// ── PWAプッシュ通知 ───────────────────────────
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  const result = await Notification.requestPermission();
+  if (result === 'granted') {
+    LS.set('notif', 'granted');
+    qs('#notif-banner').classList.add('hidden');
+    scheduleTaskNotifications();
+  } else {
+    LS.set('notif', 'denied');
+    qs('#notif-banner').classList.add('hidden');
+  }
+}
+
+function scheduleTaskNotifications() {
+  if (Notification.permission !== 'granted') return;
+  const tasks = state.tasks.filter(t => t.due && !state.tasksDone[t.id||t.title+t.due]);
+  tasks.forEach(t => {
+    const due = new Date(t.due + 'T09:00:00');
+    const now = new Date();
+    const msUntil = due - now;
+    // 締め切り当日の朝9時に通知（最大24時間先まで）
+    if (msUntil > 0 && msUntil < 86400000) {
+      setTimeout(() => {
+        new Notification('📷 課題の締め切り', {
+          body: t.title + '\n本日が締め切りです',
+          icon: '/Photo-tracker/icon-192.png'
+        });
+      }, msUntil);
+    }
+  });
+}
+
+(function initNotif() {
+  const perm = LS.get('notif');
+  if (perm === 'granted') {
+    // 既に許可済み → 通知スケジューリングは課題ロード後に実行
+  } else if (!perm && 'Notification' in window && Notification.permission === 'default') {
+    // まだ未確認 → バナー表示
+    setTimeout(() => qs('#notif-banner').classList.remove('hidden'), 1500);
+  }
+})();
+
+qs('#notif-allow-btn').addEventListener('click', requestNotifPermission);
+qs('#notif-deny-btn').addEventListener('click', () => {
+  qs('#notif-banner').classList.add('hidden');
+  LS.set('notif', 'later');
+});
+
+// ── レンズ ─────────────────────────────────
 function renderLenses() {
   const wrap = qs('#lens-wrap');
   wrap.innerHTML = '';
@@ -565,7 +635,7 @@ function renderLenses() {
 }
 renderLenses();
 
-// ── 写真アップロード ───────────────────────────
+// ── 写真アップロード ──────────────────────────
 async function handlePhotoFile(file) {
   if (!file) return;
   const blob = new Blob([await file.arrayBuffer()], {type: file.type || 'image/jpeg'});
@@ -605,20 +675,14 @@ qs('#photo-drop').addEventListener('drop', e => { e.preventDefault(); handlePhot
 qs('#photo-drop').onclick = () => qs('#photo-input').click();
 
 // ── プロ研究 ──────────────────────────────────
-// ★修正1: DOMから現在の入力値を取得する（再描画時にテキストが消えないように）
 function getProMemosFromDOM() {
-  return [0,1,2].map(i => {
-    const domEl = document.getElementById('pro-memo-' + i);
-    return domEl ? domEl.value : '';
-  });
+  return [0,1,2].map(i => { const e = document.getElementById('pro-memo-' + i); return e ? e.value : ''; });
 }
 
 function renderProGrid() {
-  // ★修正1: DOMの現在値を優先。なければlocalStorageから。なければ空文字
   const domMemos = getProMemosFromDOM();
   const savedMemos = (LS.get('meta') || {})[state.today]?.proMemos || ['','',''];
   const proMemos = [0,1,2].map(i => domMemos[i] !== '' ? domMemos[i] : (savedMemos[i] || ''));
-
   const grid = qs('#pro-grid');
   grid.innerHTML = '';
   [0,1,2].forEach(i => {
@@ -637,7 +701,7 @@ function renderProGrid() {
       drop.appendChild(img); drop.appendChild(btn);
       drop.onclick = null;
     } else {
-      drop.innerHTML = '<span style="font-size:14px;color:#1e1e1e">+</span><span style="font-size:9px;color:#333;letter-spacing:.1em">' + (i+1) + '</span>';
+      drop.innerHTML = '<span style="font-size:14px;color:var(--border2)">+</span><span style="font-size:9px;color:var(--fg6);letter-spacing:.1em">' + (i+1) + '</span>';
       const inp = el('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none';
       inp.addEventListener('change', async e => {
         const file = e.target.files[0]; if (!file) return;
@@ -662,7 +726,7 @@ function renderProGrid() {
     }
     const memo = el('input');
     memo.placeholder = 'なぜ良いか ' + (i+1);
-    memo.value = proMemos[i];  // ★修正1: 退避した値をセット
+    memo.value = proMemos[i];
     memo.style.fontSize = '11px';
     memo.id = 'pro-memo-' + i;
     slot.appendChild(drop); slot.appendChild(memo);
@@ -670,19 +734,15 @@ function renderProGrid() {
   });
 }
 
-// ★修正2: 今日の日付に対応するデータだけをロードする初期化関数
+// ── 今日データ初期化 ──────────────────────────
 async function initTodayData() {
   const today = state.today;
-
-  // 写真記録をロード
   const photoBlob = await IDB.get('main_' + today);
   if (photoBlob) {
     if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
     state.photoObjUrl = URL.createObjectURL(photoBlob);
     renderPhotoZone();
   }
-
-  // プロ画像をロード
   for (let i = 0; i < 3; i++) {
     const blob = await IDB.get('pro' + i + '_' + today);
     if (blob) {
@@ -693,16 +753,11 @@ async function initTodayData() {
     }
   }
   renderProGrid();
-
-  // テキスト・レンズをlocalStorageの今日分からロード
   const meta = LS.get('meta') || {};
   const todayData = meta[today];
   if (todayData) {
     if (todayData.comment) qs('#photo-comment').value = todayData.comment;
-    if (todayData.lens && LENSES.includes(todayData.lens)) {
-      state.lens = todayData.lens;
-      renderLenses();
-    }
+    if (todayData.lens && LENSES.includes(todayData.lens)) { state.lens = todayData.lens; renderLenses(); }
   }
 }
 
@@ -721,6 +776,7 @@ qs('#save-btn').addEventListener('click', async () => {
   const msg = qs('#saved-msg');
   msg.classList.remove('hidden');
   setTimeout(() => msg.classList.add('hidden'), 2000);
+  renderProgressBanner();
 });
 
 // ── 課題 ──────────────────────────────────────
@@ -742,8 +798,7 @@ function renderTasks() {
       LS.set('tasks_done', state.tasksDone);
       renderTasks();
     });
-    const info = el('div');
-    info.style.flex = '1';
+    const info = el('div'); info.style.flex = '1';
     const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
     title.textContent = t.title;
     const meta = el('div', 'task-meta');
@@ -766,16 +821,15 @@ async function syncTasks(url) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     let data;
-    try { data = JSON.parse(text); } catch { throw new Error('JSONではない応答です。URLを直接ブラウザで開いて確認してください'); }
+    try { data = JSON.parse(text); } catch { throw new Error('JSONではない応答です'); }
     if (data.error) throw new Error(data.error);
-    const list = Array.isArray(data) ? data : (data.tasks || []);
-    state.tasks = list;
-    LS.set('tasks_cache', {tasks: list, fetchedAt: new Date().toISOString()});
+    state.tasks = Array.isArray(data) ? data : (data.tasks || []);
+    LS.set('tasks_cache', {tasks: state.tasks, fetchedAt: new Date().toISOString()});
     renderTasks();
+    if (LS.get('notif') === 'granted') scheduleTaskNotifications();
   } catch(e) {
     qs('#task-error-msg').textContent = e.message === 'Failed to fetch'
-      ? '接続失敗。デプロイ設定で「アクセスできるユーザー：全員」になっているか確認してください'
-      : e.message;
+      ? '接続失敗。デプロイ設定で「アクセスできるユーザー：全員」になっているか確認してください' : e.message;
     qs('#task-error').classList.remove('hidden');
   }
   qs('#sync-btn').textContent = 'SYNC';
@@ -811,33 +865,18 @@ function renderLearn() {
   const cur = CURRICULUM.find(c => c.week === weekNum);
   if (!cur) return;
   const header = el('div', 'learn-header');
-  header.innerHTML = `
-    <div class="learn-week-badge">WEEK ${weekNum} / 6</div>
-    <div class="learn-week-title">今週のカリキュラム</div>
-    <div class="learn-week-sub">ログを5回記録するとWeek${weekNum+1}に進みます</div>
-  `;
+  header.innerHTML = `<div class="learn-week-badge">WEEK ${weekNum} / 6</div><div class="learn-week-title">今週のカリキュラム</div><div class="learn-week-sub">ログを5回記録するとWeek${weekNum<6?weekNum+1:''}に進みます</div>`;
   container.appendChild(header);
-  const sections = [
-    { key: 'shooting', label: '撮影編', badge: 'shooting', data: cur.shooting },
-    { key: 'editing', label: '編集編', badge: 'editing', data: cur.editing }
-  ];
-  sections.forEach(({ key, label, badge, data }) => {
+  [['shooting','撮影編'],['editing','編集編']].forEach(([key, label]) => {
+    const badge = key;
+    const data = cur[key];
     const savedChecks = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
     const savedMemo = LS.get('learn_memo_w' + weekNum + '_' + key) || '';
     const isOpen = LS.get('learn_open_' + key) !== false;
     const section = el('div', 'learn-section');
-    const secHeader = el('div', 'learn-section-header');
     const doneCount = data.checklist.filter((_, i) => savedChecks[i]).length;
-    secHeader.innerHTML = `
-      <div>
-        <div class="learn-section-title">${label}：${data.theme}</div>
-        <div style="font-size:10px;color:#444;margin-top:3px;letter-spacing:.04em">${data.goal}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;color:${doneCount===data.checklist.length?'#e8e8e8':'#444'}">${doneCount}/${data.checklist.length}</span>
-        <span class="learn-section-badge ${badge}">${label.slice(0,2)}</span>
-      </div>
-    `;
+    const secHeader = el('div', 'learn-section-header');
+    secHeader.innerHTML = `<div><div class="learn-section-title">${label}：${data.theme}</div><div style="font-size:10px;color:var(--fg5);margin-top:3px;letter-spacing:.04em">${data.goal}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:${doneCount===data.checklist.length?'var(--fg)':'var(--fg5)'}">${doneCount}/${data.checklist.length}</span><span class="learn-section-badge ${badge}">${label.slice(0,2)}</span></div>`;
     const body = el('div', 'learn-body');
     if (!isOpen) body.style.display = 'none';
     secHeader.addEventListener('click', () => {
@@ -845,10 +884,9 @@ function renderLearn() {
       body.style.display = open ? 'none' : 'block';
       LS.set('learn_open_' + key, !open);
     });
-    const goal = el('div', 'learn-goal');
-    goal.textContent = '目標：' + data.goal;
+    const goal = el('div', 'learn-goal'); goal.textContent = '目標：' + data.goal;
     body.appendChild(goal);
-    const theoryWrap = el('div', 'learn-theory-wrap');
+    const theoryWrap = el('div');
     const theoryLbl = el('div', 'lbl'); theoryLbl.style.marginBottom = '8px'; theoryLbl.textContent = '解説';
     const theory = el('div', 'learn-theory'); theory.textContent = data.theory;
     theoryWrap.appendChild(theoryLbl); theoryWrap.appendChild(theory);
@@ -878,13 +916,12 @@ function renderLearn() {
       const checks = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
       const isDone = !!checks[i];
       const cb = el('div', 'cb' + (isDone ? ' done' : ''));
-      const txt = el('div', 'learn-check-text' + (isDone ? ' done' : ''));
-      txt.textContent = item;
+      const txt = el('div', 'learn-check-text' + (isDone ? ' done' : '')); txt.textContent = item;
       row.appendChild(cb); row.appendChild(txt);
       row.addEventListener('click', () => {
-        const cur = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
-        cur[i] = !cur[i];
-        LS.set('learn_checks_w' + weekNum + '_' + key, cur);
+        const cur2 = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
+        cur2[i] = !cur2[i];
+        LS.set('learn_checks_w' + weekNum + '_' + key, cur2);
         renderLearn();
       });
       checkWrap.appendChild(row);
@@ -893,12 +930,10 @@ function renderLearn() {
     const memoWrap = el('div', 'learn-memo');
     const memoLbl = el('div', 'lbl'); memoLbl.style.marginBottom = '8px'; memoLbl.textContent = '成果メモ';
     const memoTA = document.createElement('textarea');
-    memoTA.rows = 3;
-    memoTA.placeholder = '実践してみてどうだったか・気づいたこと・次に試したいことを書く';
+    memoTA.rows = 3; memoTA.placeholder = '実践してみてどうだったか・気づいたこと・次に試したいことを書く';
     memoTA.value = savedMemo;
-    memoTA.style.cssText = 'border:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:10px 12px;font-size:11px;background:#0a0a0a;line-height:1.8';
-    const memoBtn = el('button', 'learn-save-btn');
-    memoBtn.textContent = 'メモを保存';
+    memoTA.style.cssText = 'border:1px solid var(--bg5);border-bottom:1px solid var(--bg5);padding:10px 12px;font-size:11px;background:var(--input-bg);line-height:1.8';
+    const memoBtn = el('button', 'learn-save-btn'); memoBtn.textContent = 'メモを保存';
     memoBtn.addEventListener('click', () => {
       LS.set('learn_memo_w' + weekNum + '_' + key, memoTA.value);
       memoBtn.textContent = '保存しました ✓';
@@ -911,72 +946,36 @@ function renderLearn() {
   });
 }
 
-// ── プラン ────────────────────────────────────
+// ── プラン ─────────────────────────────────
 function getWeekLogCount(weekId) {
   const meta = LS.get('meta') || {};
   const allDates = Object.keys(meta).filter(d => meta[d]?.comment).sort();
   const start = (weekId - 1) * 5;
   return Math.max(0, Math.min(allDates.length - start, 5));
 }
-
-function isWeekComplete(weekId) {
-  return getWeekLogCount(weekId) >= 5;
-}
+function isWeekComplete(weekId) { return getWeekLogCount(weekId) >= 5; }
 
 function renderPlan() {
   const container = qs('#week-content');
   container.innerHTML = '';
   const meta = LS.get('meta') || {};
-  const completedCount = WEEKS.filter(w => isWeekComplete(w.id)).length;
   const totalLogs = Object.keys(meta).filter(d => meta[d]?.comment).length;
+  const completedCount = WEEKS.filter(w => isWeekComplete(w.id)).length;
   const summary = el('div');
-  summary.style.cssText = 'margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid #141414';
-  summary.innerHTML = `
-    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
-      <span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700">${totalLogs}</span>
-      <span style="font-size:10px;color:#444;letter-spacing:.1em">LOGS TOTAL</span>
-    </div>
-    <div style="display:flex;gap:20px">
-      <span style="font-size:10px;color:#444;letter-spacing:.08em">${completedCount}/6 WEEKS COMPLETE</span>
-    </div>
-  `;
+  summary.style.cssText = 'margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border)';
+  summary.innerHTML = `<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px"><span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700">${totalLogs}</span><span style="font-size:10px;color:var(--fg5);letter-spacing:.1em">LOGS TOTAL</span></div><div style="display:flex;gap:20px"><span style="font-size:10px;color:var(--fg5);letter-spacing:.08em">${completedCount}/6 WEEKS COMPLETE</span></div>`;
   container.appendChild(summary);
-
   WEEKS.forEach(w => {
     const logCount = getWeekLogCount(w.id);
     const complete = isWeekComplete(w.id);
     const isActive = state.activeWeek === w.id;
     const card = el('div', 'week-card' + (isActive ? ' active' : '') + (complete ? ' complete' : ''));
     const pct = Math.round((logCount / 5) * 100);
-    card.innerHTML = `
-      <div class="week-card-header">
-        <div class="week-card-title">Week ${w.id} — ${w.theme}</div>
-        <div class="week-card-status${complete ? ' done' : ''}">${complete ? 'COMPLETE' : logCount + '/5'}</div>
-      </div>
-      <div class="week-card-sub">${w.dates}</div>
-      <div class="week-progress-wrap">
-        <div class="week-progress-track"><div class="week-progress-fill" style="width:${pct}%"></div></div>
-        <div class="week-progress-label">${logCount}/5 ログ記録済み</div>
-      </div>
-    `;
+    card.innerHTML = `<div class="week-card-header"><div class="week-card-title">Week ${w.id} — ${w.theme}</div><div class="week-card-status${complete ? ' done' : ''}">${complete ? 'COMPLETE' : logCount + '/5'}</div></div><div class="week-card-sub">${w.dates}</div><div class="week-progress-wrap"><div class="week-progress-track"><div class="week-progress-fill" style="width:${pct}%"></div></div><div class="week-progress-label">${logCount}/5 ログ記録済み</div></div>`;
     if (isActive) {
       const detail = el('div', 'week-detail');
-      detail.innerHTML = `
-        <div class="constraint"><div class="lbl">縛り</div><p>${w.constraint}</p></div>
-        <div class="mission-grid">
-          <div class="mission-box"><div class="lbl">平日ミッション</div><p>${w.weekday}</p></div>
-          <div class="mission-box"><div class="lbl">週末ミッション</div><p>${w.weekend}</p></div>
-        </div>
-        <div class="check-section">
-          <div class="lbl">週末セルフチェック</div>
-          <div class="check-row">
-            <div class="cb${(LS.get('checks')||{})[w.id] ? ' done' : ''}"></div>
-            <div class="check-text${(LS.get('checks')||{})[w.id] ? ' done' : ''}">${w.check}</div>
-          </div>
-        </div>
-      `;
-      const checkRow = detail.querySelector('.check-row');
-      checkRow.addEventListener('click', () => {
+      detail.innerHTML = `<div class="constraint"><div class="lbl">縛り</div><p>${w.constraint}</p></div><div class="mission-grid"><div class="mission-box"><div class="lbl">平日ミッション</div><p>${w.weekday}</p></div><div class="mission-box"><div class="lbl">週末ミッション</div><p>${w.weekend}</p></div></div><div class="check-section"><div class="lbl">週末セルフチェック</div><div class="check-row"><div class="cb${(LS.get('checks')||{})[w.id] ? ' done' : ''}"></div><div class="check-text${(LS.get('checks')||{})[w.id] ? ' done' : ''}">${w.check}</div></div></div>`;
+      detail.querySelector('.check-row').addEventListener('click', () => {
         const c = LS.get('checks') || {};
         c[w.id] = !c[w.id];
         LS.set('checks', c);
@@ -994,12 +993,122 @@ function renderPlan() {
   });
 }
 
-// ── ログ ──────────────────────────────────────
-let logObjUrls = {};
+// ── バックアップ・リストア ─────────────────────
+qs('#backup-export-btn').addEventListener('click', () => {
+  const meta = LS.get('meta') || {};
+  const checks = LS.get('checks') || {};
+  const tasksDone = LS.get('tasks_done') || {};
+  const learnData = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('ptr_learn_')) {
+      learnData[k.replace('ptr_', '')] = LS.get(k.replace('ptr_', ''));
+    }
+  }
+  const payload = { version: 1, exportedAt: new Date().toISOString(), meta, checks, tasksDone, learnData };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'photo-tracker-backup-' + state.today + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  qs('#backup-msg').textContent = '書き出しました';
+  setTimeout(() => qs('#backup-msg').textContent = '', 2000);
+});
 
+qs('#backup-import-btn').addEventListener('click', () => qs('#backup-file-input').click());
+qs('#backup-file-input').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.meta) throw new Error('無効なバックアップファイルです');
+    LS.set('meta', data.meta);
+    if (data.checks) LS.set('checks', data.checks);
+    if (data.tasksDone) LS.set('tasks_done', data.tasksDone);
+    if (data.learnData) {
+      Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
+    }
+    qs('#backup-msg').textContent = '読み込み完了。ページを再読み込みします…';
+    setTimeout(() => location.reload(), 1500);
+  } catch(err) {
+    qs('#backup-msg').textContent = 'エラー: ' + err.message;
+  }
+});
+
+// ── ログ（リスト＋カレンダー） ──────────────────
+let logObjUrls = {};
 function cleanLogObjUrls() {
   Object.values(logObjUrls).forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
   logObjUrls = {};
+}
+
+// ビュー切り替え
+qs('#log-view-list-btn').addEventListener('click', () => {
+  state.logView = 'list';
+  qs('#log-view-list-btn').classList.add('active');
+  qs('#log-view-cal-btn').classList.remove('active');
+  qs('#log-list').classList.remove('hidden');
+  qs('#log-cal').classList.add('hidden');
+});
+qs('#log-view-cal-btn').addEventListener('click', () => {
+  state.logView = 'cal';
+  qs('#log-view-cal-btn').classList.add('active');
+  qs('#log-view-list-btn').classList.remove('active');
+  qs('#log-list').classList.add('hidden');
+  qs('#log-cal').classList.remove('hidden');
+  renderCalendar();
+});
+
+function renderCalendar() {
+  const cal = qs('#log-cal');
+  const meta = LS.get('meta') || {};
+  const logDates = new Set(Object.keys(meta).filter(d => meta[d]?.comment || meta[d]?.hasPhoto));
+  const year = state.calYear;
+  const month = state.calMonth;
+  const todayStr = state.today;
+
+  cal.innerHTML = '';
+  // ナビ
+  const nav = el('div', 'cal-nav');
+  const prevBtn = el('button', 'cal-arrow'); prevBtn.textContent = '←';
+  prevBtn.addEventListener('click', () => {
+    state.calMonth--;
+    if (state.calMonth < 0) { state.calMonth = 11; state.calYear--; }
+    renderCalendar();
+  });
+  const nextBtn = el('button', 'cal-arrow'); nextBtn.textContent = '→';
+  nextBtn.addEventListener('click', () => {
+    state.calMonth++;
+    if (state.calMonth > 11) { state.calMonth = 0; state.calYear++; }
+    renderCalendar();
+  });
+  const monthEl = el('div', 'cal-month');
+  monthEl.textContent = year + '年' + (month + 1) + '月';
+  nav.appendChild(prevBtn); nav.appendChild(monthEl); nav.appendChild(nextBtn);
+  cal.appendChild(nav);
+
+  // グリッド
+  const grid = el('div', 'cal-grid');
+  ['日','月','火','水','木','金','土'].forEach(d => {
+    const dow = el('div', 'cal-dow'); dow.textContent = d; grid.appendChild(dow);
+  });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 0; i < firstDay; i++) { grid.appendChild(el('div', 'cal-day')); }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const hasLog = logDates.has(dateStr);
+    const isToday = dateStr === todayStr;
+    const dayEl = el('div', 'cal-day' + (hasLog ? ' has-log' : '') + (isToday ? ' today' : ''));
+    dayEl.textContent = d;
+    if (hasLog) {
+      const dot = el('div', 'cal-dot'); dayEl.appendChild(dot);
+      dayEl.addEventListener('click', () => showLogDetail(dateStr));
+    }
+    grid.appendChild(dayEl);
+  }
+  cal.appendChild(grid);
 }
 
 async function renderLog() {
@@ -1019,11 +1128,9 @@ async function renderLog() {
     list.innerHTML = '<div class="log-empty">まだ記録がありません</div>';
     return;
   }
-
   for (const date of dates) {
     const data = meta[date];
     const entry = el('div', 'log-entry');
-
     const thumb = el('div', 'log-thumb');
     const photoBlob = await IDB.get('main_' + date);
     if (photoBlob) {
@@ -1034,51 +1141,35 @@ async function renderLog() {
     } else {
       thumb.innerHTML = '<div class="log-thumb-empty">NO PHOTO</div>';
     }
-
     const info = el('div');
     const logMeta = el('div', 'log-meta');
     const dateEl = el('div', 'log-date'); dateEl.textContent = fmtFull(date);
     logMeta.appendChild(dateEl);
     if (data.lens) { const tag = el('span', 'tag'); tag.textContent = data.lens; logMeta.appendChild(tag); }
-
-    const comment = el('div', 'log-comment');
-    comment.textContent = data.comment || '';
-
+    const comment = el('div', 'log-comment'); comment.textContent = data.comment || '';
     const proMemos = data.proMemos || [];
     const proCount = proMemos.filter(m => m).length;
     const proInfo = el('div', 'log-pro');
-    if (proCount > 0) {
-      proInfo.innerHTML = `<span class="log-pro-label">プロ研究 ${proCount}件</span>`;
-    }
-
-    info.appendChild(logMeta);
-    info.appendChild(comment);
+    if (proCount > 0) proInfo.innerHTML = `<span class="log-pro-label">プロ研究 ${proCount}件</span>`;
+    info.appendChild(logMeta); info.appendChild(comment);
     if (proCount > 0) info.appendChild(proInfo);
-    entry.appendChild(thumb);
-    entry.appendChild(info);
+    entry.appendChild(thumb); entry.appendChild(info);
     entry.addEventListener('click', () => showLogDetail(date));
     list.appendChild(entry);
   }
+  if (state.logView === 'cal') renderCalendar();
 }
 
 async function showLogDetail(date) {
   const meta = LS.get('meta') || {};
   const data = meta[date] || {};
-  const listView = qs('#log-list-view');
-  const detailView = qs('#log-detail-view');
-  listView.classList.add('hidden');
-  detailView.classList.remove('hidden');
-
+  qs('#log-list-view').classList.add('hidden');
+  qs('#log-detail-view').classList.remove('hidden');
   const content = qs('#detail-content');
   content.innerHTML = '';
-
   const dateEl = el('div', 'detail-date'); dateEl.textContent = fmtFull(date);
   content.appendChild(dateEl);
-  if (data.lens) {
-    const lensEl = el('div', 'detail-lens'); lensEl.textContent = data.lens;
-    content.appendChild(lensEl);
-  }
-
+  if (data.lens) { const lensEl = el('div', 'detail-lens'); lensEl.textContent = data.lens; content.appendChild(lensEl); }
   const photoSection = el('div', 'detail-photo');
   const photoBlob = await IDB.get('main_' + date);
   if (photoBlob) {
@@ -1087,28 +1178,20 @@ async function showLogDetail(date) {
     const img = el('img'); img.src = url;
     photoSection.appendChild(img);
   } else {
-    photoSection.className = 'detail-no-photo';
-    photoSection.textContent = 'NO PHOTO';
+    photoSection.className = 'detail-no-photo'; photoSection.textContent = 'NO PHOTO';
   }
   content.appendChild(photoSection);
-
   if (data.comment) {
-    const commentSection = el('div', 'detail-section');
+    const s = el('div', 'detail-section');
     const lbl = el('div', 'lbl'); lbl.textContent = '気づき';
-    const commentEl = el('div', 'detail-comment'); commentEl.textContent = data.comment;
-    commentSection.appendChild(lbl); commentSection.appendChild(commentEl);
-    content.appendChild(commentSection);
+    const c = el('div', 'detail-comment'); c.textContent = data.comment;
+    s.appendChild(lbl); s.appendChild(c); content.appendChild(s);
   }
-
   const proMemos = data.proMemos || [];
-  const hasProContent = proMemos.some(m => m);
   const proBlobs = await Promise.all([0,1,2].map(i => IDB.get('pro' + i + '_' + date)));
-  const hasProImages = proBlobs.some(b => b);
-
-  if (hasProContent || hasProImages) {
+  if (proMemos.some(m => m) || proBlobs.some(b => b)) {
     const proSection = el('div', 'detail-section');
-    const lbl = el('div', 'lbl'); lbl.textContent = 'プロ研究';
-    proSection.appendChild(lbl);
+    const lbl = el('div', 'lbl'); lbl.textContent = 'プロ研究'; proSection.appendChild(lbl);
     const proGrid = el('div', 'detail-pro-grid');
     for (let i = 0; i < 3; i++) {
       const slot = el('div');
@@ -1118,20 +1201,14 @@ async function showLogDetail(date) {
         const wrap = el('div', 'detail-pro-img-wrap');
         const img = el('img', 'detail-pro-img'); img.src = url;
         img.addEventListener('click', () => showLightbox(url));
-        wrap.appendChild(img);
-        slot.appendChild(wrap);
+        wrap.appendChild(img); slot.appendChild(wrap);
       } else {
-        const empty = el('div', 'detail-pro-empty'); empty.textContent = i+1;
-        slot.appendChild(empty);
+        const empty = el('div', 'detail-pro-empty'); empty.textContent = i+1; slot.appendChild(empty);
       }
-      if (proMemos[i]) {
-        const memo = el('div', 'detail-pro-memo'); memo.textContent = proMemos[i];
-        slot.appendChild(memo);
-      }
+      if (proMemos[i]) { const m = el('div', 'detail-pro-memo'); m.textContent = proMemos[i]; slot.appendChild(m); }
       proGrid.appendChild(slot);
     }
-    proSection.appendChild(proGrid);
-    content.appendChild(proSection);
+    proSection.appendChild(proGrid); content.appendChild(proSection);
   }
 }
 
@@ -1147,19 +1224,13 @@ function showLightbox(src) {
 qs('#detail-back-btn').addEventListener('click', () => renderLog());
 
 // ── 初期化 ────────────────────────────────────
-// キャッシュされた課題を復元
 (function() {
   const cache = LS.get('tasks_cache');
-  if (cache && cache.tasks) {
-    state.tasks = cache.tasks;
-    renderTasks();
-  }
+  if (cache && cache.tasks) { state.tasks = cache.tasks; renderTasks(); }
   if (state.scriptUrl) syncTasks();
 })();
 
 renderPlan();
-
-// ★修正2: 今日のデータを正しくロード（日付をまたいでも前日データが残らない）
 initTodayData();
 </script>
 </body>
