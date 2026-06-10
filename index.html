@@ -873,43 +873,24 @@ function renderGantt(tasks) {
   }
 
   const today = new Date(); today.setHours(0,0,0,0);
-  // 範囲: 今日〜最後の締め切り+3日（最低14日）
   const maxDue = new Date(withDue[withDue.length-1].due + 'T00:00:00');
-  const endDate = new Date(Math.max(maxDue.getTime() + 3*86400000, today.getTime() + 14*86400000));
-  const totalMs = endDate - today;
-  const totalDays = Math.round(totalMs / 86400000);
+  const maxDays = Math.max(Math.round((maxDue - today) / 86400000) + 3, 14);
 
-  // 日数→%変換（今日基点）
-  const toPct = d => Math.max(0, Math.min(100, (d - today) / totalMs * 100));
-
-  // 目盛り間隔
-  const tickInterval = totalDays <= 14 ? 1 : totalDays <= 35 ? 7 : 14;
-
-  // ── ヘッダー ──
+  // ── ヘッダー目盛り ──
   const head = el('div');
-  head.style.cssText = 'position:relative;height:28px;margin-bottom:2px;border-bottom:1px solid var(--border)';
-  for (let i = 0; i <= totalDays; i += tickInterval) {
+  head.style.cssText = 'position:relative;height:28px;margin-bottom:6px;border-bottom:1px solid var(--border);margin-left:210px';
+  const tickInterval = maxDays <= 14 ? 2 : maxDays <= 35 ? 7 : 14;
+  for (let i = 0; i <= maxDays; i += tickInterval) {
+    if (i === 0) continue;
     const d = new Date(today); d.setDate(d.getDate() + i);
     const tick = el('div');
-    tick.style.cssText = `position:absolute;left:${(i/totalDays*100).toFixed(2)}%;transform:translateX(-50%);font-size:9px;color:var(--fg6);letter-spacing:.05em;top:8px;white-space:nowrap`;
+    tick.style.cssText = `position:absolute;left:${(i/maxDays*100).toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg6);top:8px;white-space:nowrap`;
     tick.textContent = (d.getMonth()+1) + '/' + d.getDate();
     head.appendChild(tick);
   }
-  // 今日ラベル
-  const todayLabel = el('div');
-  todayLabel.style.cssText = 'position:absolute;left:0;top:8px;font-size:9px;color:var(--fg);letter-spacing:.06em;font-weight:500';
-  todayLabel.textContent = '今日';
-  head.appendChild(todayLabel);
   wrap.appendChild(head);
 
-  // ── 行 ──
-  const body = el('div'); body.style.position = 'relative';
-
-  // 今日の縦線（body全体にかかるよう後で高さ調整）
-  const todayLine = el('div', 'gantt-today-line');
-  todayLine.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--fg);opacity:.25;pointer-events:none;z-index:1';
-  body.appendChild(todayLine);
-
+  // ── 各タスク行 ──
   withDue.forEach(t => {
     const k = t.id || t.title + t.due;
     const done = !!state.tasksDone[k];
@@ -917,23 +898,18 @@ function renderGantt(tasks) {
     const daysLeft = Math.round((dueDate - today) / 86400000);
     const over = daysLeft < 0 && !done;
 
-    // バー色: 期限切れ=赤、3日以内=オレンジ寄り、それ以上=通常
-    let barColor = 'var(--fg5)';
-    if (done) barColor = 'var(--fg8)';
-    else if (over) barColor = 'var(--overdue)';
-    else if (daysLeft <= 3) barColor = '#c07040';
-    else if (daysLeft <= 7) barColor = '#888';
-
-    // バー: 今日〜締め切り（期限切れは締め切り〜今日で逆向き表示）
-    const barStart = over ? dueDate : today;
-    const barEnd   = over ? today   : dueDate;
-    const leftPct  = toPct(barStart).toFixed(2);
-    const widthPct = Math.max(0.5, toPct(barEnd) - toPct(barStart)).toFixed(2);
+    // 残り日数に応じた色
+    let accentColor, bgColor;
+    if (done)        { accentColor = 'var(--fg7)';  bgColor = 'var(--bg4)'; }
+    else if (over)   { accentColor = '#c05050';      bgColor = '#3a1515'; }
+    else if (daysLeft <= 2)  { accentColor = '#d06030'; bgColor = '#2e1a0a'; }
+    else if (daysLeft <= 7)  { accentColor = '#a08030'; bgColor = '#281e05'; }
+    else             { accentColor = 'var(--fg5)';  bgColor = 'var(--bg3)'; }
 
     const row = el('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bg3);position:relative';
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg3)';
 
-    // チェックボックス（左端）
+    // チェックボックス
     const cb = el('div', 'cb' + (done ? ' done' : ''));
     cb.style.flexShrink = '0';
     cb.addEventListener('click', () => {
@@ -942,41 +918,40 @@ function renderGantt(tasks) {
       renderTodo();
     });
 
-    // タスク名（固定幅）
+    // タスク名（固定幅180px）
     const nameCell = el('div');
-    nameCell.style.cssText = 'width:160px;flex-shrink:0;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+    nameCell.style.cssText = 'width:180px;flex-shrink:0;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.4';
     if (done) nameCell.style.cssText += ';color:var(--fg7);text-decoration:line-through';
-    else if (over) nameCell.style.cssText += ';color:var(--overdue)';
+    else if (over) nameCell.style.cssText += ';color:#c05050';
     nameCell.textContent = t.title;
     if (t.subject) nameCell.title = '[' + t.subject + '] ' + t.title;
 
-    // バーエリア
-    const barCell = el('div');
-    barCell.style.cssText = 'flex:1;position:relative;height:24px';
+    // バー＋ラベルエリア（flex:1）
+    const barWrap = el('div');
+    barWrap.style.cssText = 'flex:1;display:flex;align-items:center;gap:8px;min-width:0';
 
-    const bar = el('div');
-    bar.style.cssText = `position:absolute;height:10px;top:7px;left:${leftPct}%;width:${widthPct}%;background:${barColor};opacity:${done?'.4':'1'};border-radius:1px`;
-    barCell.appendChild(bar);
+    // バー本体（幅 = 残り日数/最大日数、最小4px）
+    const barTrack = el('div');
+    barTrack.style.cssText = 'flex:1;height:6px;background:var(--bg4);border-radius:2px;overflow:hidden';
+    const barFill = el('div');
+    const fillPct = done ? 100 : Math.max(2, Math.min(100, (1 - daysLeft / maxDays) * 100));
+    // 完了は右から満タン、未完了は左から締め切りまでの「消費済み割合」
+    barFill.style.cssText = `height:100%;width:${fillPct.toFixed(1)}%;background:${accentColor};border-radius:2px;transition:width .3s`;
+    barTrack.appendChild(barFill);
 
-    // 残り日数ラベル（バーの右外）
-    const duePct = toPct(dueDate);
-    const dueLabel = el('div');
-    dueLabel.style.cssText = `position:absolute;left:calc(${duePct.toFixed(2)}% + 4px);top:4px;font-size:9px;white-space:nowrap;letter-spacing:.04em`;
-    dueLabel.style.color = over ? 'var(--overdue)' : daysLeft <= 3 ? '#c07040' : 'var(--fg5)';
-    dueLabel.textContent = over
-      ? `${Math.abs(daysLeft)}日超過`
-      : daysLeft === 0 ? '今日〆'
-      : daysLeft === 1 ? '明日〆'
-      : `あと${daysLeft}日`;
-    barCell.appendChild(dueLabel);
+    // 残り日数バッジ
+    const badge = el('div');
+    badge.style.cssText = `flex-shrink:0;font-size:10px;font-weight:500;letter-spacing:.04em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap`;
+    badge.textContent = done ? '完了' : over ? `${Math.abs(daysLeft)}日超過` : daysLeft === 0 ? '今日〆' : daysLeft === 1 ? '明日〆' : `あと${daysLeft}日`;
+
+    barWrap.appendChild(barTrack);
+    barWrap.appendChild(badge);
 
     row.appendChild(cb);
     row.appendChild(nameCell);
-    row.appendChild(barCell);
-    body.appendChild(row);
+    row.appendChild(barWrap);
+    wrap.appendChild(row);
   });
-
-  wrap.appendChild(body);
 }
 
 // Todo フィルタ・ビュー切り替え
