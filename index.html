@@ -494,11 +494,19 @@ button{cursor:pointer}
       </div>
     </div>
     <!-- フィルタ -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="todo-filters">
-        <button class="todo-filter-btn active" data-filter="all">すべて</button>
-        <button class="todo-filter-btn" data-filter="active">未完了</button>
-        <button class="todo-filter-btn" data-filter="done">完了</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="todo-filters">
+          <button class="todo-filter-btn active" data-filter="all">すべて</button>
+          <button class="todo-filter-btn" data-filter="active">未完了</button>
+          <button class="todo-filter-btn" data-filter="done">完了</button>
+        </div>
+        <div class="todo-filters" id="todo-period-filters">
+          <button class="todo-filter-btn active" data-period="all">全期間</button>
+          <button class="todo-filter-btn" data-period="week">今週</button>
+          <button class="todo-filter-btn" data-period="2weeks">2週間</button>
+          <button class="todo-filter-btn" data-period="month">今月</button>
+        </div>
       </div>
       <div class="log-view-toggle" style="margin-bottom:0;width:auto">
         <button class="log-view-btn active" id="todo-view-list-btn" style="padding:6px 14px">リスト</button>
@@ -792,15 +800,40 @@ function getAllTasks() {
 
 state.todoFilter = 'all';
 state.todoView = 'list';
+state.todoPeriod = 'all';
+
+function getDeadlineLimit(period) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (period === 'week') {
+    const end = new Date(today); end.setDate(end.getDate() + 7); return end;
+  }
+  if (period === '2weeks') {
+    const end = new Date(today); end.setDate(end.getDate() + 14); return end;
+  }
+  if (period === 'month') {
+    const end = new Date(today); end.setDate(end.getDate() + 30); return end;
+  }
+  return null;
+}
 
 function renderTodo() {
   const allTasks = getAllTasks();
   const filter = state.todoFilter;
+  const limit = getDeadlineLimit(state.todoPeriod);
+  const today = new Date(); today.setHours(0,0,0,0);
+
   const filtered = allTasks.filter(t => {
     const k = t.id || t.title + t.due;
     const done = !!state.tasksDone[k];
-    if (filter === 'active') return !done;
-    if (filter === 'done') return done;
+    if (filter === 'active' && done) return false;
+    if (filter === 'done' && !done) return false;
+    // 期間フィルタ（締め切りなしは全期間のみ表示）
+    if (limit && t.due) {
+      const due = new Date(t.due + 'T00:00:00');
+      if (due > limit) return false;
+    } else if (limit && !t.due) {
+      return false;
+    }
     return true;
   });
 
@@ -874,20 +907,31 @@ function renderGantt(tasks) {
 
   const today = new Date(); today.setHours(0,0,0,0);
   const maxDue = new Date(withDue[withDue.length-1].due + 'T00:00:00');
-  const maxDays = Math.max(Math.round((maxDue - today) / 86400000) + 3, 14);
+  const maxDays = Math.max(Math.round((maxDue - today) / 86400000) + 4, 14);
+  const isLight = document.documentElement.classList.contains('light');
 
-  // ── ヘッダー目盛り ──
+  // 締め切り日を重複排除して目盛りに使う（最大8本）
+  const dueDates = [...new Set(withDue.map(t => t.due))];
+  // 多すぎる場合は間引く
+  const maxTicks = 7;
+  let tickDates = dueDates;
+  if (dueDates.length > maxTicks) {
+    const step = Math.ceil(dueDates.length / maxTicks);
+    tickDates = dueDates.filter((_, i) => i % step === 0 || i === dueDates.length - 1);
+  }
+
+  // ── ヘッダー目盛り（締め切り日ベース）──
   const head = el('div');
-  head.style.cssText = 'position:relative;height:28px;margin-bottom:6px;border-bottom:1px solid var(--border);margin-left:210px';
-  const tickInterval = maxDays <= 14 ? 2 : maxDays <= 35 ? 7 : 14;
-  for (let i = 0; i <= maxDays; i += tickInterval) {
-    if (i === 0) continue;
-    const d = new Date(today); d.setDate(d.getDate() + i);
+  head.style.cssText = 'position:relative;height:28px;margin-bottom:6px;border-bottom:1px solid var(--border);margin-left:200px';
+  tickDates.forEach(dateStr => {
+    const d = new Date(dateStr + 'T00:00:00');
+    const daysFromToday = Math.round((d - today) / 86400000);
+    const pct = Math.min(100, daysFromToday / maxDays * 100);
     const tick = el('div');
-    tick.style.cssText = `position:absolute;left:${(i/maxDays*100).toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg6);top:8px;white-space:nowrap`;
+    tick.style.cssText = `position:absolute;left:${pct.toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg5);top:8px;white-space:nowrap`;
     tick.textContent = (d.getMonth()+1) + '/' + d.getDate();
     head.appendChild(tick);
-  }
+  });
   wrap.appendChild(head);
 
   // ── 各タスク行 ──
@@ -898,13 +942,27 @@ function renderGantt(tasks) {
     const daysLeft = Math.round((dueDate - today) / 86400000);
     const over = daysLeft < 0 && !done;
 
-    // 残り日数に応じた色
-    let accentColor, bgColor;
-    if (done)        { accentColor = 'var(--fg7)';  bgColor = 'var(--bg4)'; }
-    else if (over)   { accentColor = '#c05050';      bgColor = '#3a1515'; }
-    else if (daysLeft <= 2)  { accentColor = '#d06030'; bgColor = '#2e1a0a'; }
-    else if (daysLeft <= 7)  { accentColor = '#a08030'; bgColor = '#281e05'; }
-    else             { accentColor = 'var(--fg5)';  bgColor = 'var(--bg3)'; }
+    // ダーク/ライト両対応のカラーセット
+    let accentColor, barColor, badgeBg;
+    if (done) {
+      accentColor = 'var(--fg7)'; barColor = 'var(--bg5)'; badgeBg = 'transparent';
+    } else if (over) {
+      accentColor = isLight ? '#b03030' : '#e05555';
+      barColor    = isLight ? '#c04040' : '#c03535';
+      badgeBg     = 'transparent';
+    } else if (daysLeft <= 2) {
+      accentColor = isLight ? '#c05020' : '#ff7040';
+      barColor    = isLight ? '#c05020' : '#e05030';
+      badgeBg     = 'transparent';
+    } else if (daysLeft <= 7) {
+      accentColor = isLight ? '#8a7010' : '#e0b840';
+      barColor    = isLight ? '#9a8020' : '#c09820';
+      badgeBg     = 'transparent';
+    } else {
+      accentColor = 'var(--fg5)';
+      barColor    = 'var(--fg6)';
+      badgeBg     = 'transparent';
+    }
 
     const row = el('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg3)';
@@ -918,35 +976,41 @@ function renderGantt(tasks) {
       renderTodo();
     });
 
-    // タスク名（固定幅180px）
+    // タスク名（180px固定）
     const nameCell = el('div');
     nameCell.style.cssText = 'width:180px;flex-shrink:0;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.4';
     if (done) nameCell.style.cssText += ';color:var(--fg7);text-decoration:line-through';
-    else if (over) nameCell.style.cssText += ';color:#c05050';
+    else if (over) nameCell.style.cssText += `;color:${accentColor}`;
     nameCell.textContent = t.title;
     if (t.subject) nameCell.title = '[' + t.subject + '] ' + t.title;
 
-    // バー＋ラベルエリア（flex:1）
+    // バー＋バッジ
     const barWrap = el('div');
     barWrap.style.cssText = 'flex:1;display:flex;align-items:center;gap:8px;min-width:0';
 
-    // バー本体（幅 = 残り日数/最大日数、最小4px）
     const barTrack = el('div');
-    barTrack.style.cssText = 'flex:1;height:6px;background:var(--bg4);border-radius:2px;overflow:hidden';
+    barTrack.style.cssText = 'flex:1;height:5px;background:var(--bg4);border-radius:2px;overflow:hidden';
     const barFill = el('div');
-    const fillPct = done ? 100 : Math.max(2, Math.min(100, (1 - daysLeft / maxDays) * 100));
-    // 完了は右から満タン、未完了は左から締め切りまでの「消費済み割合」
-    barFill.style.cssText = `height:100%;width:${fillPct.toFixed(1)}%;background:${accentColor};border-radius:2px;transition:width .3s`;
+    // fillPct: 締め切りが近いほど長い（締め切り済みは満タン赤）
+    const fillPct = done
+      ? 100
+      : over
+        ? 100
+        : Math.max(3, (1 - daysLeft / maxDays) * 100);
+    barFill.style.cssText = `height:100%;width:${fillPct.toFixed(1)}%;background:${barColor};border-radius:2px`;
+    if (done) barFill.style.opacity = '0.35';
     barTrack.appendChild(barFill);
 
-    // 残り日数バッジ
     const badge = el('div');
-    badge.style.cssText = `flex-shrink:0;font-size:10px;font-weight:500;letter-spacing:.04em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap`;
-    badge.textContent = done ? '完了' : over ? `${Math.abs(daysLeft)}日超過` : daysLeft === 0 ? '今日〆' : daysLeft === 1 ? '明日〆' : `あと${daysLeft}日`;
+    badge.style.cssText = `flex-shrink:0;font-size:10px;letter-spacing:.05em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap;min-width:56px;text-align:center`;
+    badge.textContent = done ? '完了'
+      : over   ? `${Math.abs(daysLeft)}日超過`
+      : daysLeft === 0 ? '今日〆'
+      : daysLeft === 1 ? '明日〆'
+      : `あと${daysLeft}日`;
 
     barWrap.appendChild(barTrack);
     barWrap.appendChild(badge);
-
     row.appendChild(cb);
     row.appendChild(nameCell);
     row.appendChild(barWrap);
@@ -955,11 +1019,19 @@ function renderGantt(tasks) {
 }
 
 // Todo フィルタ・ビュー切り替え
-document.querySelectorAll('.todo-filter-btn').forEach(b => {
+document.querySelectorAll('.todo-filter-btn[data-filter]').forEach(b => {
   b.addEventListener('click', () => {
-    document.querySelectorAll('.todo-filter-btn').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.todo-filter-btn[data-filter]').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     state.todoFilter = b.dataset.filter;
+    renderTodo();
+  });
+});
+document.querySelectorAll('.todo-filter-btn[data-period]').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.todo-filter-btn[data-period]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.todoPeriod = b.dataset.period;
     renderTodo();
   });
 });
