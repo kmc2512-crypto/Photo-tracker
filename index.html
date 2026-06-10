@@ -1447,27 +1447,42 @@ function renderProGrid() {
 // ── 今日データ初期化 ──────────────────────────
 async function initTodayData() {
   const today = state.today;
+
+  // ★ まず全部リセット（前日の残骸を消す）
+  if (state.photoObjUrl) { URL.revokeObjectURL(state.photoObjUrl); state.photoObjUrl = null; }
+  for (let i = 0; i < 3; i++) {
+    if (state.proObjUrls[i]) { URL.revokeObjectURL(state.proObjUrls[i]); state.proObjUrls[i] = null; }
+  }
+  state.lens = LENSES[0];
+  const commentEl = qs('#photo-comment');
+  if (commentEl) commentEl.value = '';
+  renderPhotoZone();   // 空の状態で描画
+  renderProGrid();     // 空の状態で描画
+  renderLenses();
+
+  // ★ 今日のキーに対応するデータだけロード
   const photoBlob = await IDB.get('main_' + today);
   if (photoBlob) {
-    if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
     state.photoObjUrl = URL.createObjectURL(photoBlob);
     renderPhotoZone();
   }
   for (let i = 0; i < 3; i++) {
     const blob = await IDB.get('pro' + i + '_' + today);
     if (blob) {
-      if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
       state.proObjUrls[i] = URL.createObjectURL(blob);
-    } else {
-      state.proObjUrls[i] = null;
     }
   }
   renderProGrid();
+
+  // テキスト・レンズを今日分のlocalStorageからロード
   const meta = LS.get('meta') || {};
   const todayData = meta[today];
   if (todayData) {
-    if (todayData.comment) qs('#photo-comment').value = todayData.comment;
-    if (todayData.lens && LENSES.includes(todayData.lens)) { state.lens = todayData.lens; renderLenses(); }
+    if (todayData.comment && commentEl) commentEl.value = todayData.comment;
+    if (todayData.lens && LENSES.includes(todayData.lens)) {
+      state.lens = todayData.lens;
+      renderLenses();
+    }
   }
 }
 
@@ -1866,8 +1881,22 @@ qs('#detail-back-btn').addEventListener('click', () => renderLog());
   // キャッシュ済みGASタスクを復元
   const cache = LS.get('tasks_cache');
   if (cache && cache.tasks) { state.tasks = cache.tasks; }
-  // 通知バナー（Todoタブに移動したので起動時は非表示のまま）
 })();
+
+// ★ 日付変更を1分ごとに監視して、日付が変わったら今日タブをリセット
+setInterval(() => {
+  const newDate = new Date().toISOString().slice(0, 10);
+  if (newDate !== state.today) {
+    state.today = newDate;
+    // 日付表示を更新
+    const d = new Date();
+    qs('#day-date').textContent = d.toLocaleDateString('ja-JP', {month:'long', day:'numeric'});
+    qs('#day-weekday').textContent = d.toLocaleDateString('ja-JP', {weekday:'long'}).toUpperCase();
+    // 今日のデータをリセット＆ロード
+    initTodayData();
+    renderProgressBanner();
+  }
+}, 60000);
 
 renderPlan();
 initTodayData();
