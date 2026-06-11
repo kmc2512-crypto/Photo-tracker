@@ -357,7 +357,10 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .clip-del-btn{background:none;border:none;color:var(--fg7);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;padding:0;cursor:pointer;min-height:32px;min-width:40px;display:flex;align-items:center;justify-content:flex-end;transition:color .15s}
 .clip-del-btn:hover{color:var(--overdue)}
 .clip-empty{font-size:11px;color:var(--fg7);letter-spacing:.06em;padding:20px 0}
-/* ── スマホ対応 ── */
+/* time input */
+input[type=time]{color:var(--fg);background:transparent;border:none;border-bottom:1px solid var(--border2);font-family:'DM Mono',monospace;font-size:12px;padding:6px 0;font-variant-numeric:tabular-nums;width:100%;outline:none;transition:border-color .15s}
+input[type=time]:focus{border-bottom-color:var(--fg5)}
+input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:pointer}
 @media (max-width: 600px) {
   .nav{padding:0 12px;height:auto;flex-wrap:wrap;gap:0}
   .nav-title{display:none}
@@ -542,14 +545,51 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
     <div class="notice hidden" id="todo-error" role="alert" aria-live="assertive"><p id="todo-error-msg"></p></div>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">
-      <div class="lbl" style="margin-bottom:10px">タスクを追加</div>
-      <div class="form-row">
-        <input type="text" id="todo-title-input" placeholder="タスク名">
-        <input type="date" id="todo-due-input">
+      <div class="lbl" style="margin-bottom:12px">タスクを追加</div>
+      <!-- タスク名 -->
+      <div class="form-row" style="margin-bottom:10px">
+        <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名">
+        <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:180px" aria-label="科目・カテゴリ">
       </div>
-      <div class="form-row">
-        <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:200px">
-        <button class="save-btn" id="todo-add-btn" style="white-space:nowrap">追加</button>
+      <!-- 日付タイプ選択 -->
+      <div style="display:flex;gap:0;border:1px solid var(--border2);width:fit-content;margin-bottom:12px" role="group" aria-label="日付タイプ">
+        <button class="todo-filter-btn active" id="date-type-deadline" data-datetype="deadline" style="height:28px;font-size:9px">締め切り</button>
+        <button class="todo-filter-btn" id="date-type-range" data-datetype="range" style="height:28px;font-size:9px">期間指定</button>
+        <button class="todo-filter-btn" id="date-type-none" data-datetype="none" style="height:28px;font-size:9px">日時なし</button>
+      </div>
+      <!-- 締め切りモード -->
+      <div id="form-deadline-row" class="form-row" style="margin-bottom:10px;align-items:center;gap:8px">
+        <div style="flex:1">
+          <div class="lbl" style="margin-bottom:4px">締め切り日</div>
+          <input type="date" id="todo-due-input" aria-label="締め切り日">
+        </div>
+        <div style="width:110px">
+          <div class="lbl" style="margin-bottom:4px">時刻（任意）</div>
+          <input type="time" id="todo-due-time-input" aria-label="締め切り時刻" style="font-variant-numeric:tabular-nums">
+        </div>
+      </div>
+      <!-- 期間指定モード -->
+      <div id="form-range-row" class="hidden form-row" style="margin-bottom:10px;align-items:flex-end;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <div class="lbl" style="margin-bottom:4px">開始日</div>
+          <input type="date" id="todo-start-input" aria-label="開始日">
+        </div>
+        <div style="width:90px">
+          <div class="lbl" style="margin-bottom:4px">開始時刻</div>
+          <input type="time" id="todo-start-time-input" aria-label="開始時刻">
+        </div>
+        <div style="flex-shrink:0;font-size:12px;color:var(--fg5);padding-bottom:8px">→</div>
+        <div style="flex:1;min-width:120px">
+          <div class="lbl" style="margin-bottom:4px">終了日</div>
+          <input type="date" id="todo-end-input" aria-label="終了日">
+        </div>
+        <div style="width:90px">
+          <div class="lbl" style="margin-bottom:4px">終了時刻</div>
+          <input type="time" id="todo-end-time-input" aria-label="終了時刻">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:4px">
+        <button class="save-btn" id="todo-add-btn">追加</button>
       </div>
     </div>
     <!-- フィルタ -->
@@ -983,10 +1023,22 @@ function renderTodo() {
       title.textContent = t.title;
       const meta = el('div', 'task-meta');
       if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
-      if (t.due) {
-        const due = el('span', 'task-due' + (over ? ' overdue' : ''));
-        due.textContent = fmtFull(t.due) + (over ? ' · 期限切れ' : ''); meta.appendChild(due);
+
+      // 日付・期間の表示
+      const dateLabel = el('span', 'task-due' + (over ? ' overdue' : ''));
+      if (t.dateType === 'range' && t.start) {
+        // 期間タスク: 1/2 10:00 → 1/7 18:00
+        const startStr = fmtFull(t.start) + (t.startTime ? ' ' + t.startTime : '');
+        const endStr = t.due ? fmtFull(t.due) + (t.dueTime ? ' ' + t.dueTime : '') : '';
+        dateLabel.textContent = startStr + (endStr ? ' → ' + endStr : '');
+        meta.appendChild(dateLabel);
+      } else if (t.due) {
+        // 締め切りタスク: 1/7 18:00〆
+        const timeStr = t.dueTime ? ' ' + t.dueTime : '';
+        dateLabel.textContent = fmtFull(t.due) + timeStr + (over ? ' · 期限切れ' : ' 〆');
+        meta.appendChild(dateLabel);
       }
+
       // 手動タスクは削除ボタン
       if (t._manual) {
         const del = el('button', 'clip-del-btn'); del.textContent = '削除';
@@ -1019,13 +1071,21 @@ function renderGantt(tasks) {
   }
 
   const today = new Date(); today.setHours(0,0,0,0);
+  // 表示範囲: 最も早い開始日 or 今日 〜 最後の締め切り+余白
+  const firstStart = withDue.reduce((min, t) => {
+    if (t.start) { const d = new Date(t.start + 'T00:00:00'); return d < min ? d : min; }
+    return min;
+  }, today);
+  const rangeStart = firstStart < today ? firstStart : today;
   const maxDue = new Date(withDue[withDue.length-1].due + 'T00:00:00');
-  const maxDays = Math.max(Math.round((maxDue - today) / 86400000) + 4, 14);
+  const rangeEnd = new Date(Math.max(maxDue.getTime() + 3*86400000, today.getTime() + 14*86400000));
+  const totalMs = rangeEnd - rangeStart;
+  const maxDays = Math.round(totalMs / 86400000);
+  const toPct = d => Math.max(0, Math.min(100, (d - rangeStart) / totalMs * 100));
   const isLight = document.documentElement.classList.contains('light');
 
   // 締め切り日を重複排除して目盛りに使う（最大8本）
   const dueDates = [...new Set(withDue.map(t => t.due))];
-  // 多すぎる場合は間引く
   const maxTicks = 7;
   let tickDates = dueDates;
   if (dueDates.length > maxTicks) {
@@ -1033,19 +1093,32 @@ function renderGantt(tasks) {
     tickDates = dueDates.filter((_, i) => i % step === 0 || i === dueDates.length - 1);
   }
 
-  // ── ヘッダー目盛り（締め切り日ベース）──
+  // ヘッダー目盛り
   const head = el('div');
   head.style.cssText = 'position:relative;height:28px;margin-bottom:6px;border-bottom:1px solid var(--border);margin-left:200px';
   tickDates.forEach(dateStr => {
     const d = new Date(dateStr + 'T00:00:00');
-    const daysFromToday = Math.round((d - today) / 86400000);
-    const pct = Math.min(100, daysFromToday / maxDays * 100);
+    const pct = Math.min(100, toPct(d));
     const tick = el('div');
     tick.style.cssText = `position:absolute;left:${pct.toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg5);top:8px;white-space:nowrap`;
     tick.textContent = (d.getMonth()+1) + '/' + d.getDate();
     head.appendChild(tick);
   });
+  if (today >= rangeStart) {
+    const todayTick = el('div');
+    todayTick.style.cssText = `position:absolute;left:${toPct(today).toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg);top:2px;white-space:nowrap;font-weight:600`;
+    todayTick.textContent = '今日';
+    head.appendChild(todayTick);
+  }
   wrap.appendChild(head);
+
+  // 今日縦線
+  const bodyWrap = el('div'); bodyWrap.style.position = 'relative';
+  if (today >= rangeStart) {
+    const vline = el('div');
+    vline.style.cssText = `position:absolute;left:${toPct(today).toFixed(1)}%;top:0;bottom:0;width:1px;background:var(--fg);opacity:.2;pointer-events:none;z-index:1`;
+    bodyWrap.appendChild(vline);
+  }
 
   // ── 各タスク行 ──
   withDue.forEach(t => {
@@ -1097,38 +1170,45 @@ function renderGantt(tasks) {
     nameCell.textContent = t.title;
     if (t.subject) nameCell.title = '[' + t.subject + '] ' + t.title;
 
-    // バー＋バッジ
+    const isRange = t.dateType === 'range' && t.start;
     const barWrap = el('div');
     barWrap.style.cssText = 'flex:1;display:flex;align-items:center;gap:8px;min-width:0';
 
     const barTrack = el('div');
-    barTrack.style.cssText = 'flex:1;height:5px;background:var(--bg4);border-radius:2px;overflow:hidden';
-    const barFill = el('div');
-    // fillPct: 締め切りが近いほど長い（締め切り済みは満タン赤）
-    const fillPct = done
-      ? 100
-      : over
-        ? 100
-        : Math.max(3, (1 - daysLeft / maxDays) * 100);
-    barFill.style.cssText = `height:100%;width:${fillPct.toFixed(1)}%;background:${barColor};border-radius:2px`;
-    if (done) barFill.style.opacity = '0.35';
-    barTrack.appendChild(barFill);
+    barTrack.style.cssText = 'flex:1;height:8px;background:var(--bg4);position:relative;overflow:hidden';
+
+    if (isRange) {
+      const startDate = new Date(t.start + 'T00:00:00');
+      const leftPct = toPct(startDate);
+      const widthPct = Math.max(1, toPct(dueDate) - leftPct);
+      const fill = el('div');
+      fill.style.cssText = `position:absolute;left:${leftPct.toFixed(1)}%;width:${widthPct.toFixed(1)}%;height:100%;background:${barColor};opacity:${done?'.35':'1'}`;
+      barTrack.appendChild(fill);
+    } else {
+      const fillPct = done ? 100 : over ? 100 : Math.max(3, (1 - daysLeft / maxDays) * 100);
+      const fill = el('div');
+      fill.style.cssText = `position:absolute;left:0;width:${fillPct.toFixed(1)}%;height:100%;background:${barColor};opacity:${done?'.35':'1'}`;
+      barTrack.appendChild(fill);
+    }
 
     const badge = el('div');
-    badge.style.cssText = `flex-shrink:0;font-size:10px;letter-spacing:.05em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap;min-width:56px;text-align:center`;
-    badge.textContent = done ? '完了'
-      : over   ? `${Math.abs(daysLeft)}日超過`
-      : daysLeft === 0 ? '今日〆'
-      : daysLeft === 1 ? '明日〆'
-      : `あと${daysLeft}日`;
+    badge.style.cssText = `flex-shrink:0;font-size:10px;letter-spacing:.05em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap;min-width:56px;text-align:center;font-variant-numeric:tabular-nums`;
+    if (isRange) {
+      const startDate = new Date(t.start + 'T00:00:00');
+      const spanDays = Math.round((dueDate - startDate) / 86400000);
+      badge.textContent = done ? '完了' : over ? `${Math.abs(daysLeft)}日超過` : spanDays === 0 ? '当日' : `${spanDays}日間`;
+    } else {
+      badge.textContent = done ? '完了' : over ? `${Math.abs(daysLeft)}日超過` : daysLeft === 0 ? '今日〆' : daysLeft === 1 ? '明日〆' : `あと${daysLeft}日`;
+    }
 
     barWrap.appendChild(barTrack);
     barWrap.appendChild(badge);
     row.appendChild(cb);
     row.appendChild(nameCell);
     row.appendChild(barWrap);
-    wrap.appendChild(row);
+    bodyWrap.appendChild(row);
   });
+  wrap.appendChild(bodyWrap);
 }
 
 // Todo フィルタ・ビュー切り替え
@@ -1161,22 +1241,56 @@ qs('#todo-view-gantt-btn').addEventListener('click', () => {
   renderTodo();
 });
 
+// 日付タイプ切り替え
+state.todoDateType = 'deadline';
+document.querySelectorAll('[data-datetype]').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('[data-datetype]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.todoDateType = b.dataset.datetype;
+    qs('#form-deadline-row').classList.toggle('hidden', state.todoDateType !== 'deadline');
+    qs('#form-range-row').classList.toggle('hidden', state.todoDateType !== 'range');
+  });
+});
+
 // 手動タスク追加
 qs('#todo-add-btn').addEventListener('click', () => {
   const title = qs('#todo-title-input').value.trim();
-  if (!title) return;
+  if (!title) { qs('#todo-title-input').focus(); return; }
+
   const manual = LS.get('manual_tasks') || [];
-  manual.push({
+  const task = {
     id: 'manual_' + Date.now(),
     title,
-    due: qs('#todo-due-input').value || '',
     subject: qs('#todo-subject-input').value.trim(),
-    _manual: true
-  });
+    _manual: true,
+    dateType: state.todoDateType,
+  };
+
+  if (state.todoDateType === 'deadline') {
+    task.due = qs('#todo-due-input').value || '';
+    const t = qs('#todo-due-time-input').value;
+    if (t) task.dueTime = t;
+  } else if (state.todoDateType === 'range') {
+    task.start = qs('#todo-start-input').value || '';
+    task.startTime = qs('#todo-start-time-input').value || '';
+    task.due = qs('#todo-end-input').value || '';   // 終了日=締め切りとして扱う
+    task.dueTime = qs('#todo-end-time-input').value || '';
+  }
+  // dateType === 'none' は日付なし
+
+  manual.push(task);
   LS.set('manual_tasks', manual);
+
+  // フォームリセット
   qs('#todo-title-input').value = '';
-  qs('#todo-due-input').value = '';
   qs('#todo-subject-input').value = '';
+  qs('#todo-due-input').value = '';
+  qs('#todo-due-time-input').value = '';
+  qs('#todo-start-input').value = '';
+  qs('#todo-start-time-input').value = '';
+  qs('#todo-end-input').value = '';
+  qs('#todo-end-time-input').value = '';
   renderTodo();
 });
 
