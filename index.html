@@ -357,6 +357,47 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .clip-del-btn{background:none;border:none;color:var(--fg7);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;padding:0;cursor:pointer;min-height:32px;min-width:40px;display:flex;align-items:center;justify-content:flex-end;transition:color .15s}
 .clip-del-btn:hover{color:var(--overdue)}
 .clip-empty{font-size:11px;color:var(--fg7);letter-spacing:.06em;padding:20px 0}
+/* ── スマホ対応 ── */
+@media (max-width: 600px) {
+  .nav{padding:0 12px;height:auto;flex-wrap:wrap;gap:0}
+  .nav-title{display:none}
+  .nav-tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:1px}
+  .nav-tabs::-webkit-scrollbar{display:none}
+  .tab-btn{padding:0 10px;height:44px;font-size:9px;letter-spacing:.08em;white-space:nowrap;flex-shrink:0}
+  .nav-right{position:absolute;top:8px;right:12px;gap:8px}
+  .streak{display:none}
+  .theme-btn{width:28px;height:28px;font-size:11px}
+  .main{padding:20px 16px 60px}
+  .day-date{font-size:22px}
+  .progress-banner{padding:12px}
+  .pb-theme{font-size:12px}
+  .pro-grid{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .pro-drop{height:64px}
+  .mission-grid{grid-template-columns:1fr}
+  .detail-pro-grid{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .detail-pro-img{height:80px}
+  .timer-display{font-size:56px}
+  .timer-progress{width:100%}
+  .timer-controls{width:100%;justify-content:center}
+  .timer-btn{padding:0 20px;flex:1;justify-content:center}
+  .timer-mode-tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .timer-mode-tabs::-webkit-scrollbar{display:none}
+  .timer-mode-btn{white-space:nowrap;flex-shrink:0}
+  .todo-add-form .form-row{flex-direction:column}
+  .todo-add-form input[type=date]{width:100%}
+  .gantt-wrap{margin:0 -16px;padding:0 16px}
+  .log-entry{grid-template-columns:64px 1fr;gap:10px}
+  .log-thumb{height:64px}
+  .week-card{padding:14px}
+  .todo-filters{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .todo-filters::-webkit-scrollbar{display:none}
+  .backup-btns{flex-direction:column}
+  .backup-btns .save-btn,.backup-btns .ghost-btn{width:100%;justify-content:center}
+}
+@media (max-width: 380px) {
+  .tab-btn{padding:0 8px;font-size:8px}
+  .main{padding:16px 12px 60px}
+}
 #tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
 #tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden{animation:none}
 @keyframes tab-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -661,16 +702,64 @@ const LS = {
 
 const SB_URL = 'https://eskeovyymgferdbqotti.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVza2Vvdnl5bWdmZXJkYnFvdHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODE1MzksImV4cCI6MjA5NTg1NzUzOX0.y22KuSGf7nKzYlGxDU-K4ryoB7xLAXGoJALHji_t0Eg';
+const SB_HEADERS = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
 const SB = {
+  // メタデータをupsert（SAVE時）
   async upsert(date, data) {
     try {
       const res = await fetch(SB_URL + '/rest/v1/logs?on_conflict=date', {
         method: 'POST',
-        headers: {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-        body: JSON.stringify({date, comment:data.comment||'', lens:data.lens||'', pro_memos:data.proMemos||[], updated_at:new Date().toISOString()})
+        headers: {...SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
+        body: JSON.stringify({
+          date,
+          comment: data.comment || '',
+          lens: data.lens || '',
+          pro_memos: data.proMemos || [],
+          has_photo: data.hasPhoto || false,
+          updated_at: new Date().toISOString()
+        })
       });
       return res.ok;
     } catch(e) { return false; }
+  },
+
+  // 全ログのメタデータを取得（起動時・同期時）
+  async fetchAll() {
+    try {
+      const res = await fetch(SB_URL + '/rest/v1/logs?select=*&order=date.desc', {
+        headers: SB_HEADERS
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch(e) { return null; }
+  },
+
+  // 写真をbase64でupsert
+  async uploadPhoto(date, slot, base64, mimeType) {
+    try {
+      const key = slot === 'main' ? `main_${date}` : `pro${slot}_${date}`;
+      const res = await fetch(SB_URL + '/rest/v1/photos?on_conflict=key', {
+        method: 'POST',
+        headers: {...SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
+        body: JSON.stringify({ key, data: base64, mime_type: mimeType, updated_at: new Date().toISOString() })
+      });
+      return res.ok;
+    } catch(e) { return false; }
+  },
+
+  // 写真をbase64で取得
+  async fetchPhoto(date, slot) {
+    try {
+      const key = slot === 'main' ? `main_${date}` : `pro${slot}_${date}`;
+      const res = await fetch(SB_URL + `/rest/v1/photos?key=eq.${encodeURIComponent(key)}&select=data,mime_type`, {
+        headers: SB_HEADERS
+      });
+      if (!res.ok) return null;
+      const rows = await res.json();
+      if (!rows || rows.length === 0 || !rows[0].data) return null;
+      return { data: rows[0].data, mimeType: rows[0].mime_type || 'image/jpeg' };
+    } catch(e) { return null; }
   }
 };
 
@@ -1510,6 +1599,16 @@ async function initTodayData() {
   }
 }
 
+// Blob → base64変換
+function blobToBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
 // ── 保存 ──────────────────────────────────────
 qs('#save-btn').addEventListener('click', async () => {
   const meta = LS.get('meta') || {};
@@ -1521,7 +1620,26 @@ qs('#save-btn').addEventListener('click', async () => {
   };
   meta[state.today] = dayData;
   LS.set('meta', meta);
-  await SB.upsert(state.today, dayData);
+
+  // Supabaseにメタデータ保存
+  SB.upsert(state.today, dayData);
+
+  // 写真をSupabaseに非同期アップロード
+  (async () => {
+    const photoBlob = await IDB.get('main_' + state.today);
+    if (photoBlob) {
+      const b64 = await blobToBase64(photoBlob);
+      SB.uploadPhoto(state.today, 'main', b64, photoBlob.type || 'image/jpeg');
+    }
+    for (let i = 0; i < 3; i++) {
+      const blob = await IDB.get('pro' + i + '_' + state.today);
+      if (blob) {
+        const b64 = await blobToBase64(blob);
+        SB.uploadPhoto(state.today, i, b64, blob.type || 'image/jpeg');
+      }
+    }
+  })();
+
   const msg = qs('#saved-msg');
   msg.classList.remove('hidden');
   setTimeout(() => msg.classList.add('hidden'), 2000);
@@ -1918,9 +2036,79 @@ function showLightbox(src) {
 
 qs('#detail-back-btn').addEventListener('click', () => renderLog());
 
+// ── Supabase同期（起動時） ──────────────────────
+async function syncFromSupabase() {
+  const rows = await SB.fetchAll();
+  if (!rows || rows.length === 0) return;
+
+  const localMeta = LS.get('meta') || {};
+  let updated = false;
+
+  for (const row of rows) {
+    const date = row.date;
+    const remote = {
+      comment: row.comment || '',
+      lens: row.lens || '',
+      proMemos: row.pro_memos || [],
+      hasPhoto: row.has_photo || false,
+    };
+    // ローカルにない or リモートの方が新しいデータならマージ
+    const local = localMeta[date];
+    if (!local || (!local.comment && remote.comment)) {
+      localMeta[date] = { ...local, ...remote };
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    LS.set('meta', localMeta);
+    // ログタブが開いていれば再描画
+    if (state.tab === 'log') renderLog();
+    renderProgressBanner();
+  }
+}
+
+// ── 起動時に今日の写真をSupabaseから取得（ローカルにない場合） ──
+async function syncTodayPhotosFromSupabase() {
+  const today = state.today;
+
+  // 今日の写真
+  const localPhoto = await IDB.get('main_' + today);
+  if (!localPhoto) {
+    const remote = await SB.fetchPhoto(today, 'main');
+    if (remote) {
+      const bin = atob(remote.data);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], {type: remote.mimeType});
+      await IDB.set('main_' + today, blob);
+      if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
+      state.photoObjUrl = URL.createObjectURL(blob);
+      renderPhotoZone();
+    }
+  }
+
+  // プロ研究画像
+  for (let i = 0; i < 3; i++) {
+    const localBlob = await IDB.get('pro' + i + '_' + today);
+    if (!localBlob) {
+      const remote = await SB.fetchPhoto(today, i);
+      if (remote) {
+        const bin = atob(remote.data);
+        const arr = new Uint8Array(bin.length);
+        for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j);
+        const blob = new Blob([arr], {type: remote.mimeType});
+        await IDB.set('pro' + i + '_' + today, blob);
+        if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
+        state.proObjUrls[i] = URL.createObjectURL(blob);
+      }
+    }
+  }
+  renderProGrid();
+}
+
 // ── 初期化 ────────────────────────────────────
 (function() {
-  // キャッシュ済みGASタスクを復元
   const cache = LS.get('tasks_cache');
   if (cache && cache.tasks) { state.tasks = cache.tasks; }
 })();
@@ -1941,7 +2129,11 @@ setInterval(() => {
 }, 60000);
 
 renderPlan();
-initTodayData();
+initTodayData().then(() => {
+  // ローカルデータ読み込み後にSupabaseから差分取得
+  syncFromSupabase();
+  syncTodayPhotosFromSupabase();
+});
 </script>
 </body>
 </html>
