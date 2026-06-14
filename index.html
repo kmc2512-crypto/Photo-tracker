@@ -813,8 +813,57 @@ const SB = {
       if (!rows || rows.length === 0 || !rows[0].data) return null;
       return { data: rows[0].data, mimeType: rows[0].mime_type || 'image/jpeg' };
     } catch(e) { return null; }
+  },
+
+  // 設定値（GAS URL・手動タスクなど）をkey-valueで保存
+  async setSetting(key, value) {
+    try {
+      const res = await fetch(SB_URL + '/rest/v1/settings?on_conflict=key', {
+        method: 'POST',
+        headers: {...SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
+        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+      });
+      return res.ok;
+    } catch(e) { return false; }
+  },
+
+  // 設定値を取得
+  async getSetting(key) {
+    try {
+      const res = await fetch(SB_URL + `/rest/v1/settings?key=eq.${encodeURIComponent(key)}&select=value`, {
+        headers: SB_HEADERS
+      });
+      if (!res.ok) return null;
+      const rows = await res.json();
+      if (!rows || rows.length === 0) return null;
+      return rows[0].value;
+    } catch(e) { return null; }
   }
 };
+
+// base64 → Blob 変換
+function base64ToBlob(base64, mimeType) {
+  const bin = atob(base64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type: mimeType});
+}
+
+// IDBになければSupabaseから取得してキャッシュするフォトゲッター
+async function getPhotoBlob(key) {
+  let blob = await IDB.get(key);
+  if (blob) return blob;
+  // key: 'main_YYYY-MM-DD' or 'pro{N}_YYYY-MM-DD'
+  const m = key.match(/^(main|pro\d)_(.+)$/);
+  if (!m) return null;
+  const slot = m[1] === 'main' ? 'main' : parseInt(m[1].slice(3));
+  const date = m[2];
+  const remote = await SB.fetchPhoto(date, slot);
+  if (!remote) return null;
+  blob = base64ToBlob(remote.data, remote.mimeType);
+  await IDB.set(key, blob);
+  return blob;
+}
 
 const LENSES = ['55mm f2.8', 'Sigma 28-70', '16-50', '55-210', 'スマホ'];
 
@@ -964,6 +1013,19 @@ function getAllTasks() {
   return [...state.tasks, ...manual];
 }
 
+// 手動タスクを保存（ローカル＋Supabase両方に反映）
+function saveManualTasks(manual) {
+  LS.set('manual_tasks', manual);
+  SB.setSetting('manual_tasks', manual);
+}
+
+// GAS連携URLを保存（ローカル＋Supabase両方に反映）
+function saveScriptUrl(url) {
+  state.scriptUrl = url;
+  LS.set('script_url', url);
+  SB.setSetting('script_url', url);
+}
+
 state.todoFilter = 'all';
 state.todoView = 'list';
 state.todoPeriod = 'all';
@@ -1058,7 +1120,7 @@ function renderTodo() {
         del.style.marginLeft = 'auto';
         del.addEventListener('click', () => {
           const manual = LS.get('manual_tasks') || [];
-          LS.set('manual_tasks', manual.filter(x => (x.id||x.title+x.due) !== k));
+          saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
           renderTodo();
         });
         meta.appendChild(del);
@@ -1294,7 +1356,7 @@ qs('#todo-add-btn').addEventListener('click', () => {
   // dateType === 'none' は日付なし
 
   manual.push(task);
-  LS.set('manual_tasks', manual);
+  saveManualTasks(manual);
 
   // フォームリセット
   qs('#todo-title-input').value = '';
@@ -1316,8 +1378,7 @@ qs('#todo-url-btn').addEventListener('click', () => {
 qs('#todo-url-cancel-btn').addEventListener('click', () => qs('#todo-url-panel').classList.add('hidden'));
 qs('#todo-url-save-btn').addEventListener('click', () => {
   const url = qs('#todo-url-input').value.trim();
-  state.scriptUrl = url;
-  LS.set('script_url', url);
+  saveScriptUrl(url);
   qs('#todo-url-panel').classList.add('hidden');
   syncTodoTasks(url);
 });
@@ -2063,7 +2124,7 @@ async function renderLog() {
     const data = meta[date];
     const entry = el('div', 'log-entry');
     const thumb = el('div', 'log-thumb');
-    const photoBlob = await IDB.get('main_' + date);
+    const photoBlob = await getPhotoBlob('main_' + date);
     if (photoBlob) {
       const url = URL.createObjectURL(photoBlob);
       logObjUrls['main_' + date] = url;
@@ -2102,7 +2163,7 @@ async function showLogDetail(date) {
   content.appendChild(dateEl);
   if (data.lens) { const lensEl = el('div', 'detail-lens'); lensEl.textContent = data.lens; content.appendChild(lensEl); }
   const photoSection = el('div', 'detail-photo');
-  const photoBlob = await IDB.get('main_' + date);
+  const photoBlob = await getPhotoBlob('main_' + date);
   if (photoBlob) {
     const url = URL.createObjectURL(photoBlob);
     logObjUrls['detail_main_' + date] = url;
@@ -2119,7 +2180,7 @@ async function showLogDetail(date) {
     s.appendChild(lbl); s.appendChild(c); content.appendChild(s);
   }
   const proMemos = data.proMemos || [];
-  const proBlobs = await Promise.all([0,1,2].map(i => IDB.get('pro' + i + '_' + date)));
+  const proBlobs = await Promise.all([0,1,2].map(i => getPhotoBlob('pro' + i + '_' + date)));
   if (proMemos.some(m => m) || proBlobs.some(b => b)) {
     const proSection = el('div', 'detail-section');
     const lbl = el('div', 'lbl'); lbl.textContent = 'プロ研究'; proSection.appendChild(lbl);
@@ -2205,10 +2266,7 @@ async function syncTodayPhotosFromSupabase() {
   if (!localPhoto) {
     const remote = await SB.fetchPhoto(today, 'main');
     if (remote) {
-      const bin = atob(remote.data);
-      const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      const blob = new Blob([arr], {type: remote.mimeType});
+      const blob = base64ToBlob(remote.data, remote.mimeType);
       await IDB.set('main_' + today, blob);
       if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
       state.photoObjUrl = URL.createObjectURL(blob);
@@ -2222,10 +2280,7 @@ async function syncTodayPhotosFromSupabase() {
     if (!localBlob) {
       const remote = await SB.fetchPhoto(today, i);
       if (remote) {
-        const bin = atob(remote.data);
-        const arr = new Uint8Array(bin.length);
-        for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j);
-        const blob = new Blob([arr], {type: remote.mimeType});
+        const blob = base64ToBlob(remote.data, remote.mimeType);
         await IDB.set('pro' + i + '_' + today, blob);
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = URL.createObjectURL(blob);
@@ -2233,6 +2288,42 @@ async function syncTodayPhotosFromSupabase() {
     }
   }
   renderProGrid();
+}
+
+// ── 起動時にGAS連携URL・手動タスクをSupabaseから同期 ──
+async function syncSettingsFromSupabase() {
+  // GAS連携URL: リモートにあればローカルより優先（リモートが正の場合のみ上書き）
+  const remoteUrl = await SB.getSetting('script_url');
+  if (typeof remoteUrl === 'string' && remoteUrl) {
+    if (remoteUrl !== state.scriptUrl) {
+      state.scriptUrl = remoteUrl;
+      LS.set('script_url', remoteUrl);
+      syncTodoTasks(remoteUrl);
+    }
+  } else if (state.scriptUrl) {
+    // ローカルにあるがリモートにない → リモートへ反映
+    SB.setSetting('script_url', state.scriptUrl);
+  }
+
+  // 手動タスク: ローカルとリモートをID基準でマージ（両方の項目を保持）
+  const remoteTasks = await SB.getSetting('manual_tasks');
+  const localTasks = LS.get('manual_tasks') || [];
+  if (Array.isArray(remoteTasks)) {
+    const merged = [...remoteTasks];
+    const remoteIds = new Set(remoteTasks.map(t => t.id || t.title + t.due));
+    localTasks.forEach(t => {
+      const tid = t.id || t.title + t.due;
+      if (!remoteIds.has(tid)) merged.push(t);
+    });
+    LS.set('manual_tasks', merged);
+    if (merged.length !== remoteTasks.length) {
+      SB.setSetting('manual_tasks', merged);
+    }
+    if (state.tab === 'todo') renderTodo();
+  } else if (localTasks.length > 0) {
+    // リモートに何もない → ローカルをアップロード
+    SB.setSetting('manual_tasks', localTasks);
+  }
 }
 
 // ── 初期化 ────────────────────────────────────
@@ -2261,6 +2352,7 @@ initTodayData().then(() => {
   // ローカルデータ読み込み後にSupabaseから差分取得
   syncFromSupabase();
   syncTodayPhotosFromSupabase();
+  syncSettingsFromSupabase();
 });
 </script>
 </body>
