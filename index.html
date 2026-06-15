@@ -1170,30 +1170,47 @@ function renderGantt(tasks) {
   const isLight = document.documentElement.classList.contains('light');
   const isMobile = window.innerWidth <= 600;
 
-  // 締め切り日を重複排除して目盛りに使う（最大8本）
-  const dueDates = [...new Set(withDue.map(t => t.due))];
-  const maxTicks = 7;
-  let tickDates = dueDates;
-  if (dueDates.length > maxTicks) {
-    const step = Math.ceil(dueDates.length / maxTicks);
-    tickDates = dueDates.filter((_, i) => i % step === 0 || i === dueDates.length - 1);
-  }
+  // 締め切り日を重複排除し、表示位置（%）の差が小さいものは間引く
+  const dueDates = [...new Set(withDue.map(t => t.due))].sort();
+  const todayPct = toPct(today);
+  const MIN_GAP = 9; // 最小間隔（%）
+
+  // 各日付の表示位置を計算し、今日マーカーと近すぎる/隣同士が近すぎるものを除外
+  const tickCandidates = dueDates
+    .map(dateStr => ({ dateStr, pct: toPct(new Date(dateStr + 'T00:00:00')) }))
+    .filter(t => Math.abs(t.pct - todayPct) > MIN_GAP); // 今日マーカーと重ならないように除外
+
+  const tickDates = [];
+  let lastPct = -Infinity;
+  tickCandidates.forEach(t => {
+    if (t.pct - lastPct >= MIN_GAP) {
+      tickDates.push(t);
+      lastPct = t.pct;
+    }
+  });
 
   // ヘッダー目盛り
   const head = el('div');
   const headMarginLeft = isMobile ? 0 : 200;
   head.style.cssText = `position:relative;height:28px;margin-bottom:6px;border-bottom:1px solid var(--border);margin-left:${headMarginLeft}px`;
-  tickDates.forEach(dateStr => {
+  tickDates.forEach(({ dateStr, pct }) => {
     const d = new Date(dateStr + 'T00:00:00');
-    const pct = Math.min(100, toPct(d));
     const tick = el('div');
-    tick.style.cssText = `position:absolute;left:${pct.toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg5);top:8px;white-space:nowrap`;
+    const p = Math.min(100, pct);
+    // 端のラベルは画面外に出ないようアラインメント調整
+    let translate = 'translateX(-50%)';
+    if (p < 6) translate = 'translateX(0)';
+    else if (p > 94) translate = 'translateX(-100%)';
+    tick.style.cssText = `position:absolute;left:${p.toFixed(1)}%;transform:${translate};font-size:9px;color:var(--fg5);top:8px;white-space:nowrap`;
     tick.textContent = (d.getMonth()+1) + '/' + d.getDate();
     head.appendChild(tick);
   });
   if (today >= rangeStart) {
     const todayTick = el('div');
-    todayTick.style.cssText = `position:absolute;left:${toPct(today).toFixed(1)}%;transform:translateX(-50%);font-size:9px;color:var(--fg);top:2px;white-space:nowrap;font-weight:600`;
+    let todayTranslate = 'translateX(-50%)';
+    if (todayPct < 6) todayTranslate = 'translateX(0)';
+    else if (todayPct > 94) todayTranslate = 'translateX(-100%)';
+    todayTick.style.cssText = `position:absolute;left:${todayPct.toFixed(1)}%;transform:${todayTranslate};font-size:9px;color:var(--fg);top:8px;white-space:nowrap;font-weight:600`;
     todayTick.textContent = '今日';
     head.appendChild(todayTick);
   }
