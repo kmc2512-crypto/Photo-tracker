@@ -867,8 +867,18 @@ async function getPhotoBlob(key) {
 
 const LENSES = ['55mm f2.8', 'Sigma 28-70', '16-50', '55-210', 'スマホ'];
 
+// ローカルタイムゾーンでのYYYY-MM-DD文字列を返す
+// （toISOString()はUTC基準のため、JST等のUTC+時間帯では深夜0-9時台に
+//   前日の日付が返ってしまい「今日」のキーがずれるバグを防ぐ）
+function getLocalDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const state = {
-  today: new Date().toISOString().slice(0, 10),
+  today: getLocalDateStr(),
   tab: 'today',
   lens: LENSES[0],
   tasks: [],
@@ -931,7 +941,7 @@ document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', (
   let s = 0;
   for (let i = 0; i < 60; i++) {
     const dd = new Date(); dd.setDate(dd.getDate() - i);
-    const k = dd.toISOString().slice(0,10);
+    const k = getLocalDateStr(dd);
     if (meta[k]?.comment || meta[k]?.proMemos?.some(x=>x)) s++;
     else if (i > 0) break;
   }
@@ -2334,7 +2344,7 @@ async function syncSettingsFromSupabase() {
 
 // ★ 日付変更を1分ごとに監視して、日付が変わったら今日タブをリセット
 setInterval(() => {
-  const newDate = new Date().toISOString().slice(0, 10);
+  const newDate = getLocalDateStr();
   if (newDate !== state.today) {
     state.today = newDate;
     // 日付表示を更新
