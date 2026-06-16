@@ -297,21 +297,12 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-filter-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:0 14px;height:32px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
 .todo-filter-btn.active{background:var(--fg);color:var(--bg)}
 .todo-filter-btn:active{opacity:.8}
-.gantt-wrap{overflow-x:auto;margin-bottom:32px}
-.gantt-table{min-width:600px;width:100%}
-.gantt-head{display:grid;gap:0;border-bottom:1px solid var(--border);margin-bottom:4px}
-.gantt-head-label{font-size:9px;color:var(--fg6);letter-spacing:.1em;padding:4px 0;font-variant-numeric:tabular-nums}
-.gantt-row{display:grid;align-items:center;padding:6px 0;border-bottom:1px solid var(--bg3);min-height:40px}
-.gantt-task-name{font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:8px}
-.gantt-task-name.done{color:var(--fg7);text-decoration:line-through}
-.gantt-task-name.overdue{color:var(--overdue)}
-.gantt-bar-cell{position:relative;height:20px}
-.gantt-bar{position:absolute;height:14px;top:3px;background:var(--fg5);display:flex;align-items:center;padding:0 6px;min-width:4px;transition:background .15s}
-.gantt-bar.overdue{background:var(--overdue)}
-.gantt-bar.done{background:var(--fg8);opacity:.5}
-.gantt-bar-label{font-size:9px;color:var(--bg);letter-spacing:.04em;white-space:nowrap;overflow:hidden}
-.gantt-today-line{position:absolute;top:0;bottom:0;width:1px;background:var(--fg);opacity:.4;pointer-events:none}
-.gantt-date-tick{position:absolute;top:0;font-size:8px;color:var(--fg7);letter-spacing:.04em;transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.gantt-wrap{overflow:hidden;margin-bottom:32px;border:1px solid var(--border)}
+#gantt-inner{background:var(--bg)}
+#gantt-grid-scroll{scrollbar-width:thin;scrollbar-color:var(--fg8) transparent}
+#gantt-grid-scroll::-webkit-scrollbar{height:4px}
+#gantt-grid-scroll::-webkit-scrollbar-thumb{background:var(--fg8);border-radius:2px}
+#gantt-grid-scroll::-webkit-scrollbar-track{background:transparent}
 .timer-wrap{display:flex;flex-direction:column;align-items:center;padding:40px 0}
 .timer-mode-tabs{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:40px}
 .timer-mode-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--fg5);padding:0 20px;height:36px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
@@ -388,7 +379,7 @@ input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:po
   .timer-mode-btn{white-space:nowrap;flex-shrink:0}
   .todo-add-form .form-row{flex-direction:column}
   .todo-add-form input[type=date]{width:100%}
-  .gantt-wrap{margin:0 -16px;padding:0 16px}
+  .gantt-wrap{margin:0 -16px;border-left:none;border-right:none}
   .log-entry{grid-template-columns:64px 1fr;gap:10px}
   .log-thumb{height:64px}
   .week-card{padding:14px}
@@ -1156,137 +1147,129 @@ function renderGantt(tasks) {
   }
 
   const today = new Date(); today.setHours(0,0,0,0);
-  // 表示範囲: 最も早い開始日 or 今日 〜 最後の締め切り+余白
+  const isLight = document.documentElement.classList.contains('light');
+
+  // 表示範囲: 最も早い開始日 or 今日 〜 最後の締め切り+7日 (最低28日)
   const firstStart = withDue.reduce((min, t) => {
     if (t.start) { const d = new Date(t.start + 'T00:00:00'); return d < min ? d : min; }
     return min;
   }, today);
-  const rangeStart = firstStart < today ? firstStart : today;
+  const rangeStart = new Date(firstStart); rangeStart.setHours(0,0,0,0);
   const maxDue = new Date(withDue[withDue.length-1].due + 'T00:00:00');
-  const rangeEnd = new Date(Math.max(maxDue.getTime() + 3*86400000, today.getTime() + 14*86400000));
-  const totalMs = rangeEnd - rangeStart;
-  const maxDays = Math.round(totalMs / 86400000);
-  const toPct = d => Math.max(0, Math.min(100, (d - rangeStart) / totalMs * 100));
-  const isLight = document.documentElement.classList.contains('light');
+  const rangeEnd = new Date(Math.max(maxDue.getTime() + 7*86400000, today.getTime() + 28*86400000));
+  const totalDays = Math.round((rangeEnd - rangeStart) / 86400000);
+
   const isMobile = window.innerWidth <= 600;
+  // 1日あたりの幅(px) — 表示幅に応じて可変
+  const LABEL_W = isMobile ? 100 : 160; // タスク名列の幅
+  const DAY_W = isMobile ? 22 : 28;     // 1日あたりの幅
 
-  // 締め切り日を重複排除し、表示位置（%）の差が小さいものは間引く
-  const dueDates = [...new Set(withDue.map(t => t.due))].sort();
-  const todayPct = toPct(today);
-  const MIN_GAP = 9; // 最小間隔（%）
+  const totalW = totalDays * DAY_W;
 
-  // 各日付の表示位置を計算し、今日マーカーと近すぎる/隣同士が近すぎるものを除外
-  const tickCandidates = dueDates
-    .map(dateStr => ({ dateStr, pct: toPct(new Date(dateStr + 'T00:00:00')) }))
-    .filter(t => Math.abs(t.pct - todayPct) > MIN_GAP); // 今日マーカーと重ならないように除外
+  // ── 色計算 ──
+  function getColors(daysLeft, done, over) {
+    if (done) return { bar:'var(--fg8)', border:'var(--fg7)', text:'var(--fg7)' };
+    if (over)         return { bar: isLight?'#c04040':'#c03535', border: isLight?'#b03030':'#e05555', text: isLight?'#b03030':'#e05555' };
+    if (daysLeft<=2)  return { bar: isLight?'#c05020':'#e05030', border: isLight?'#c05020':'#ff7040', text: isLight?'#c05020':'#ff7040' };
+    if (daysLeft<=7)  return { bar: isLight?'#9a8020':'#b89010', border: isLight?'#8a7010':'#d4a820', text: isLight?'#8a7010':'#d4a820' };
+    return { bar:'var(--fg5)', border:'var(--border3)', text:'var(--fg3)' };
+  }
 
-  const tickDates = [];
-  let lastPct = -Infinity;
-  tickCandidates.forEach(t => {
-    if (t.pct - lastPct >= MIN_GAP) {
-      tickDates.push(t);
-      lastPct = t.pct;
+  // ── ヘッダー ──
+  const headerWrap = el('div');
+  headerWrap.style.cssText = `display:flex;border-bottom:1px solid var(--border);margin-bottom:0;position:sticky;top:48px;background:var(--nav-bg);z-index:5`;
+
+  // タスク名列ヘッダー
+  const labelHead = el('div');
+  labelHead.style.cssText = `width:${LABEL_W}px;flex-shrink:0;padding:0 8px 0 0;display:flex;align-items:flex-end;padding-bottom:6px`;
+  const labelHeadText = el('div');
+  labelHeadText.style.cssText = 'font-size:9px;letter-spacing:.15em;color:var(--fg5);text-transform:uppercase';
+  labelHeadText.textContent = 'タスク';
+  labelHead.appendChild(labelHeadText);
+  headerWrap.appendChild(labelHead);
+
+  // グリッドヘッダー (横スクロールエリア)
+  const gridHeaderScroll = el('div');
+  gridHeaderScroll.style.cssText = 'flex:1;overflow:hidden;position:relative';
+  const gridHeader = el('div');
+  gridHeader.style.cssText = `width:${totalW}px;position:relative;height:36px`;
+
+  // 月ラベル
+  let curMonth = -1;
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
+    if (d.getMonth() !== curMonth) {
+      curMonth = d.getMonth();
+      const monthLabel = el('div');
+      monthLabel.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;font-size:9px;color:var(--fg5);letter-spacing:.1em;white-space:nowrap;padding:4px 0 0 4px`;
+      monthLabel.textContent = (d.getFullYear()) + '/' + (d.getMonth()+1);
+      gridHeader.appendChild(monthLabel);
     }
-  });
-
-  // ヘッダー目盛り
-  const head = el('div');
-  const headMarginLeft = isMobile ? 0 : 200;
-  head.style.cssText = `position:relative;height:28px;margin-bottom:6px;border-bottom:1px solid var(--border);margin-left:${headMarginLeft}px`;
-  tickDates.forEach(({ dateStr, pct }) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    const tick = el('div');
-    const p = Math.min(100, pct);
-    // 端のラベルは画面外に出ないようアラインメント調整
-    let translate = 'translateX(-50%)';
-    if (p < 6) translate = 'translateX(0)';
-    else if (p > 94) translate = 'translateX(-100%)';
-    tick.style.cssText = `position:absolute;left:${p.toFixed(1)}%;transform:${translate};font-size:9px;color:var(--fg5);top:8px;white-space:nowrap`;
-    tick.textContent = (d.getMonth()+1) + '/' + d.getDate();
-    head.appendChild(tick);
-  });
-  if (today >= rangeStart) {
-    const todayTick = el('div');
-    let todayTranslate = 'translateX(-50%)';
-    if (todayPct < 6) todayTranslate = 'translateX(0)';
-    else if (todayPct > 94) todayTranslate = 'translateX(-100%)';
-    todayTick.style.cssText = `position:absolute;left:${todayPct.toFixed(1)}%;transform:${todayTranslate};font-size:9px;color:var(--fg);top:8px;white-space:nowrap;font-weight:600`;
-    todayTick.textContent = '今日';
-    head.appendChild(todayTick);
-  }
-  wrap.appendChild(head);
-
-  // 今日縦線
-  const bodyWrap = el('div'); bodyWrap.style.position = 'relative';
-  if (today >= rangeStart) {
-    const vline = el('div');
-    vline.style.cssText = `position:absolute;left:${toPct(today).toFixed(1)}%;top:0;bottom:0;width:1px;background:var(--fg);opacity:.2;pointer-events:none;z-index:1`;
-    bodyWrap.appendChild(vline);
   }
 
-  // ── 各タスク行 ──
-  withDue.forEach(t => {
+  // 日付ラベル (3日ごと or 週ごと)
+  const dayInterval = totalDays > 60 ? 7 : totalDays > 28 ? 3 : 1;
+  for (let i = 0; i < totalDays; i += dayInterval) {
+    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
+    const isToday = d.getTime() === today.getTime();
+    const dayLabel = el('div');
+    dayLabel.style.cssText = `position:absolute;left:${i*DAY_W}px;bottom:4px;font-size:9px;color:${isToday ? 'var(--fg)' : 'var(--fg6)'};font-weight:${isToday ? '600' : '400'};width:${DAY_W*dayInterval}px;text-align:center;letter-spacing:.04em;font-variant-numeric:tabular-nums`;
+    dayLabel.textContent = isToday ? '今日' : (d.getMonth()+1) + '/' + d.getDate();
+    gridHeader.appendChild(dayLabel);
+  }
+  gridHeaderScroll.appendChild(gridHeader);
+  headerWrap.appendChild(gridHeaderScroll);
+  wrap.appendChild(headerWrap);
+
+  // ── グリッド本体 ──
+  const bodyWrap = el('div');
+  bodyWrap.style.cssText = 'display:flex';
+
+  // タスク名列
+  const labelCol = el('div');
+  labelCol.style.cssText = `width:${LABEL_W}px;flex-shrink:0`;
+
+  // グリッド列（横スクロール）
+  const gridCol = el('div');
+  gridCol.id = 'gantt-grid-scroll';
+  gridCol.style.cssText = 'flex:1;overflow-x:auto;overflow-y:visible;position:relative;-webkit-overflow-scrolling:touch';
+
+  const gridInner = el('div');
+  gridInner.style.cssText = `width:${totalW}px;position:relative`;
+
+  // 縦線 (週末・今日)
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
+    const isToday = d.getTime() === today.getTime();
+    const isSat = d.getDay() === 6;
+    const isSun = d.getDay() === 0;
+    if (isSat || isSun || isToday) {
+      const vline = el('div');
+      const clr = isToday
+        ? (isLight ? 'rgba(0,0,0,.25)' : 'rgba(255,255,255,.2)')
+        : (isLight ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.04)');
+      vline.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;bottom:0;width:${isToday?2:DAY_W}px;background:${clr};pointer-events:none;z-index:${isToday?2:0}`;
+      gridInner.appendChild(vline);
+    }
+  }
+
+  // タスク行
+  withDue.forEach((t, idx) => {
     const k = t.id || t.title + t.due;
     const done = !!state.tasksDone[k];
     const dueDate = new Date(t.due + 'T00:00:00');
     const daysLeft = Math.round((dueDate - today) / 86400000);
     const over = daysLeft < 0 && !done;
-
-    // ダーク/ライト両対応のカラーセット
-    let accentColor, barColor, badgeBg;
-    if (done) {
-      accentColor = 'var(--fg7)'; barColor = 'var(--bg5)'; badgeBg = 'transparent';
-    } else if (over) {
-      accentColor = isLight ? '#b03030' : '#e05555';
-      barColor    = isLight ? '#c04040' : '#c03535';
-      badgeBg     = 'transparent';
-    } else if (daysLeft <= 2) {
-      accentColor = isLight ? '#c05020' : '#ff7040';
-      barColor    = isLight ? '#c05020' : '#e05030';
-      badgeBg     = 'transparent';
-    } else if (daysLeft <= 7) {
-      accentColor = isLight ? '#8a7010' : '#e0b840';
-      barColor    = isLight ? '#9a8020' : '#c09820';
-      badgeBg     = 'transparent';
-    } else {
-      accentColor = 'var(--fg5)';
-      barColor    = 'var(--fg6)';
-      badgeBg     = 'transparent';
-    }
-
     const isRange = t.dateType === 'range' && t.start;
+    const colors = getColors(daysLeft, done, over);
 
-    // バッジテキスト共通計算
-    let badgeText;
-    if (isRange) {
-      const startDate = new Date(t.start + 'T00:00:00');
-      const spanDays = Math.round((dueDate - startDate) / 86400000);
-      badgeText = done ? '完了' : over ? `${Math.abs(daysLeft)}日超過` : spanDays === 0 ? '当日' : `${spanDays}日間`;
-    } else {
-      badgeText = done ? '完了' : over ? `${Math.abs(daysLeft)}日超過` : daysLeft === 0 ? '今日締切' : daysLeft === 1 ? '明日締切' : `あと${daysLeft}日`;
-    }
+    const ROW_H = 36;
+    const BAR_H = 16;
+    const BAR_Y = (ROW_H - BAR_H) / 2;
 
-    // バートラック生成（共通）
-    function buildBarTrack(height) {
-      const barTrack = el('div');
-      barTrack.style.cssText = `flex:1;height:${height}px;background:var(--bg4);position:relative;overflow:hidden`;
-      if (isRange) {
-        const startDate = new Date(t.start + 'T00:00:00');
-        const leftPct = toPct(startDate);
-        const widthPct = Math.max(1, toPct(dueDate) - leftPct);
-        const fill = el('div');
-        fill.style.cssText = `position:absolute;left:${leftPct.toFixed(1)}%;width:${widthPct.toFixed(1)}%;height:100%;background:${barColor};opacity:${done?'.35':'1'}`;
-        barTrack.appendChild(fill);
-      } else {
-        const fillPct = done ? 100 : over ? 100 : Math.max(3, (1 - daysLeft / maxDays) * 100);
-        const fill = el('div');
-        fill.style.cssText = `position:absolute;left:0;width:${fillPct.toFixed(1)}%;height:100%;background:${barColor};opacity:${done?'.35':'1'}`;
-        barTrack.appendChild(fill);
-      }
-      return barTrack;
-    }
-
-    // チェックボックス
+    // ── タスク名行 ──
+    const nameRow = el('div');
+    nameRow.style.cssText = `height:${ROW_H}px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bg3);padding-right:8px`;
     const cb = el('div', 'cb' + (done ? ' done' : ''));
     cb.style.flexShrink = '0';
     cb.addEventListener('click', () => {
@@ -1294,62 +1277,66 @@ function renderGantt(tasks) {
       LS.set('tasks_done', state.tasksDone);
       renderTodo();
     });
+    const nameText = el('div');
+    nameText.style.cssText = `flex:1;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:${done?'var(--fg7)':over?colors.text:'var(--fg)'}`;
+    if (done) nameText.style.textDecoration = 'line-through';
+    nameText.textContent = t.title;
+    if (t.subject) nameText.title = '[' + t.subject + '] ' + t.title;
+    nameRow.appendChild(cb);
+    nameRow.appendChild(nameText);
+    labelCol.appendChild(nameRow);
 
-    if (isMobile) {
-      // ── モバイル: 縦2行カード ──
-      const card = el('div');
-      card.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--bg3)';
+    // ── グリッド行 ──
+    const gridRow = el('div');
+    gridRow.style.cssText = `position:relative;height:${ROW_H}px;border-bottom:1px solid var(--bg3)`;
 
-      const topRow = el('div');
-      topRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px';
-      const nameCell = el('div');
-      nameCell.style.cssText = 'flex:1;font-size:12px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.4';
-      if (done) nameCell.style.cssText += ';color:var(--fg7);text-decoration:line-through';
-      else if (over) nameCell.style.cssText += `;color:${accentColor}`;
-      nameCell.textContent = t.title;
-      if (t.subject) nameCell.title = '[' + t.subject + '] ' + t.title;
-      const badge = el('div');
-      badge.style.cssText = `flex-shrink:0;font-size:10px;letter-spacing:.05em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap;text-align:center;font-variant-numeric:tabular-nums`;
-      badge.textContent = badgeText;
-      topRow.appendChild(cb);
-      topRow.appendChild(nameCell);
-      topRow.appendChild(badge);
-
-      const barRow = buildBarTrack(6);
-      barRow.style.marginLeft = '26px';
-
-      card.appendChild(topRow);
-      card.appendChild(barRow);
-      bodyWrap.appendChild(card);
+    // バーの開始・終了を計算
+    let barStartDay, barEndDay;
+    if (isRange && t.start) {
+      const startDate = new Date(t.start + 'T00:00:00');
+      barStartDay = Math.max(0, Math.round((startDate - rangeStart) / 86400000));
+      barEndDay   = Math.min(totalDays, Math.round((dueDate - rangeStart) / 86400000) + 1);
     } else {
-      // ── デスクトップ: 1行レイアウト ──
-      const row = el('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg3)';
-
-      const nameCell = el('div');
-      nameCell.style.cssText = 'width:180px;flex-shrink:0;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:1.4';
-      if (done) nameCell.style.cssText += ';color:var(--fg7);text-decoration:line-through';
-      else if (over) nameCell.style.cssText += `;color:${accentColor}`;
-      nameCell.textContent = t.title;
-      if (t.subject) nameCell.title = '[' + t.subject + '] ' + t.title;
-
-      const barWrap = el('div');
-      barWrap.style.cssText = 'flex:1;display:flex;align-items:center;gap:8px;min-width:0';
-      const barTrack = buildBarTrack(8);
-
-      const badge = el('div');
-      badge.style.cssText = `flex-shrink:0;font-size:10px;letter-spacing:.05em;padding:2px 8px;border:1px solid ${accentColor};color:${accentColor};white-space:nowrap;min-width:64px;text-align:center;font-variant-numeric:tabular-nums`;
-      badge.textContent = badgeText;
-
-      barWrap.appendChild(barTrack);
-      barWrap.appendChild(badge);
-      row.appendChild(cb);
-      row.appendChild(nameCell);
-      row.appendChild(barWrap);
-      bodyWrap.appendChild(row);
+      // 締め切りタスク: 今日から締め切り日まで（または締め切り日1日分）
+      const taskStart = over ? dueDate : today;
+      barStartDay = Math.max(0, Math.round((taskStart - rangeStart) / 86400000));
+      barEndDay   = Math.min(totalDays, Math.round((dueDate - rangeStart) / 86400000) + 1);
     }
+
+    const barW = Math.max(DAY_W, (barEndDay - barStartDay) * DAY_W);
+    const bar = el('div');
+    bar.style.cssText = `position:absolute;left:${barStartDay*DAY_W}px;top:${BAR_Y}px;width:${barW}px;height:${BAR_H}px;background:${colors.bar};opacity:${done?.4:1};display:flex;align-items:center;padding:0 6px;overflow:hidden;border-radius:1px`;
+
+    // バー内ラベル（タスク名 or 残り日数）
+    const barLabel = el('div');
+    barLabel.style.cssText = `font-size:9px;color:${isLight?'#fff':'#fff'};letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;mix-blend-mode:${isLight?'multiply':'normal'}`;
+    const badgeText = done ? '完了'
+      : over ? `${Math.abs(daysLeft)}日超過`
+      : isRange ? (() => { const s=new Date(t.start+'T00:00:00'); return Math.round((dueDate-s)/86400000)+'日間'; })()
+      : daysLeft === 0 ? '今日締切'
+      : daysLeft === 1 ? '明日締切'
+      : `あと${daysLeft}日`;
+    barLabel.textContent = badgeText;
+    bar.appendChild(barLabel);
+    gridRow.appendChild(bar);
+    gridInner.appendChild(gridRow);
   });
+
+  gridCol.appendChild(gridInner);
+  bodyWrap.appendChild(labelCol);
+  bodyWrap.appendChild(gridCol);
   wrap.appendChild(bodyWrap);
+
+  // ヘッダーのスクロールをグリッドに同期
+  gridCol.addEventListener('scroll', () => {
+    gridHeaderScroll.scrollLeft = gridCol.scrollLeft;
+  });
+
+  // 今日の位置にスクロール（今日が画面左から1/4の位置になるよう）
+  const todayDay = Math.round((today - rangeStart) / 86400000);
+  const scrollTarget = Math.max(0, todayDay * DAY_W - 60);
+  gridCol.scrollLeft = scrollTarget;
+  gridHeaderScroll.scrollLeft = scrollTarget;
 }
 
 // Todo フィルタ・ビュー切り替え
