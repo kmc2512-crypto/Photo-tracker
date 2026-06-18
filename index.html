@@ -874,6 +874,7 @@ const state = {
   lens: LENSES[0],
   tasks: [],
   tasksDone: LS.get('tasks_done') || {},
+  doneTimers: {}, // key → タイマーID（完了から5分後に自動削除）
   checks: LS.get('checks') || {},
   scriptUrl: LS.get('script_url') || '',
   activeWeek: 1,
@@ -1027,6 +1028,39 @@ function saveScriptUrl(url) {
   SB.setSetting('script_url', url);
 }
 
+// タスク完了トグル（完了にしたら5分後に自動削除、未完了に戻したらキャンセル）
+const DONE_DELAY_MS = 5 * 60 * 1000; // 5分
+
+function toggleTaskDone(k, t) {
+  const wasDone = !!state.tasksDone[k];
+  state.tasksDone[k] = !wasDone;
+  LS.set('tasks_done', state.tasksDone);
+
+  if (!wasDone) {
+    // 完了にした → 5分後に自動削除スケジュール
+    const timerId = setTimeout(() => {
+      delete state.doneTimers[k];
+      // GASタスクは tasksDone から削除するだけ（再SYNCで戻る）
+      // 手動タスクは配列からも削除
+      if (t && t._manual) {
+        const manual = LS.get('manual_tasks') || [];
+        saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
+      }
+      delete state.tasksDone[k];
+      LS.set('tasks_done', state.tasksDone);
+      renderTodo();
+    }, DONE_DELAY_MS);
+    state.doneTimers[k] = timerId;
+  } else {
+    // 未完了に戻した → タイマーキャンセル
+    if (state.doneTimers[k]) {
+      clearTimeout(state.doneTimers[k]);
+      delete state.doneTimers[k];
+    }
+  }
+  renderTodo();
+}
+
 state.todoFilter = 'all';
 state.todoView = 'list';
 state.todoPeriod = 'all';
@@ -1089,11 +1123,7 @@ function renderTodo() {
       const over = isOverdue(t.due) && !done;
       const row = el('div', 'task-row');
       const cb = el('div', 'cb' + (done ? ' done' : ''));
-      cb.addEventListener('click', () => {
-        state.tasksDone[k] = !state.tasksDone[k];
-        LS.set('tasks_done', state.tasksDone);
-        renderTodo();
-      });
+      cb.addEventListener('click', () => toggleTaskDone(k, t));
       const info = el('div'); info.style.flex = '1';
       const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
       title.textContent = t.title;
@@ -1103,16 +1133,37 @@ function renderTodo() {
       // 日付・期間の表示
       const dateLabel = el('span', 'task-due' + (over ? ' overdue' : ''));
       if (t.dateType === 'range' && t.start) {
-        // 期間タスク: 1/2 10:00 → 1/7 18:00
         const startStr = fmtFull(t.start) + (t.startTime ? ' ' + t.startTime : '');
         const endStr = t.due ? fmtFull(t.due) + (t.dueTime ? ' ' + t.dueTime : '') : '';
         dateLabel.textContent = startStr + (endStr ? ' → ' + endStr : '');
         meta.appendChild(dateLabel);
       } else if (t.due) {
-        // 締め切りタスク: 1/7 18:00〆
         const timeStr = t.dueTime ? ' ' + t.dueTime : '';
         dateLabel.textContent = fmtFull(t.due) + timeStr + (over ? ' · 期限切れ' : ' 締切');
         meta.appendChild(dateLabel);
+      }
+
+      // 完了済み → カウントダウン表示
+      if (done && state.doneTimers[k]) {
+        const countdown = el('span');
+        countdown.style.cssText = 'font-size:10px;color:var(--fg6);letter-spacing:.05em;margin-left:auto';
+        countdown.textContent = '5分後に削除';
+        // 残り秒数を更新する関数
+        const startedAt = Date.now();
+        const updateCountdown = () => {
+          const remaining = Math.max(0, DONE_DELAY_MS - (Date.now() - startedAt));
+          const mins = Math.floor(remaining / 60000);
+          const secs = Math.floor((remaining % 60000) / 1000);
+          countdown.textContent = remaining > 0
+            ? `${mins}:${String(secs).padStart(2,'0')} 後に削除`
+            : '削除中...';
+        };
+        updateCountdown();
+        const intervalId = setInterval(() => {
+          if (!document.body.contains(countdown)) { clearInterval(intervalId); return; }
+          updateCountdown();
+        }, 1000);
+        meta.appendChild(countdown);
       }
 
       // 手動タスクは削除ボタン
@@ -1307,11 +1358,7 @@ function renderGantt(tasks) {
     nameCell.style.cssText = `height:${ROW_H}px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid var(--bg3)`;
     const cb = el('div', 'cb' + (done ? ' done' : ''));
     cb.style.flexShrink = '0';
-    cb.addEventListener('click', () => {
-      state.tasksDone[k] = !state.tasksDone[k];
-      LS.set('tasks_done', state.tasksDone);
-      renderTodo();
-    });
+    cb.addEventListener('click', () => toggleTaskDone(k, t));
     const nt = el('div');
     nt.style.cssText = `flex:1;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:${done?'var(--fg7)':nc}`;
     if (done) nt.style.textDecoration = 'line-through';
