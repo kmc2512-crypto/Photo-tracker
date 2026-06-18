@@ -348,10 +348,59 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .clip-del-btn{background:none;border:none;color:var(--fg7);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;padding:0;cursor:pointer;min-height:32px;min-width:40px;display:flex;align-items:center;justify-content:flex-end;transition:color .15s}
 .clip-del-btn:hover{color:var(--overdue)}
 .clip-empty{font-size:11px;color:var(--fg7);letter-spacing:.06em;padding:20px 0}
-/* time input */
-input[type=time]{color:var(--fg);background:transparent;border:none;border-bottom:1px solid var(--border2);font-family:'DM Mono',monospace;font-size:12px;padding:6px 0;font-variant-numeric:tabular-nums;width:100%;outline:none;transition:border-color .15s}
-input[type=time]:focus{border-bottom-color:var(--fg5)}
-input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:pointer}
+/* ── カスタム日付・時刻ピッカー ── */
+.custom-date-input,.custom-time-input{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);padding:8px 0;cursor:pointer;user-select:none;transition:border-color .15s;min-height:36px}
+.custom-date-input:hover,.custom-time-input:hover{border-bottom-color:var(--fg5)}
+.custom-date-input.active,.custom-time-input.active{border-bottom-color:var(--fg)}
+.cdi-text,.cti-text{font-family:'DM Mono',monospace;font-size:12px;color:var(--fg);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.cdi-text.placeholder,.cti-text.placeholder{color:var(--fg6)}
+.cdi-icon{font-size:8px;color:var(--fg6);margin-left:6px;transition:transform .15s}
+.custom-date-input.active .cdi-icon,.custom-time-input.active .cdi-icon{transform:rotate(180deg)}
+
+/* ポップオーバー共通 */
+.picker-popover{position:fixed;background:var(--bg);border:1px solid var(--border2);z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:pop-in .12s cubic-bezier(.2,0,0,1)}
+@keyframes pop-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* カレンダーピッカー */
+.cal-picker{width:264px;padding:0}
+.cal-picker-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.cal-picker-month{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.cal-picker-nav{display:flex;gap:4px}
+.cal-picker-nav button{background:none;border:1px solid var(--border2);color:var(--fg5);font-family:'DM Mono',monospace;font-size:11px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.cal-picker-nav button:hover{border-color:var(--fg5);color:var(--fg)}
+.cal-picker-body{padding:10px 14px 14px}
+.cal-picker-dow{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.cal-picker-dow span{font-size:9px;color:var(--fg6);text-align:center;letter-spacing:.08em;padding:2px 0}
+.cal-picker-days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day-btn{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:var(--fg4);cursor:pointer;width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;transition:background .1s,color .1s;font-variant-numeric:tabular-nums}
+.cal-day-btn:hover{background:var(--bg3);color:var(--fg)}
+.cal-day-btn.today{color:var(--fg);font-weight:600;outline:1px solid var(--border3)}
+.cal-day-btn.selected{background:var(--fg);color:var(--bg)}
+.cal-day-btn.other-month{color:var(--fg7)}
+.cal-day-btn:disabled{color:var(--bg5);cursor:default}
+.cal-picker-footer{padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.cal-picker-clear{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--fg5);cursor:pointer;letter-spacing:.06em;padding:4px 0}
+.cal-picker-clear:hover{color:var(--fg)}
+.cal-picker-today-btn{background:none;border:1px solid var(--border2);font-family:'DM Mono',monospace;font-size:10px;color:var(--fg4);cursor:pointer;letter-spacing:.06em;padding:4px 10px;transition:all .15s}
+.cal-picker-today-btn:hover{border-color:var(--fg5);color:var(--fg)}
+
+/* 時刻ピッカー */
+.time-picker{width:180px;padding:14px}
+.time-picker-cols{display:flex;gap:8px;align-items:stretch}
+.time-col{flex:1;display:flex;flex-direction:column;gap:2px}
+.time-col-label{font-size:9px;color:var(--fg5);letter-spacing:.12em;text-align:center;margin-bottom:6px}
+.time-col-scroll{max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border3) transparent}
+.time-col-scroll::-webkit-scrollbar{width:3px}
+.time-col-scroll::-webkit-scrollbar-thumb{background:var(--border3)}
+.time-btn{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:var(--fg5);cursor:pointer;padding:5px 0;text-align:center;width:100%;transition:background .1s,color .1s;font-variant-numeric:tabular-nums;border-radius:0}
+.time-btn:hover{background:var(--bg3);color:var(--fg)}
+.time-btn.selected{background:var(--fg);color:var(--bg)}
+.time-picker-sep{font-size:18px;color:var(--fg5);display:flex;align-items:center;padding-top:28px}
+.time-picker-clear{width:100%;margin-top:10px;background:none;border:1px solid var(--border2);font-family:'DM Mono',monospace;font-size:10px;color:var(--fg5);cursor:pointer;padding:6px 0;letter-spacing:.08em;transition:all .15s}
+.time-picker-clear:hover{border-color:var(--fg5);color:var(--fg)}
+
+/* time input CSS不要になったが念のため残す */
+input[type=time]{display:none}
 @media (max-width: 600px) {
   .nav{padding:0 12px;height:auto;flex-wrap:wrap;gap:0}
   .nav-title{display:none}
@@ -558,11 +607,17 @@ input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:po
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <div style="flex:1;min-width:140px">
             <div class="lbl" style="margin-bottom:6px">締め切り日 <span style="color:var(--overdue)">*</span></div>
-            <input type="date" id="todo-due-input" aria-label="締め切り日" aria-required="true">
+            <div class="custom-date-input" id="pick-due-date" data-target="todo-due-input" aria-label="締め切り日">
+              <span class="cdi-text">日付を選択</span><span class="cdi-icon">▼</span>
+            </div>
+            <input type="hidden" id="todo-due-input">
           </div>
           <div style="width:120px">
             <div class="lbl" style="margin-bottom:6px">時刻 <span style="color:var(--fg6);font-size:8px;letter-spacing:.04em">省略可</span></div>
-            <input type="time" id="todo-due-time-input" aria-label="締め切り時刻（省略可）">
+            <div class="custom-time-input" id="pick-due-time" data-target="todo-due-time-input" aria-label="締め切り時刻">
+              <span class="cti-text">--:--</span><span class="cdi-icon">▼</span>
+            </div>
+            <input type="hidden" id="todo-due-time-input">
           </div>
         </div>
       </div>
@@ -570,19 +625,31 @@ input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:po
       <!-- 期間モード -->
       <div id="form-range-row" class="hidden">
         <div style="font-size:10px;color:var(--fg5);margin-bottom:12px;letter-spacing:.04em;line-height:1.6">「いつからいつまで取り組むか」を設定します。時刻は省略できます。</div>
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start">
           <div>
             <div class="lbl" style="margin-bottom:6px">開始日</div>
-            <input type="date" id="todo-start-input" aria-label="開始日">
+            <div class="custom-date-input" id="pick-start-date" data-target="todo-start-input" aria-label="開始日">
+              <span class="cdi-text">日付を選択</span><span class="cdi-icon">▼</span>
+            </div>
+            <input type="hidden" id="todo-start-input">
             <div class="lbl" style="margin-bottom:6px;margin-top:10px">開始時刻 <span style="color:var(--fg6);font-size:8px">省略可</span></div>
-            <input type="time" id="todo-start-time-input" aria-label="開始時刻（省略可）">
+            <div class="custom-time-input" id="pick-start-time" data-target="todo-start-time-input" aria-label="開始時刻">
+              <span class="cti-text">--:--</span><span class="cdi-icon">▼</span>
+            </div>
+            <input type="hidden" id="todo-start-time-input">
           </div>
-          <div style="font-size:16px;color:var(--fg6);padding-bottom:10px;text-align:center">→</div>
+          <div style="font-size:16px;color:var(--fg6);padding-top:28px;text-align:center">→</div>
           <div>
             <div class="lbl" style="margin-bottom:6px">終了日</div>
-            <input type="date" id="todo-end-input" aria-label="終了日">
+            <div class="custom-date-input" id="pick-end-date" data-target="todo-end-input" aria-label="終了日">
+              <span class="cdi-text">日付を選択</span><span class="cdi-icon">▼</span>
+            </div>
+            <input type="hidden" id="todo-end-input">
             <div class="lbl" style="margin-bottom:6px;margin-top:10px">終了時刻 <span style="color:var(--fg6);font-size:8px">省略可</span></div>
-            <input type="time" id="todo-end-time-input" aria-label="終了時刻（省略可）">
+            <div class="custom-time-input" id="pick-end-time" data-target="todo-end-time-input" aria-label="終了時刻">
+              <span class="cti-text">--:--</span><span class="cdi-icon">▼</span>
+            </div>
+            <input type="hidden" id="todo-end-time-input">
           </div>
         </div>
       </div>
@@ -1007,8 +1074,280 @@ qs('#notif-deny-btn').addEventListener('click', () => {
 });
 
 // ══════════════════════════════════════════════
-// ── Todo ──────────────────────────────────────
+// ── カスタム日付・時刻ピッカー ─────────────────
 // ══════════════════════════════════════════════
+const Picker = (() => {
+  let activePopover = null;
+  let activeTarget = null;
+
+  function close() {
+    if (activePopover) { activePopover.remove(); activePopover = null; }
+    if (activeTarget) { activeTarget.classList.remove('active'); activeTarget = null; }
+  }
+  document.addEventListener('mousedown', e => {
+    if (activePopover && !activePopover.contains(e.target) && !activeTarget?.contains(e.target)) close();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  function positionPopover(pop, trigger) {
+    document.body.appendChild(pop);
+    const tr = trigger.getBoundingClientRect();
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let top = tr.bottom + 4, left = tr.left;
+    if (top + ph > vh - 8) top = tr.top - ph - 4;
+    if (left + pw > vw - 8) left = vw - pw - 8;
+    pop.style.top = Math.max(8, top) + 'px';
+    pop.style.left = Math.max(8, left) + 'px';
+  }
+
+  // ── カレンダーピッカー ──
+  function openDate(triggerEl, hiddenId, onSelect) {
+    if (activeTarget === triggerEl) { close(); return; }
+    close();
+    activeTarget = triggerEl;
+    triggerEl.classList.add('active');
+
+    const hidden = qs('#' + hiddenId);
+    let cur = hidden.value ? new Date(hidden.value + 'T00:00:00') : new Date();
+    let viewY = cur.getFullYear(), viewM = cur.getMonth();
+
+    const pop = el('div', 'picker-popover cal-picker');
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    function render() {
+      pop.innerHTML = '';
+      // ヘッダー
+      const hdr = el('div', 'cal-picker-header');
+      const monthLbl = el('div', 'cal-picker-month');
+      monthLbl.textContent = viewY + '年' + (viewM+1) + '月';
+      const nav = el('div', 'cal-picker-nav');
+      const prev = el('button'); prev.textContent = '←'; prev.setAttribute('aria-label', '前の月');
+      prev.addEventListener('click', () => { viewM--; if (viewM<0){viewM=11;viewY--;} render(); });
+      const next = el('button'); next.textContent = '→'; next.setAttribute('aria-label', '次の月');
+      next.addEventListener('click', () => { viewM++; if (viewM>11){viewM=0;viewY++;} render(); });
+      nav.appendChild(prev); nav.appendChild(next);
+      hdr.appendChild(monthLbl); hdr.appendChild(nav);
+      pop.appendChild(hdr);
+
+      // 日付グリッド
+      const body = el('div', 'cal-picker-body');
+      const dowRow = el('div', 'cal-picker-dow');
+      ['日','月','火','水','木','金','土'].forEach(d => {
+        const s = el('span'); s.textContent = d; dowRow.appendChild(s);
+      });
+      body.appendChild(dowRow);
+
+      const days = el('div', 'cal-picker-days');
+      const first = new Date(viewY, viewM, 1).getDay();
+      const last = new Date(viewY, viewM+1, 0).getDate();
+      const prevLast = new Date(viewY, viewM, 0).getDate();
+
+      // 前月の日
+      for (let i = 0; i < first; i++) {
+        const b = el('button', 'cal-day-btn other-month');
+        b.textContent = prevLast - first + 1 + i;
+        b.disabled = true;
+        days.appendChild(b);
+      }
+      // 当月の日
+      const selVal = hidden.value;
+      for (let d = 1; d <= last; d++) {
+        const dateStr = viewY + '-' + String(viewM+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const isToday = new Date(viewY, viewM, d).getTime() === today.getTime();
+        const isSel = dateStr === selVal;
+        const b = el('button', 'cal-day-btn' + (isToday?' today':'') + (isSel?' selected':''));
+        b.textContent = d;
+        b.addEventListener('click', () => {
+          hidden.value = dateStr;
+          const textEl = triggerEl.querySelector('.cdi-text');
+          textEl.textContent = `${viewY}/${viewM+1}/${d}`;
+          textEl.classList.remove('placeholder');
+          if (onSelect) onSelect(dateStr);
+          close();
+        });
+        days.appendChild(b);
+      }
+      // 翌月の日（6行埋める）
+      const total = first + last;
+      const nextDays = total % 7 === 0 ? 0 : 7 - (total % 7);
+      for (let i = 1; i <= nextDays; i++) {
+        const b = el('button', 'cal-day-btn other-month');
+        b.textContent = i; b.disabled = true;
+        days.appendChild(b);
+      }
+      body.appendChild(days);
+      pop.appendChild(body);
+
+      // フッター
+      const footer = el('div', 'cal-picker-footer');
+      const clearBtn = el('button', 'cal-picker-clear'); clearBtn.textContent = 'クリア';
+      clearBtn.addEventListener('click', () => {
+        hidden.value = '';
+        const textEl = triggerEl.querySelector('.cdi-text');
+        textEl.textContent = '日付を選択';
+        textEl.classList.add('placeholder');
+        if (onSelect) onSelect('');
+        close();
+      });
+      const todayBtn = el('button', 'cal-picker-today-btn'); todayBtn.textContent = '今日';
+      todayBtn.addEventListener('click', () => {
+        const d = new Date();
+        const dateStr = getLocalDateStr(d);
+        hidden.value = dateStr;
+        const textEl = triggerEl.querySelector('.cdi-text');
+        textEl.textContent = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+        textEl.classList.remove('placeholder');
+        if (onSelect) onSelect(dateStr);
+        close();
+      });
+      footer.appendChild(clearBtn); footer.appendChild(todayBtn);
+      pop.appendChild(footer);
+    }
+
+    render();
+    activePopover = pop;
+    positionPopover(pop, triggerEl);
+    // 選択値があれば表示月を合わせる
+    if (hidden.value) {
+      const d = new Date(hidden.value + 'T00:00:00');
+      viewY = d.getFullYear(); viewM = d.getMonth();
+    }
+  }
+
+  // ── 時刻ピッカー ──
+  function openTime(triggerEl, hiddenId) {
+    if (activeTarget === triggerEl) { close(); return; }
+    close();
+    activeTarget = triggerEl;
+    triggerEl.classList.add('active');
+
+    const hidden = qs('#' + hiddenId);
+    const [curH, curM] = (hidden.value || '').split(':').map(Number);
+
+    const pop = el('div', 'picker-popover time-picker');
+    const cols = el('div', 'time-picker-cols');
+
+    // 時列
+    const hCol = el('div', 'time-col');
+    const hLbl = el('div', 'time-col-label'); hLbl.textContent = '時';
+    const hScroll = el('div', 'time-col-scroll');
+    for (let h = 0; h < 24; h++) {
+      const b = el('button', 'time-btn' + (h === curH ? ' selected' : ''));
+      b.textContent = String(h).padStart(2,'0');
+      b.addEventListener('click', () => {
+        hScroll.querySelectorAll('.time-btn').forEach(x => x.classList.remove('selected'));
+        b.classList.add('selected');
+        updateTime();
+      });
+      hScroll.appendChild(b);
+    }
+    hCol.appendChild(hLbl); hCol.appendChild(hScroll);
+
+    // セパレータ
+    const sep = el('div', 'time-picker-sep'); sep.textContent = ':';
+
+    // 分列（5分刻み）
+    const mCol = el('div', 'time-col');
+    const mLbl = el('div', 'time-col-label'); mLbl.textContent = '分';
+    const mScroll = el('div', 'time-col-scroll');
+    for (let m = 0; m < 60; m += 5) {
+      const b = el('button', 'time-btn' + (m === curM ? ' selected' : ''));
+      b.textContent = String(m).padStart(2,'0');
+      b.addEventListener('click', () => {
+        mScroll.querySelectorAll('.time-btn').forEach(x => x.classList.remove('selected'));
+        b.classList.add('selected');
+        updateTime();
+      });
+      mScroll.appendChild(b);
+    }
+    mCol.appendChild(mLbl); mCol.appendChild(mScroll);
+
+    cols.appendChild(hCol); cols.appendChild(sep); cols.appendChild(mCol);
+    pop.appendChild(cols);
+
+    const clearBtn = el('button', 'time-picker-clear'); clearBtn.textContent = 'クリア';
+    clearBtn.addEventListener('click', () => {
+      hidden.value = '';
+      const textEl = triggerEl.querySelector('.cti-text');
+      textEl.textContent = '--:--';
+      textEl.classList.add('placeholder');
+      close();
+    });
+    pop.appendChild(clearBtn);
+
+    function updateTime() {
+      const hSel = hScroll.querySelector('.selected');
+      const mSel = mScroll.querySelector('.selected');
+      if (hSel && mSel) {
+        const val = hSel.textContent + ':' + mSel.textContent;
+        hidden.value = val;
+        const textEl = triggerEl.querySelector('.cti-text');
+        textEl.textContent = val;
+        textEl.classList.remove('placeholder');
+      }
+    }
+
+    activePopover = pop;
+    positionPopover(pop, triggerEl);
+
+    // 選択済みアイテムにスクロール
+    setTimeout(() => {
+      const hSel = hScroll.querySelector('.selected');
+      const mSel = mScroll.querySelector('.selected');
+      if (hSel) hScroll.scrollTop = hSel.offsetTop - hScroll.offsetHeight/2 + hSel.offsetHeight/2;
+      if (mSel) mScroll.scrollTop = mSel.offsetTop - mScroll.offsetHeight/2 + mSel.offsetHeight/2;
+    }, 10);
+  }
+
+  return { openDate, openTime };
+})();
+
+// カスタムピッカーの初期化（Todoフォームの入力欄に紐付け）
+function initPickers() {
+  const datePickers = [
+    { trigger: 'pick-due-date',   hidden: 'todo-due-input' },
+    { trigger: 'pick-start-date', hidden: 'todo-start-input' },
+    { trigger: 'pick-end-date',   hidden: 'todo-end-input' },
+  ];
+  const timePickers = [
+    { trigger: 'pick-due-time',   hidden: 'todo-due-time-input' },
+    { trigger: 'pick-start-time', hidden: 'todo-start-time-input' },
+    { trigger: 'pick-end-time',   hidden: 'todo-end-time-input' },
+  ];
+
+  datePickers.forEach(({ trigger, hidden }) => {
+    const el2 = qs('#' + trigger);
+    if (!el2) return;
+    // placeholder初期化
+    el2.querySelector('.cdi-text').classList.add('placeholder');
+    el2.addEventListener('click', () => Picker.openDate(el2, hidden));
+  });
+  timePickers.forEach(({ trigger, hidden }) => {
+    const el2 = qs('#' + trigger);
+    if (!el2) return;
+    el2.querySelector('.cti-text').classList.add('placeholder');
+    el2.addEventListener('click', () => Picker.openTime(el2, hidden));
+  });
+}
+
+// 追加ボタン後にピッカーのテキストをリセットする関数
+function resetPickers() {
+  [
+    ['pick-due-date','日付を選択','cdi-text'],
+    ['pick-start-date','日付を選択','cdi-text'],
+    ['pick-end-date','日付を選択','cdi-text'],
+    ['pick-due-time','--:--','cti-text'],
+    ['pick-start-time','--:--','cti-text'],
+    ['pick-end-time','--:--','cti-text'],
+  ].forEach(([id, text, cls]) => {
+    const el2 = qs('#' + id);
+    if (!el2) return;
+    const span = el2.querySelector('.' + cls);
+    span.textContent = text;
+    span.classList.add('placeholder');
+  });
+}
 // GASからのタスクはstate.tasks、手動タスクはLS('manual_tasks')に分離
 function getAllTasks() {
   const manual = LS.get('manual_tasks') || [];
@@ -1496,6 +1835,7 @@ qs('#todo-add-btn').addEventListener('click', () => {
   qs('#todo-start-time-input').value = '';
   qs('#todo-end-input').value = '';
   qs('#todo-end-time-input').value = '';
+  resetPickers();
   renderTodo();
 });
 
@@ -2477,8 +2817,8 @@ setInterval(() => {
 }, 60000);
 
 renderPlan();
+initPickers();
 initTodayData().then(() => {
-  // ローカルデータ読み込み後にSupabaseから差分取得
   syncFromSupabase();
   syncTodayPhotosFromSupabase();
   syncSettingsFromSupabase();
