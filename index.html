@@ -445,19 +445,18 @@ input[type=time]{display:none}
 #tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden{animation:none}
 @keyframes tab-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 </style>
-</style>
 </head>
 <body>
 <nav class="nav" role="navigation" aria-label="メインナビゲーション">
   <span class="nav-title">写真成長記録</span>
   <div class="nav-tabs" role="tablist" aria-label="メインタブ">
-    <button class="tab-btn active" data-tab="today" role="tab" aria-selected="true" aria-controls="tab-today">今日</button>
-    <button class="tab-btn" data-tab="learn" role="tab" aria-selected="false" aria-controls="tab-learn">学習</button>
-    <button class="tab-btn" data-tab="plan" role="tab" aria-selected="false" aria-controls="tab-plan">プラン</button>
-    <button class="tab-btn" data-tab="log" role="tab" aria-selected="false" aria-controls="tab-log">ログ</button>
-    <button class="tab-btn" data-tab="todo" role="tab" aria-selected="false" aria-controls="tab-todo">Todo</button>
-    <button class="tab-btn" data-tab="timer" role="tab" aria-selected="false" aria-controls="tab-timer">タイマー</button>
-    <button class="tab-btn" data-tab="clip" role="tab" aria-selected="false" aria-controls="tab-clip">クリップ</button>
+    <button class="tab-btn active" data-tab="today" role="tab" id="tab-btn-today" aria-selected="true" aria-controls="tab-today">今日</button>
+    <button class="tab-btn" data-tab="learn" role="tab" id="tab-btn-learn" aria-selected="false" aria-controls="tab-learn">学習</button>
+    <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">プラン</button>
+    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">ログ</button>
+    <button class="tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">Todo</button>
+    <button class="tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
+    <button class="tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
   </div>
   <div class="nav-right">
     <span class="streak" id="streak" aria-label="連続記録日数"></span>
@@ -811,6 +810,7 @@ const LS = {
   set: (k, v) => { try { localStorage.setItem('ptr_' + k, JSON.stringify(v)); } catch {} }
 };
 
+// NOTE: anon keyのフロント直書きはSupabaseでは一般的だが、テーブル側のRLS（Row Level Security）設定を必ず確認すること
 const SB_URL = 'https://eskeovyymgferdbqotti.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVza2Vvdnl5bWdmZXJkYnFvdHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODE1MzksImV4cCI6MjA5NTg1NzUzOX0.y22KuSGf7nKzYlGxDU-K4ryoB7xLAXGoJALHji_t0Eg';
 const SB_HEADERS = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
@@ -1020,8 +1020,9 @@ function renderProgressBanner() {
   const pct = Math.min(100, Math.round((logInWeek / 5) * 100));
   qs('#pb-fill').style.width = pct + '%';
   qs('#pb-label').textContent = `今週 ${logInWeek}/5 ログ達成`;
-  qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
 }
+// クリックイベントは一度だけ登録（renderProgressBanner()が複数回呼ばれても重複登録しない）
+qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
 renderProgressBanner();
 
 // ── PWAプッシュ通知 ───────────────────────────
