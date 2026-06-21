@@ -569,10 +569,12 @@ input[type=time]{display:none}
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px" id="todo-count" aria-live="polite">0 TASKS</div>
       </div>
       <div style="display:flex;gap:8px;padding-top:4px">
+        <button class="ghost-btn" id="todo-cloud-sync-btn">クラウド同期</button>
         <button class="ghost-btn" id="todo-url-btn">GAS連携</button>
         <button class="ghost-btn" id="todo-sync-btn">SYNC</button>
       </div>
     </div>
+    <div class="notice hidden" id="todo-cloud-sync-msg-wrap"><p id="todo-cloud-sync-msg"></p></div>
     <!-- 通知バナー -->
     <div class="notif-banner hidden" id="notif-banner">
       <p>課題の締め切り通知を受け取りますか？</p>
@@ -1419,17 +1421,31 @@ function getAllTasks() {
   return [...state.tasks, ...manual];
 }
 
+// 削除済み手動タスクのIDを記録（同期時にリモートから復活しないようにするため）
+function recordDeletedTaskId(id) {
+  const deleted = LS.get('manual_tasks_deleted') || [];
+  if (!deleted.includes(id)) {
+    deleted.push(id);
+    // 直近200件だけ保持（無限に増えないように）
+    LS.set('manual_tasks_deleted', deleted.slice(-200));
+  }
+}
+
 // 手動タスクを保存（ローカル＋Supabase両方に反映）
-function saveManualTasks(manual) {
+async function saveManualTasks(manual) {
   LS.set('manual_tasks', manual);
-  SB.setSetting('manual_tasks', manual);
+  const ok = await SB.setSetting('manual_tasks', manual);
+  if (!ok) {
+    console.warn('Supabaseへのタスク同期に失敗しました（ローカルには保存済み）');
+  }
+  return ok;
 }
 
 // GAS連携URLを保存（ローカル＋Supabase両方に反映）
-function saveScriptUrl(url) {
+async function saveScriptUrl(url) {
   state.scriptUrl = url;
   LS.set('script_url', url);
-  SB.setSetting('script_url', url);
+  return await SB.setSetting('script_url', url);
 }
 
 // タスク完了トグル（完了にしたら5分後に自動削除、未完了に戻したらキャンセル）
@@ -1448,6 +1464,7 @@ function toggleTaskDone(k, t) {
       // 手動タスクは配列からも削除
       if (t && t._manual) {
         const manual = LS.get('manual_tasks') || [];
+        recordDeletedTaskId(k);
         saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
       }
       delete state.tasksDone[k];
@@ -1581,6 +1598,7 @@ function renderTodo() {
         const del = el('button', 'clip-del-btn'); del.textContent = '削除';
         del.addEventListener('click', () => {
           const manual = LS.get('manual_tasks') || [];
+          recordDeletedTaskId(k);
           saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
           renderTodo();
         });
@@ -2013,6 +2031,47 @@ qs('#todo-url-save-btn').addEventListener('click', () => {
   syncTodoTasks(url);
 });
 qs('#todo-sync-btn').addEventListener('click', () => syncTodoTasks());
+
+// クラウド同期ボタン: 手動タスクをSupabaseと明示的に同期し、結果を表示する
+qs('#todo-cloud-sync-btn').addEventListener('click', async () => {
+  const btn = qs('#todo-cloud-sync-btn');
+  const msgWrap = qs('#todo-cloud-sync-msg-wrap');
+  const msgEl = qs('#todo-cloud-sync-msg');
+  btn.disabled = true;
+  btn.textContent = '同期中...';
+  msgWrap.classList.remove('hidden');
+  msgEl.textContent = '確認しています...';
+
+  try {
+    // settingsテーブルへの書き込み・読み込みが動くかテスト
+    const testKey = '_sync_test_' + Date.now();
+    const writeOk = await SB.setSetting(testKey, { ping: true });
+    if (!writeOk) {
+      msgEl.textContent = '❌ Supabaseへの書き込みに失敗しました。settingsテーブルが存在しないか、RLSポリシーが不足している可能性があります。';
+      btn.disabled = false;
+      btn.textContent = 'クラウド同期';
+      return;
+    }
+    const readBack = await SB.getSetting(testKey);
+    if (!readBack || !readBack.ping) {
+      msgEl.textContent = '❌ Supabaseへの書き込みはできましたが、読み込みに失敗しました（RLSのSELECT権限を確認してください）。';
+      btn.disabled = false;
+      btn.textContent = 'クラウド同期';
+      return;
+    }
+
+    // 実際の同期を実行
+    await syncSettingsFromSupabase();
+    const manual = LS.get('manual_tasks') || [];
+    msgEl.textContent = `✅ 同期成功。この端末の手動タスク: ${manual.length}件`;
+    renderTodo();
+  } catch(e) {
+    msgEl.textContent = '❌ エラー: ' + e.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'クラウド同期';
+});
 
 async function syncTodoTasks(url) {
   const target = url || state.scriptUrl;
@@ -3013,24 +3072,45 @@ async function syncSettingsFromSupabase() {
     SB.setSetting('script_url', state.scriptUrl);
   }
 
-  // 手動タスク: ローカルとリモートをID基準でマージ（両方の項目を保持）
+  // 手動タスク: tombstone（削除済みID一覧）を考慮した正しいマージ
+  // 1. リモートのタスクから「ローカルで削除済み」のものを除外
+  // 2. ローカルにしかないタスクをリモートにマージ
+  // 3. 結果をローカル・リモート両方に反映
   const remoteTasks = await SB.getSetting('manual_tasks');
   const localTasks = LS.get('manual_tasks') || [];
+  const deletedIds = LS.get('manual_tasks_deleted') || [];
+
   if (Array.isArray(remoteTasks)) {
-    const merged = [...remoteTasks];
-    const remoteIds = new Set(remoteTasks.map(t => t.id || t.title + t.due));
-    localTasks.forEach(t => {
+    // リモートのタスクのうち、ローカルで削除済みでないものだけ採用
+    const remoteAlive = remoteTasks.filter(t => {
       const tid = t.id || t.title + t.due;
-      if (!remoteIds.has(tid)) merged.push(t);
+      return !deletedIds.includes(tid);
     });
-    LS.set('manual_tasks', merged);
-    if (merged.length !== remoteTasks.length) {
-      SB.setSetting('manual_tasks', merged);
+    const remoteIds = new Set(remoteAlive.map(t => t.id || t.title + t.due));
+
+    // ローカルにしかないタスク（他端末でまだ見えていないもの）を追加
+    const localOnly = localTasks.filter(t => {
+      const tid = t.id || t.title + t.due;
+      return !remoteIds.has(tid) && !deletedIds.includes(tid);
+    });
+
+    const merged = [...remoteAlive, ...localOnly];
+
+    // 内容に変化があればローカル・リモート両方を更新
+    const localStr = JSON.stringify(localTasks);
+    const mergedStr = JSON.stringify(merged);
+    if (localStr !== mergedStr) {
+      LS.set('manual_tasks', merged);
+      if (state.tab === 'todo') renderTodo();
     }
-    if (state.tab === 'todo') renderTodo();
+    // リモート側の内容（削除済みタスクが残っている等）が古ければ書き戻す
+    const remoteStr = JSON.stringify(remoteTasks);
+    if (remoteStr !== mergedStr) {
+      await SB.setSetting('manual_tasks', merged);
+    }
   } else if (localTasks.length > 0) {
     // リモートに何もない → ローカルをアップロード
-    SB.setSetting('manual_tasks', localTasks);
+    await SB.setSetting('manual_tasks', localTasks);
   }
 }
 
