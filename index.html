@@ -584,7 +584,7 @@ input[type=time]{display:none}
     <div class="notice hidden" id="todo-error" role="alert" aria-live="assertive"><p id="todo-error-msg"></p></div>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">
-      <div class="lbl" style="margin-bottom:12px">タスクを追加</div>
+      <div class="lbl" style="margin-bottom:12px" id="todo-form-heading">タスクを追加</div>
       <!-- タスク名・カテゴリ -->
       <div class="form-row" style="margin-bottom:14px">
         <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名">
@@ -658,7 +658,8 @@ input[type=time]{display:none}
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.04em;line-height:1.6;padding:12px 0">日付・時刻なしのタスクとして追加します。やりたいことメモなどに。</div>
       </div>
 
-      <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="ghost-btn hidden" id="todo-cancel-edit-btn">キャンセル</button>
         <button class="save-btn" id="todo-add-btn">追加</button>
       </div>
     </div>
@@ -1404,6 +1405,7 @@ function toggleTaskDone(k, t) {
 state.todoFilter = 'all';
 state.todoView = 'list';
 state.todoPeriod = 'all';
+state.editingTaskId = null; // 編集中の手動タスクID（nullなら新規追加モード）
 
 function getDeadlineLimit(period) {
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1506,10 +1508,14 @@ function renderTodo() {
         meta.appendChild(countdown);
       }
 
-      // 手動タスクは削除ボタン
+      // 手動タスクは編集・削除ボタン
       if (t._manual) {
+        const edit = el('button', 'clip-del-btn'); edit.textContent = '編集';
+        edit.style.marginLeft = 'auto';
+        edit.addEventListener('click', () => startEditTask(t));
+        meta.appendChild(edit);
+
         const del = el('button', 'clip-del-btn'); del.textContent = '削除';
-        del.style.marginLeft = 'auto';
         del.addEventListener('click', () => {
           const manual = LS.get('manual_tasks') || [];
           saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
@@ -1798,14 +1804,16 @@ document.querySelectorAll('[data-datetype]').forEach(b => {
   });
 });
 
-// 手動タスク追加
+// 手動タスク追加・編集（state.editingTaskIdがあれば編集モード）
 qs('#todo-add-btn').addEventListener('click', () => {
   const title = qs('#todo-title-input').value.trim();
   if (!title) { qs('#todo-title-input').focus(); return; }
 
   const manual = LS.get('manual_tasks') || [];
+  const isEditing = !!state.editingTaskId;
+
   const task = {
-    id: 'manual_' + Date.now(),
+    id: isEditing ? state.editingTaskId : 'manual_' + Date.now(),
     title,
     subject: qs('#todo-subject-input').value.trim(),
     _manual: true,
@@ -1824,10 +1832,85 @@ qs('#todo-add-btn').addEventListener('click', () => {
   }
   // dateType === 'none' は日付なし
 
-  manual.push(task);
+  if (isEditing) {
+    // 既存タスクを置き換え（完了状態は維持したいのでtasksDoneのキーも更新が必要な場合がある）
+    const idx = manual.findIndex(x => x.id === state.editingTaskId);
+    if (idx !== -1) {
+      const oldKey = manual[idx].id || manual[idx].title + manual[idx].due;
+      const newKey = task.id || task.title + task.due;
+      // 完了状態・タイマーをキー変更に合わせて引き継ぐ
+      if (oldKey !== newKey && state.tasksDone[oldKey] !== undefined) {
+        state.tasksDone[newKey] = state.tasksDone[oldKey];
+        delete state.tasksDone[oldKey];
+        LS.set('tasks_done', state.tasksDone);
+      }
+      manual[idx] = task;
+    } else {
+      manual.push(task);
+    }
+  } else {
+    manual.push(task);
+  }
   saveManualTasks(manual);
 
-  // フォームリセット
+  exitEditMode();
+  renderTodo();
+});
+
+// 編集モード開始
+function startEditTask(t) {
+  state.editingTaskId = t.id;
+
+  qs('#todo-title-input').value = t.title || '';
+  qs('#todo-subject-input').value = t.subject || '';
+
+  const dt = t.dateType || (t.due ? 'deadline' : 'none');
+  document.querySelectorAll('[data-datetype]').forEach(b => b.classList.toggle('active', b.dataset.datetype === dt));
+  state.todoDateType = dt;
+  qs('#form-deadline-row').classList.toggle('hidden', dt !== 'deadline');
+  qs('#form-range-row').classList.toggle('hidden', dt !== 'range');
+  qs('#form-none-row').classList.toggle('hidden', dt !== 'none');
+
+  resetPickers();
+  if (dt === 'deadline') {
+    if (t.due) setPickerValue('pick-due-date', 'todo-due-input', t.due);
+    if (t.dueTime) setPickerValue('pick-due-time', 'todo-due-time-input', t.dueTime);
+  } else if (dt === 'range') {
+    if (t.start) setPickerValue('pick-start-date', 'todo-start-input', t.start);
+    if (t.startTime) setPickerValue('pick-start-time', 'todo-start-time-input', t.startTime);
+    if (t.due) setPickerValue('pick-end-date', 'todo-end-input', t.due);
+    if (t.dueTime) setPickerValue('pick-end-time', 'todo-end-time-input', t.dueTime);
+  }
+
+  qs('#todo-form-heading').textContent = 'タスクを編集';
+  qs('#todo-add-btn').textContent = '保存';
+  qs('#todo-cancel-edit-btn').classList.remove('hidden');
+  qs('.todo-add-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  qs('#todo-title-input').focus();
+}
+
+// 編集ピッカー欄に値をセット（日付/時刻の表示テキストも更新）
+function setPickerValue(triggerId, hiddenId, value) {
+  const hidden = qs('#' + hiddenId);
+  hidden.value = value;
+  const trigger = qs('#' + triggerId);
+  if (!trigger) return;
+  const dateSpan = trigger.querySelector('.cdi-text');
+  const timeSpan = trigger.querySelector('.cti-text');
+  if (dateSpan) {
+    const [y,m,d] = value.split('-').map(Number);
+    dateSpan.textContent = `${y}/${m}/${d}`;
+    dateSpan.classList.remove('placeholder');
+  }
+  if (timeSpan) {
+    timeSpan.textContent = value;
+    timeSpan.classList.remove('placeholder');
+  }
+}
+
+// 編集モード終了（新規追加モードに戻す）
+function exitEditMode() {
+  state.editingTaskId = null;
   qs('#todo-title-input').value = '';
   qs('#todo-subject-input').value = '';
   qs('#todo-due-input').value = '';
@@ -1837,6 +1920,20 @@ qs('#todo-add-btn').addEventListener('click', () => {
   qs('#todo-end-input').value = '';
   qs('#todo-end-time-input').value = '';
   resetPickers();
+  // デフォルト（締め切りモード）に戻す
+  document.querySelectorAll('[data-datetype]').forEach(b => b.classList.toggle('active', b.dataset.datetype === 'deadline'));
+  state.todoDateType = 'deadline';
+  qs('#form-deadline-row').classList.remove('hidden');
+  qs('#form-range-row').classList.add('hidden');
+  qs('#form-none-row').classList.add('hidden');
+
+  qs('#todo-form-heading').textContent = 'タスクを追加';
+  qs('#todo-add-btn').textContent = '追加';
+  qs('#todo-cancel-edit-btn').classList.add('hidden');
+}
+
+qs('#todo-cancel-edit-btn').addEventListener('click', () => {
+  exitEditMode();
   renderTodo();
 });
 
