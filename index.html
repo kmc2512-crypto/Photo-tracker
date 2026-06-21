@@ -847,21 +847,44 @@ const SB = {
     } catch(e) { return null; }
   },
 
-  // 写真をbase64でupsert
-  async uploadPhoto(date, slot, base64, mimeType) {
+  // 写真をSupabase Storageにアップロード（バイナリ直送、base64変換なし）
+  // 旧実装はphotosテーブルにbase64で保存していたが、行サイズ・転送量の観点から
+  // Storageバケット（バイナリ保存）に移行。バケット名: 'photos'
+  async uploadPhoto(date, slot, blob, mimeType) {
     try {
       const key = slot === 'main' ? `main_${date}` : `pro${slot}_${date}`;
-      const res = await fetch(SB_URL + '/rest/v1/photos?on_conflict=key', {
+      const path = `${key}.bin`; // 拡張子は問わずバイナリとして保存
+      const res = await fetch(SB_URL + `/storage/v1/object/photos/${encodeURIComponent(path)}`, {
         method: 'POST',
-        headers: {...SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
-        body: JSON.stringify({ key, data: base64, mime_type: mimeType, updated_at: new Date().toISOString() })
+        headers: {
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY,
+          'Content-Type': mimeType || 'application/octet-stream',
+          'x-upsert': 'true' // 同名パスがあれば上書き
+        },
+        body: blob
       });
       return res.ok;
     } catch(e) { return false; }
   },
 
-  // 写真をbase64で取得
-  async fetchPhoto(date, slot) {
+  // 写真をSupabase Storageから取得（Blobで直接返す）
+  async fetchPhotoBlob(date, slot) {
+    try {
+      const key = slot === 'main' ? `main_${date}` : `pro${slot}_${date}`;
+      const path = `${key}.bin`;
+      const res = await fetch(SB_URL + `/storage/v1/object/photos/${encodeURIComponent(path)}`, {
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+      });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) return null;
+      return blob;
+    } catch(e) { return null; }
+  },
+
+  // 旧base64テーブル（photos）からの取得 — Storage未移行データの読み出し用フォールバック
+  async fetchPhotoLegacyBase64(date, slot) {
     try {
       const key = slot === 'main' ? `main_${date}` : `pro${slot}_${date}`;
       const res = await fetch(SB_URL + `/rest/v1/photos?key=eq.${encodeURIComponent(key)}&select=data,mime_type`, {
@@ -872,6 +895,21 @@ const SB = {
       if (!rows || rows.length === 0 || !rows[0].data) return null;
       return { data: rows[0].data, mimeType: rows[0].mime_type || 'image/jpeg' };
     } catch(e) { return null; }
+  },
+
+  // 写真取得の統合エントリポイント: Storage優先、無ければ旧base64テーブルにフォールバック
+  async fetchPhoto(date, slot) {
+    const blob = await this.fetchPhotoBlob(date, slot);
+    if (blob) return { blob, mimeType: blob.type || 'image/jpeg' };
+    // フォールバック: 旧base64データを取得し、見つかれば自動でStorageに移行（書き戻し）
+    const legacy = await this.fetchPhotoLegacyBase64(date, slot);
+    if (legacy) {
+      const legacyBlob = base64ToBlob(legacy.data, legacy.mimeType);
+      // バックグラウンドでStorageに書き戻す（失敗しても致命的ではないのでawaitしない）
+      this.uploadPhoto(date, slot, legacyBlob, legacy.mimeType);
+      return { blob: legacyBlob, mimeType: legacy.mimeType };
+    }
+    return null;
   },
 
   // 設定値（GAS URL・手動タスクなど）をkey-valueで保存
@@ -919,7 +957,7 @@ async function getPhotoBlob(key) {
   const date = m[2];
   const remote = await SB.fetchPhoto(date, slot);
   if (!remote) return null;
-  blob = base64ToBlob(remote.data, remote.mimeType);
+  blob = remote.blob;
   await IDB.set(key, blob);
   return blob;
 }
@@ -2380,18 +2418,16 @@ qs('#save-btn').addEventListener('click', async () => {
   // Supabaseにメタデータ保存
   SB.upsert(state.today, dayData);
 
-  // 写真をSupabaseに非同期アップロード
+  // 写真をSupabase Storageに非同期アップロード（base64変換を経由せずBlobを直送）
   (async () => {
     const photoBlob = await IDB.get('main_' + state.today);
     if (photoBlob) {
-      const b64 = await blobToBase64(photoBlob);
-      SB.uploadPhoto(state.today, 'main', b64, photoBlob.type || 'image/jpeg');
+      SB.uploadPhoto(state.today, 'main', photoBlob, photoBlob.type || 'image/jpeg');
     }
     for (let i = 0; i < 3; i++) {
       const blob = await IDB.get('pro' + i + '_' + state.today);
       if (blob) {
-        const b64 = await blobToBase64(blob);
-        SB.uploadPhoto(state.today, i, b64, blob.type || 'image/jpeg');
+        SB.uploadPhoto(state.today, i, blob, blob.type || 'image/jpeg');
       }
     }
   })();
@@ -2833,7 +2869,7 @@ async function syncTodayPhotosFromSupabase() {
   if (!localPhoto) {
     const remote = await SB.fetchPhoto(today, 'main');
     if (remote) {
-      const blob = base64ToBlob(remote.data, remote.mimeType);
+      const blob = remote.blob;
       await IDB.set('main_' + today, blob);
       if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
       state.photoObjUrl = URL.createObjectURL(blob);
@@ -2847,7 +2883,7 @@ async function syncTodayPhotosFromSupabase() {
     if (!localBlob) {
       const remote = await SB.fetchPhoto(today, i);
       if (remote) {
-        const blob = base64ToBlob(remote.data, remote.mimeType);
+        const blob = remote.blob;
         await IDB.set('pro' + i + '_' + today, blob);
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = URL.createObjectURL(blob);
