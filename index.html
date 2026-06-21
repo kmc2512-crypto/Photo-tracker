@@ -2688,11 +2688,14 @@ qs('#resync-photos-btn').addEventListener('click', async () => {
     const photoKeys = allKeys.filter(k => /^(main|pro\d)_\d{4}-\d{2}-\d{2}$/.test(k));
 
     if (photoKeys.length === 0) {
-      msg.textContent = 'この端末に写真がありません';
+      msg.innerHTML = 'この端末のIndexedDBに写真が1枚もありません。<br>別の端末で撮った写真は、その端末でこの「再送信」を実行する必要があります。';
       btn.disabled = false;
       btn.textContent = 'この端末の写真を再送信';
       return;
     }
+
+    // 見つかった日付一覧（診断用）
+    const foundDates = [...new Set(photoKeys.map(k => k.match(/_(\d{4}-\d{2}-\d{2})$/)?.[1]).filter(Boolean))].sort();
 
     let sent = 0, skipped = 0, failed = 0;
     for (let idx = 0; idx < photoKeys.length; idx++) {
@@ -2712,7 +2715,7 @@ qs('#resync-photos-btn').addEventListener('click', async () => {
       if (ok) sent++; else failed++;
     }
 
-    msg.textContent = `完了: ${sent}件送信 / ${skipped}件は既存 / ${failed}件失敗`;
+    msg.innerHTML = `完了: ${sent}件送信 / ${skipped}件は既存 / ${failed}件失敗<br>この端末で見つかった日付: ${foundDates.join(', ') || 'なし'}`;
   } catch(e) {
     msg.textContent = 'エラーが発生しました: ' + e.message;
   }
@@ -2934,11 +2937,23 @@ async function syncFromSupabase() {
       proMemos: row.pro_memos || [],
       hasPhoto: row.has_photo || false,
     };
-    // ローカルにない or リモートの方が新しいデータならマージ
     const local = localMeta[date];
-    if (!local || (!local.comment && remote.comment)) {
-      localMeta[date] = { ...local, ...remote };
+
+    if (!local) {
+      // ローカルに無ければリモートをそのまま採用
+      localMeta[date] = remote;
       updated = true;
+    } else {
+      // ローカルに既にデータがある場合は、フィールド単位で「空のものだけ」補完する
+      // （リモートが空文字でローカルの内容を上書きしてしまう事故を防ぐ）
+      const merged = { ...local };
+      if (!merged.comment && remote.comment) { merged.comment = remote.comment; updated = true; }
+      if (!merged.lens && remote.lens) { merged.lens = remote.lens; updated = true; }
+      if ((!merged.proMemos || merged.proMemos.every(m=>!m)) && remote.proMemos?.some(m=>m)) {
+        merged.proMemos = remote.proMemos; updated = true;
+      }
+      if (!merged.hasPhoto && remote.hasPhoto) { merged.hasPhoto = true; updated = true; }
+      localMeta[date] = merged;
     }
   }
 
