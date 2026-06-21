@@ -2063,7 +2063,8 @@ qs('#todo-cloud-sync-btn').addEventListener('click', async () => {
     // 実際の同期を実行
     await syncSettingsFromSupabase();
     const manual = LS.get('manual_tasks') || [];
-    msgEl.textContent = `✅ 同期成功。この端末の手動タスク: ${manual.length}件`;
+    const gasCount = state.tasks?.length || 0;
+    msgEl.textContent = `✅ 同期成功。手動タスク: ${manual.length}件 / Googleタスク: ${gasCount}件`;
     renderTodo();
   } catch(e) {
     msgEl.textContent = '❌ エラー: ' + e.message;
@@ -2086,7 +2087,10 @@ async function syncTodoTasks(url) {
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('JSON応答ではありません'); }
     state.tasks = Array.isArray(data) ? data : (data.tasks || []);
-    LS.set('tasks_cache', {tasks: state.tasks, fetchedAt: new Date().toISOString()});
+    const cachePayload = {tasks: state.tasks, fetchedAt: new Date().toISOString()};
+    LS.set('tasks_cache', cachePayload);
+    // ★ GAS由来のタスクもSupabaseにキャッシュ保存（他端末がSYNCしなくても見えるように）
+    SB.setSetting('gas_tasks_cache', cachePayload);
     renderTodo();
     if (LS.get('notif') === 'granted') scheduleTaskNotifications();
   } catch(e) {
@@ -2490,44 +2494,64 @@ function blobToBase64(blob) {
 // ── 保存 ──────────────────────────────────────
 qs('#save-btn').addEventListener('click', async () => {
   const saveBtn = qs('#save-btn');
+  const commentEl = qs('#photo-comment');
+
+  // ★ 保存ボタンを押した瞬間の値をスナップショットとして固定する
+  // （非同期処理の途中で他の処理が入力欄を書き換えても、保存内容はこの時点の値を使う）
+  const snapshotToday = state.today;
+  const snapshotComment = commentEl.value;
+  const snapshotLens = state.lens;
+  const snapshotProMemos = [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || '');
+  const snapshotHasPhoto = !!state.photoObjUrl;
+
+  console.log('[SAVE] snapshot', { date: snapshotToday, comment: snapshotComment, lens: snapshotLens });
+
   const meta = LS.get('meta') || {};
   const dayData = {
-    comment: qs('#photo-comment').value,
-    lens: state.lens,
-    hasPhoto: !!state.photoObjUrl,
-    proMemos: [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || ''),
+    comment: snapshotComment,
+    lens: snapshotLens,
+    hasPhoto: snapshotHasPhoto,
+    proMemos: snapshotProMemos,
   };
-  meta[state.today] = dayData;
+  meta[snapshotToday] = dayData;
   LS.set('meta', meta);
 
   saveBtn.disabled = true;
   saveBtn.textContent = '保存中...';
 
   // メタデータと写真のアップロードを両方待ってから完了表示
-  // （途中でタブを閉じてもアップロードが完了しているように、ボタンで完了を可視化する）
   let uploadFailed = false;
   try {
-    const metaOk = await SB.upsert(state.today, dayData);
+    const metaOk = await SB.upsert(snapshotToday, dayData);
+    console.log('[SAVE] upsert result', metaOk);
     if (!metaOk) uploadFailed = true;
 
-    const photoBlob = await IDB.get('main_' + state.today);
+    const photoBlob = await IDB.get('main_' + snapshotToday);
     if (photoBlob) {
-      const ok = await SB.uploadPhoto(state.today, 'main', photoBlob, photoBlob.type || 'image/jpeg');
+      const ok = await SB.uploadPhoto(snapshotToday, 'main', photoBlob, photoBlob.type || 'image/jpeg');
       if (!ok) uploadFailed = true;
     }
     for (let i = 0; i < 3; i++) {
-      const blob = await IDB.get('pro' + i + '_' + state.today);
+      const blob = await IDB.get('pro' + i + '_' + snapshotToday);
       if (blob) {
-        const ok = await SB.uploadPhoto(state.today, i, blob, blob.type || 'image/jpeg');
+        const ok = await SB.uploadPhoto(snapshotToday, i, blob, blob.type || 'image/jpeg');
         if (!ok) uploadFailed = true;
       }
     }
   } catch(e) {
+    console.error('[SAVE] error', e);
     uploadFailed = true;
   }
 
   saveBtn.disabled = false;
   saveBtn.textContent = 'SAVE';
+
+  // ★ 保存後、もし state.today が変わっていなければ、入力欄をスナップショット値で再確認する
+  //   （万一何かが入力欄を空にしていた場合の保険）
+  if (state.today === snapshotToday && commentEl.value !== snapshotComment && snapshotComment) {
+    console.warn('[SAVE] comment was cleared unexpectedly, restoring snapshot value');
+    commentEl.value = snapshotComment;
+  }
 
   const msg = qs('#saved-msg');
   if (uploadFailed) {
@@ -2987,9 +3011,12 @@ async function syncFromSupabase() {
 
   const localMeta = LS.get('meta') || {};
   let updated = false;
+  const todayKey = state.today; // ★ 今日のデータは絶対に同期で上書きしない（編集中の可能性があるため）
 
   for (const row of rows) {
     const date = row.date;
+    if (date === todayKey) continue; // ★ 今日のデータはスキップ（ローカルが常に正）
+
     const remote = {
       comment: row.comment || '',
       lens: row.lens || '',
@@ -3111,6 +3138,20 @@ async function syncSettingsFromSupabase() {
   } else if (localTasks.length > 0) {
     // リモートに何もない → ローカルをアップロード
     await SB.setSetting('manual_tasks', localTasks);
+  }
+
+  // ★ GAS由来のタスクキャッシュをSupabaseから取得（自分でSYNCしなくても他端末の結果が見える）
+  // 自分の手元のキャッシュより新しければ採用する
+  const remoteGasCache = await SB.getSetting('gas_tasks_cache');
+  if (remoteGasCache && Array.isArray(remoteGasCache.tasks)) {
+    const localCache = LS.get('tasks_cache');
+    const remoteIsNewer = !localCache || !localCache.fetchedAt
+      || new Date(remoteGasCache.fetchedAt) > new Date(localCache.fetchedAt);
+    if (remoteIsNewer) {
+      state.tasks = remoteGasCache.tasks;
+      LS.set('tasks_cache', remoteGasCache);
+      if (state.tab === 'todo') renderTodo();
+    }
   }
 }
 
