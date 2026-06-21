@@ -525,6 +525,15 @@ input[type=time]{display:none}
       </div>
       <p id="backup-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
     </div>
+    <!-- 写真の再同期 -->
+    <div class="backup-section">
+      <div class="lbl" style="margin-bottom:12px">写真の再同期</div>
+      <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">この端末にある写真のうち、まだクラウドに上がっていないものをまとめて送ります。別の端末でログが表示されない場合に実行してください。</p>
+      <div class="backup-btns">
+        <button class="save-btn" id="resync-photos-btn">この端末の写真を再送信</button>
+      </div>
+      <p id="resync-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
+    </div>
   </div>
 
   <!-- LEARN -->
@@ -802,6 +811,14 @@ const IDB = (() => {
         tx.objectStore('photos').delete(key);
         tx.oncomplete = () => res(true);
       });
+    },
+    async listKeys() {
+      const d = await open();
+      return new Promise((res, rej) => {
+        const req = d.transaction('photos').objectStore('photos').getAllKeys();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = () => rej(req.error);
+      });
     }
   };
 })();
@@ -1023,9 +1040,17 @@ function switchTab(tab) {
   document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
   panel.classList.remove('hidden');
-  if (tab === 'log') renderLog();
+  if (tab === 'log') {
+    renderLog();
+    // ログタブを開くたびに他端末で保存されたログを取り込む
+    if (typeof syncFromSupabase === 'function') syncFromSupabase();
+  }
   if (tab === 'learn') renderLearn();
-  if (tab === 'todo') renderTodo();
+  if (tab === 'todo') {
+    renderTodo();
+    // Todoタブを開くたびに他端末で追加されたタスクを取り込む
+    if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
+  }
   if (tab === 'clip') renderClip();
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -2405,6 +2430,7 @@ function blobToBase64(blob) {
 
 // ── 保存 ──────────────────────────────────────
 qs('#save-btn').addEventListener('click', async () => {
+  const saveBtn = qs('#save-btn');
   const meta = LS.get('meta') || {};
   const dayData = {
     comment: qs('#photo-comment').value,
@@ -2415,26 +2441,43 @@ qs('#save-btn').addEventListener('click', async () => {
   meta[state.today] = dayData;
   LS.set('meta', meta);
 
-  // Supabaseにメタデータ保存
-  SB.upsert(state.today, dayData);
+  saveBtn.disabled = true;
+  saveBtn.textContent = '保存中...';
 
-  // 写真をSupabase Storageに非同期アップロード（base64変換を経由せずBlobを直送）
-  (async () => {
+  // メタデータと写真のアップロードを両方待ってから完了表示
+  // （途中でタブを閉じてもアップロードが完了しているように、ボタンで完了を可視化する）
+  let uploadFailed = false;
+  try {
+    const metaOk = await SB.upsert(state.today, dayData);
+    if (!metaOk) uploadFailed = true;
+
     const photoBlob = await IDB.get('main_' + state.today);
     if (photoBlob) {
-      SB.uploadPhoto(state.today, 'main', photoBlob, photoBlob.type || 'image/jpeg');
+      const ok = await SB.uploadPhoto(state.today, 'main', photoBlob, photoBlob.type || 'image/jpeg');
+      if (!ok) uploadFailed = true;
     }
     for (let i = 0; i < 3; i++) {
       const blob = await IDB.get('pro' + i + '_' + state.today);
       if (blob) {
-        SB.uploadPhoto(state.today, i, blob, blob.type || 'image/jpeg');
+        const ok = await SB.uploadPhoto(state.today, i, blob, blob.type || 'image/jpeg');
+        if (!ok) uploadFailed = true;
       }
     }
-  })();
+  } catch(e) {
+    uploadFailed = true;
+  }
+
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'SAVE';
 
   const msg = qs('#saved-msg');
+  if (uploadFailed) {
+    msg.textContent = '端末には保存済み（同期は失敗・後で再試行されます）';
+  } else {
+    msg.textContent = '保存済み';
+  }
   msg.classList.remove('hidden');
-  setTimeout(() => msg.classList.add('hidden'), 2000);
+  setTimeout(() => { msg.classList.add('hidden'); msg.textContent = '保存済み'; }, 3000);
   renderProgressBanner();
 });
 
@@ -2629,6 +2672,53 @@ qs('#backup-file-input').addEventListener('change', async e => {
   } catch(err) {
     qs('#backup-msg').textContent = 'エラー: ' + err.message;
   }
+});
+
+// ── 写真の再同期（ローカルにあってクラウドに無いものを一括送信） ──
+qs('#resync-photos-btn').addEventListener('click', async () => {
+  const btn = qs('#resync-photos-btn');
+  const msg = qs('#resync-msg');
+  btn.disabled = true;
+  btn.textContent = '確認中...';
+  msg.textContent = '';
+
+  try {
+    // IndexedDB内の全キーを列挙
+    const allKeys = await IDB.listKeys();
+    const photoKeys = allKeys.filter(k => /^(main|pro\d)_\d{4}-\d{2}-\d{2}$/.test(k));
+
+    if (photoKeys.length === 0) {
+      msg.textContent = 'この端末に写真がありません';
+      btn.disabled = false;
+      btn.textContent = 'この端末の写真を再送信';
+      return;
+    }
+
+    let sent = 0, skipped = 0, failed = 0;
+    for (let idx = 0; idx < photoKeys.length; idx++) {
+      const key = photoKeys[idx];
+      btn.textContent = `送信中... (${idx+1}/${photoKeys.length})`;
+      const m = key.match(/^(main|pro(\d))_(.+)$/);
+      const slot = m[1] === 'main' ? 'main' : parseInt(m[2]);
+      const date = m[3];
+
+      // 既にクラウドにあるかチェック
+      const existing = await SB.fetchPhotoBlob(date, slot);
+      if (existing) { skipped++; continue; }
+
+      const blob = await IDB.get(key);
+      if (!blob) continue;
+      const ok = await SB.uploadPhoto(date, slot, blob, blob.type || 'image/jpeg');
+      if (ok) sent++; else failed++;
+    }
+
+    msg.textContent = `完了: ${sent}件送信 / ${skipped}件は既存 / ${failed}件失敗`;
+  } catch(e) {
+    msg.textContent = 'エラーが発生しました: ' + e.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'この端末の写真を再送信';
 });
 
 // ── ログ（リスト＋カレンダー） ──────────────────
