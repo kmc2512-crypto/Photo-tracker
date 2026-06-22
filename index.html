@@ -531,6 +531,7 @@ input[type=time]{display:none}
       <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">この端末にある写真のうち、まだクラウドに上がっていないものをまとめて送ります。別の端末でログが表示されない場合に実行してください。</p>
       <div class="backup-btns">
         <button class="save-btn" id="resync-photos-btn">この端末の写真を再送信</button>
+        <button class="ghost-btn" id="force-resync-photos-btn">強制的に全部上書き送信</button>
       </div>
       <p id="resync-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
     </div>
@@ -883,8 +884,15 @@ const SB = {
         },
         body: blob
       });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error('[uploadPhoto] failed', path, res.status, errText);
+      }
       return res.ok;
-    } catch(e) { return false; }
+    } catch(e) {
+      console.error('[uploadPhoto] exception', date, slot, e);
+      return false;
+    }
   },
 
   // 写真をSupabase Storageから取得（Blobで直接返す）
@@ -895,9 +903,16 @@ const SB = {
       const res = await fetch(SB_URL + `/storage/v1/object/photos/${encodeURIComponent(path)}`, {
         headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
       });
-      if (!res.ok) return null;
+      if (!res.ok) return null; // 404等は素直に「存在しない」扱い
       const blob = await res.blob();
       if (!blob || blob.size === 0) return null;
+      // Storageが404やエラーをJSON/HTMLで返した場合、ステータスは200でも
+      // Content-Typeがapplication/jsonやtext/htmlになっていることがあるため弾く
+      const ct = (blob.type || '').toLowerCase();
+      if (ct.includes('application/json') || ct.includes('text/html') || ct.includes('text/plain')) {
+        console.warn('[fetchPhotoBlob] unexpected content-type, treating as not-found', path, ct);
+        return null;
+      }
       return blob;
     } catch(e) { return null; }
   },
@@ -2758,29 +2773,30 @@ qs('#backup-file-input').addEventListener('change', async e => {
 });
 
 // ── 写真の再同期（ローカルにあってクラウドに無いものを一括送信） ──
-qs('#resync-photos-btn').addEventListener('click', async () => {
-  const btn = qs('#resync-photos-btn');
+async function resyncPhotos(force) {
+  const btn = force ? qs('#force-resync-photos-btn') : qs('#resync-photos-btn');
+  const otherBtn = force ? qs('#resync-photos-btn') : qs('#force-resync-photos-btn');
   const msg = qs('#resync-msg');
   btn.disabled = true;
-  btn.textContent = '確認中...';
+  otherBtn.disabled = true;
+  const originalText = btn.textContent;
   msg.textContent = '';
 
   try {
-    // IndexedDB内の全キーを列挙
     const allKeys = await IDB.listKeys();
     const photoKeys = allKeys.filter(k => /^(main|pro\d)_\d{4}-\d{2}-\d{2}$/.test(k));
 
     if (photoKeys.length === 0) {
       msg.innerHTML = 'この端末のIndexedDBに写真が1枚もありません。<br>別の端末で撮った写真は、その端末でこの「再送信」を実行する必要があります。';
-      btn.disabled = false;
-      btn.textContent = 'この端末の写真を再送信';
+      btn.disabled = false; otherBtn.disabled = false;
+      btn.textContent = originalText;
       return;
     }
 
-    // 見つかった日付一覧（診断用）
     const foundDates = [...new Set(photoKeys.map(k => k.match(/_(\d{4}-\d{2}-\d{2})$/)?.[1]).filter(Boolean))].sort();
 
     let sent = 0, skipped = 0, failed = 0;
+    const failedKeys = [];
     for (let idx = 0; idx < photoKeys.length; idx++) {
       const key = photoKeys[idx];
       btn.textContent = `送信中... (${idx+1}/${photoKeys.length})`;
@@ -2788,24 +2804,32 @@ qs('#resync-photos-btn').addEventListener('click', async () => {
       const slot = m[1] === 'main' ? 'main' : parseInt(m[2]);
       const date = m[3];
 
-      // 既にクラウドにあるかチェック
-      const existing = await SB.fetchPhotoBlob(date, slot);
-      if (existing) { skipped++; continue; }
+      if (!force) {
+        // 既にクラウドにあるかチェック（強制モードではスキップして必ず上書き）
+        const existing = await SB.fetchPhotoBlob(date, slot);
+        if (existing) { skipped++; continue; }
+      }
 
       const blob = await IDB.get(key);
       if (!blob) continue;
       const ok = await SB.uploadPhoto(date, slot, blob, blob.type || 'image/jpeg');
-      if (ok) sent++; else failed++;
+      if (ok) sent++; else { failed++; failedKeys.push(key); }
     }
 
-    msg.innerHTML = `完了: ${sent}件送信 / ${skipped}件は既存 / ${failed}件失敗<br>この端末で見つかった日付: ${foundDates.join(', ') || 'なし'}`;
+    let result = `完了: ${sent}件送信 / ${skipped}件は既存(スキップ) / ${failed}件失敗`;
+    if (failedKeys.length > 0) result += `<br>失敗: ${failedKeys.join(', ')}`;
+    result += `<br>この端末で見つかった日付: ${foundDates.join(', ') || 'なし'}`;
+    msg.innerHTML = result;
   } catch(e) {
     msg.textContent = 'エラーが発生しました: ' + e.message;
   }
 
-  btn.disabled = false;
-  btn.textContent = 'この端末の写真を再送信';
-});
+  btn.disabled = false; otherBtn.disabled = false;
+  btn.textContent = originalText;
+}
+
+qs('#resync-photos-btn').addEventListener('click', () => resyncPhotos(false));
+qs('#force-resync-photos-btn').addEventListener('click', () => resyncPhotos(true));
 
 // ── ログ（リスト＋カレンダー） ──────────────────
 let logObjUrls = {};
