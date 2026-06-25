@@ -947,6 +947,24 @@ const SB = {
     return null;
   },
 
+  async listPhotoKeys() {
+    try {
+      const res = await fetch(SB_URL + '/storage/v1/object/list/photos', {
+        method: 'POST',
+        headers: SB_HEADERS,
+        body: JSON.stringify({
+          prefix: '',
+          limit: 1000,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' }
+        })
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || []).map(item => item.name).filter(Boolean);
+    } catch(e) { return []; }
+  },
+
   // 設定値（GAS URL・手動タスクなど）をkey-valueで保存
   async setSetting(key, value) {
     try {
@@ -1024,6 +1042,7 @@ const state = {
   logView: 'list',
   logSyncPromise: null,
   lastLogSyncAt: 0,
+  logRenderId: 0,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
 };
@@ -2909,6 +2928,7 @@ function renderCalendar() {
 }
 
 async function renderLog() {
+  const renderId = ++state.logRenderId;
   cleanLogObjUrls();
   const listView = qs('#log-list-view');
   const detailView = qs('#log-detail-view');
@@ -2918,6 +2938,7 @@ async function renderLog() {
   const list = qs('#log-list');
   list.innerHTML = '<div class="log-empty">クラウドと同期中...</div>';
   await ensureCloudLogsFresh(true);
+  if (renderId !== state.logRenderId) return;
 
   const meta = LS.get('meta') || {};
   const dates = Object.keys(meta).filter(d => meta[d]?.comment || meta[d]?.hasPhoto).sort().reverse();
@@ -2933,6 +2954,7 @@ async function renderLog() {
     const entry = el('div', 'log-entry');
     const thumb = el('div', 'log-thumb');
     const photoBlob = await getPhotoBlob('main_' + date);
+    if (renderId !== state.logRenderId) return;
     if (photoBlob) {
       const url = URL.createObjectURL(photoBlob);
       logObjUrls['main_' + date] = url;
@@ -3062,10 +3084,29 @@ function mergeRemoteIntoLocalLog(local, remote) {
   return { data: merged, changed };
 }
 
-async function restoreCloudPhotosForDate(date, remote, force) {
+function photoKeyFor(date, slot) {
+  return slot === 'main' ? `main_${date}` : `pro${slot}_${date}`;
+}
+
+function photoFileNameFor(date, slot) {
+  return photoKeyFor(date, slot) + '.bin';
+}
+
+function photoDateFromFileName(name) {
+  return name.match(/^(?:main|pro\d)_(\d{4}-\d{2}-\d{2})\.bin$/)?.[1] || null;
+}
+
+async function restoreCloudPhotosForDate(date, remote, force, availablePhotoFiles = null) {
   const stats = { restored: 0, skipped: 0, failed: 0, mainFound: false };
-  const slots = [{ key: 'main_' + date, slot: 'main' }];
-  for (let i = 0; i < 3; i++) slots.push({ key: 'pro' + i + '_' + date, slot: i });
+  const slots = [];
+  const shouldTry = slot => {
+    if (!availablePhotoFiles) return slot === 'main' || remote.hasPhoto;
+    return availablePhotoFiles.has(photoFileNameFor(date, slot));
+  };
+  if (shouldTry('main') || remote.hasPhoto) slots.push({ key: photoKeyFor(date, 'main'), slot: 'main' });
+  for (let i = 0; i < 3; i++) {
+    if (shouldTry(i)) slots.push({ key: photoKeyFor(date, i), slot: i });
+  }
 
   for (const item of slots) {
     if (!force) {
@@ -3102,28 +3143,45 @@ async function restoreFromSupabase(options = {}) {
     msg.textContent = 'クラウドから復元中...';
   }
 
-  const rows = await SB.fetchAll();
-  if (!rows || rows.length === 0) {
-    if (showMessage) msg.textContent = 'クラウドに復元できるログが見つかりませんでした';
-    if (showMessage) {
-      btn.disabled = false; resyncBtn.disabled = false; forceBtn.disabled = false;
+  const rows = await SB.fetchAll() || [];
+
+  const photoKeys = await SB.listPhotoKeys();
+  const availablePhotoFiles = photoKeys.length > 0 ? new Set(photoKeys) : null;
+  const remoteLogsByDate = new Map();
+  for (const row of rows) {
+    if (!row.date) continue;
+    const remote = normalizeRemoteLog(row);
+    const existing = remoteLogsByDate.get(row.date);
+    if (existing) {
+      remoteLogsByDate.set(row.date, mergeRemoteIntoLocalLog(existing, remote).data);
+    } else {
+      remoteLogsByDate.set(row.date, remote);
     }
-    return { metaChanged: false, restored: 0, skipped: 0, failed: 0 };
+  }
+  for (const key of photoKeys) {
+    const date = photoDateFromFileName(key);
+    if (!date || remoteLogsByDate.has(date)) continue;
+    remoteLogsByDate.set(date, {
+      comment: '',
+      lens: '',
+      proMemos: [],
+      hasPhoto: true,
+    });
   }
 
   const localMeta = LS.get('meta') || {};
   let metaChanged = false;
   let todayRestored = false;
   let restored = 0, skipped = 0, failed = 0;
+  let storageOnlyLogs = 0;
 
-  for (const row of rows) {
-    const date = row.date;
-    const remote = normalizeRemoteLog(row);
+  for (const [date, remote] of remoteLogsByDate.entries()) {
     const local = localMeta[date];
+    if (!rows.some(row => row.date === date)) storageOnlyLogs++;
 
     // 今日の編集中データだけは上書きしない。ただし履歴削除後の空状態なら復元する。
     if (date === state.today && hasLogContent(local)) {
-      const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos);
+      const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos, availablePhotoFiles);
       restored += photoStats.restored; skipped += photoStats.skipped; failed += photoStats.failed;
       if (photoStats.mainFound && !localMeta[date].hasPhoto) {
         localMeta[date].hasPhoto = true;
@@ -3138,7 +3196,7 @@ async function restoreFromSupabase(options = {}) {
     if (result.changed) metaChanged = true;
     if (date === state.today && result.changed) todayRestored = true;
 
-    const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos);
+    const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos, availablePhotoFiles);
     restored += photoStats.restored; skipped += photoStats.skipped; failed += photoStats.failed;
     if (photoStats.mainFound && !localMeta[date].hasPhoto) {
       localMeta[date].hasPhoto = true;
@@ -3156,7 +3214,7 @@ async function restoreFromSupabase(options = {}) {
   if (refreshLog && state.tab === 'log') renderLog();
 
   if (showMessage) {
-    msg.innerHTML = `復元完了: ログ ${rows.length}件確認 / 写真 ${restored}件復元 / ${skipped}件は端末に存在 / ${failed}件は取得失敗`;
+    msg.innerHTML = `復元完了: DBログ ${rows.length}件 / 写真のみログ ${storageOnlyLogs}件 / 写真 ${restored}件復元 / ${skipped}件は端末に存在 / ${failed}件は取得失敗`;
     btn.disabled = false; resyncBtn.disabled = false; forceBtn.disabled = false;
   }
 
