@@ -896,6 +896,49 @@ const SB = {
     }
   },
 
+  async uploadLogMeta(date, data) {
+    try {
+      const path = `meta_${date}.json`;
+      const payload = {
+        version: 1,
+        date,
+        comment: data.comment || '',
+        lens: data.lens || '',
+        proMemos: data.proMemos || [],
+        hasPhoto: data.hasPhoto || false,
+        updatedAt: new Date().toISOString()
+      };
+      const res = await fetch(SB_URL + `/storage/v1/object/photos/${encodeURIComponent(path)}`, {
+        method: 'POST',
+        headers: {
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          'x-upsert': 'true'
+        },
+        body: JSON.stringify(payload)
+      });
+      return res.ok;
+    } catch(e) { return false; }
+  },
+
+  async fetchLogMeta(date) {
+    try {
+      const path = `meta_${date}.json`;
+      const res = await fetch(SB_URL + `/storage/v1/object/photos/${encodeURIComponent(path)}`, {
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        comment: data.comment || '',
+        lens: data.lens || '',
+        proMemos: data.proMemos || [],
+        hasPhoto: data.hasPhoto === true,
+      };
+    } catch(e) { return null; }
+  },
+
   // 写真をSupabase Storageから取得（Blobで直接返す）
   async fetchPhotoBlob(date, slot) {
     try {
@@ -2560,6 +2603,8 @@ qs('#save-btn').addEventListener('click', async () => {
     const metaOk = await SB.upsert(snapshotToday, dayData);
     console.log('[SAVE] upsert result', metaOk);
     if (!metaOk) uploadFailed = true;
+    const metaBackupOk = await SB.uploadLogMeta(snapshotToday, dayData);
+    if (!metaBackupOk) uploadFailed = true;
 
     const photoBlob = await IDB.get('main_' + snapshotToday);
     if (photoBlob) {
@@ -2815,8 +2860,14 @@ async function resyncPhotos(force) {
 
     const foundDates = [...new Set(photoKeys.map(k => k.match(/_(\d{4}-\d{2}-\d{2})$/)?.[1]).filter(Boolean))].sort();
 
-    let sent = 0, skipped = 0, failed = 0;
+    let sent = 0, skipped = 0, failed = 0, metaSent = 0, metaFailed = 0;
     const failedKeys = [];
+    const localMeta = LS.get('meta') || {};
+    for (const [date, data] of Object.entries(localMeta)) {
+      if (!hasLogContent(data)) continue;
+      const ok = await SB.uploadLogMeta(date, data);
+      if (ok) metaSent++; else metaFailed++;
+    }
     for (let idx = 0; idx < photoKeys.length; idx++) {
       const key = photoKeys[idx];
       btn.textContent = `送信中... (${idx+1}/${photoKeys.length})`;
@@ -2836,7 +2887,8 @@ async function resyncPhotos(force) {
       if (ok) sent++; else { failed++; failedKeys.push(key); }
     }
 
-    let result = `完了: ${sent}件送信 / ${skipped}件は既存(スキップ) / ${failed}件失敗`;
+    let result = `完了: 写真 ${sent}件送信 / ${skipped}件は既存(スキップ) / ${failed}件失敗 / 文字バックアップ ${metaSent}件送信`;
+    if (metaFailed > 0) result += ` / 文字バックアップ ${metaFailed}件失敗`;
     if (failedKeys.length > 0) result += `<br>失敗: ${failedKeys.join(', ')}`;
     result += `<br>この端末で見つかった日付: ${foundDates.join(', ') || 'なし'}`;
     msg.innerHTML = result;
@@ -3071,6 +3123,13 @@ function hasLogContent(data) {
   );
 }
 
+function hasTextLogContent(data) {
+  return !!(
+    data &&
+    (data.comment || data.lens || data.proMemos?.some(m => m))
+  );
+}
+
 function mergeRemoteIntoLocalLog(local, remote) {
   if (!local) return { data: remote, changed: true };
   const merged = { ...local };
@@ -3094,6 +3153,10 @@ function photoFileNameFor(date, slot) {
 
 function photoDateFromFileName(name) {
   return name.match(/^(?:main|pro\d)_(\d{4}-\d{2}-\d{2})\.bin$/)?.[1] || null;
+}
+
+function metaDateFromFileName(name) {
+  return name.match(/^meta_(\d{4}-\d{2}-\d{2})\.json$/)?.[1] || null;
 }
 
 async function restoreCloudPhotosForDate(date, remote, force, availablePhotoFiles = null) {
@@ -3159,7 +3222,7 @@ async function restoreFromSupabase(options = {}) {
     }
   }
   for (const key of photoKeys) {
-    const date = photoDateFromFileName(key);
+    const date = photoDateFromFileName(key) || metaDateFromFileName(key);
     if (!date || remoteLogsByDate.has(date)) continue;
     remoteLogsByDate.set(date, {
       comment: '',
@@ -3175,7 +3238,10 @@ async function restoreFromSupabase(options = {}) {
   let restored = 0, skipped = 0, failed = 0;
   let storageOnlyLogs = 0;
 
-  for (const [date, remote] of remoteLogsByDate.entries()) {
+  for (const [date, baseRemote] of remoteLogsByDate.entries()) {
+    const metaBackup = await SB.fetchLogMeta(date);
+    const remote = metaBackup ? mergeRemoteIntoLocalLog(baseRemote, metaBackup).data : baseRemote;
+    if (!metaBackup && hasTextLogContent(remote)) SB.uploadLogMeta(date, remote);
     const local = localMeta[date];
     if (!rows.some(row => row.date === date)) storageOnlyLogs++;
 
