@@ -287,6 +287,10 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6;text-wrap:pretty}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
+.app-toast{position:fixed;right:18px;bottom:18px;z-index:80;max-width:min(360px,calc(100vw - 36px));background:var(--fg);color:var(--bg);border:1px solid var(--fg);padding:12px 14px;box-shadow:0 12px 36px rgba(0,0,0,.35);opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .18s,transform .18s}
+.app-toast.show{opacity:1;transform:translateY(0)}
+.app-toast-title{font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:4px}
+.app-toast-body{font-size:11px;line-height:1.6;color:var(--bg2);white-space:pre-line}
 .todo-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
 .todo-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:28px}
 .todo-add-form .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
@@ -582,6 +586,7 @@ input[type=time]{display:none}
       <p id="notif-banner-text" aria-live="polite">課題の締め切り通知を受け取りますか？</p>
       <div class="notif-banner-btns">
         <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
+        <button class="ghost-btn" id="notif-test-btn">テスト</button>
         <button class="ghost-btn" id="notif-deny-btn">あとで</button>
       </div>
     </div>
@@ -758,6 +763,10 @@ input[type=time]{display:none}
     <div id="clip-list"></div>
   </div>
 </main>
+<div class="app-toast" id="app-toast" role="status" aria-live="polite">
+  <div class="app-toast-title" id="app-toast-title"></div>
+  <div class="app-toast-body" id="app-toast-body"></div>
+</div>
 
 <script>
 const CURRICULUM = [
@@ -1090,6 +1099,7 @@ const state = {
   logSyncPromise: null,
   lastLogSyncAt: 0,
   logRenderId: 0,
+  toastTimer: null,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
 };
@@ -1177,18 +1187,71 @@ qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
 renderProgressBanner();
 
 // ── 通知 ────────────────────────────────────
-function canNotify() {
-  return 'Notification' in window && Notification.permission === 'granted';
+const LOCALHOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$/;
+
+function isNotificationSecureOrigin() {
+  return window.isSecureContext || location.protocol === 'https:' || (location.protocol === 'http:' && LOCALHOST_RE.test(location.hostname));
 }
 
-function showNotification(title, options = {}) {
-  if (!canNotify()) return false;
+function canNotify() {
+  return 'Notification' in window && isNotificationSecureOrigin() && Notification.permission === 'granted';
+}
+
+function showAppToast(title, body = '') {
+  const toast = qs('#app-toast');
+  qs('#app-toast-title').textContent = title;
+  qs('#app-toast-body').textContent = body;
+  toast.classList.add('show');
+  clearTimeout(state.toastTimer);
+  state.toastTimer = setTimeout(() => toast.classList.remove('show'), 4500);
+}
+
+function playNotificationChime() {
   try {
-    new Notification(title, { icon: '/Photo-tracker/icon-192.png', ...options });
-    return true;
-  } catch(e) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
+    gain.connect(ctx.destination);
+    [880, 1174].forEach((freq, index) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      osc.start(ctx.currentTime + index * 0.08);
+      osc.stop(ctx.currentTime + 0.32 + index * 0.08);
+    });
+    setTimeout(() => ctx.close(), 700);
+  } catch(e) {}
+}
+
+function showNotification(title, options = {}, fallback = true) {
+  if (!canNotify()) {
+    if (fallback) {
+      showAppToast(title, options.body || '通知を画面内で表示しました');
+      playNotificationChime();
+    }
     return false;
   }
+  try {
+    new Notification(title, options);
+    return true;
+  } catch(e) {
+    if (fallback) {
+      showAppToast(title, options.body || '通知を画面内で表示しました');
+      playNotificationChime();
+    }
+    return false;
+  }
+}
+
+function requestBrowserPermission() {
+  const request = Notification.requestPermission();
+  if (request && typeof request.then === 'function') return request;
+  return new Promise(resolve => Notification.requestPermission(resolve));
 }
 
 function setNotifBanner(message, visible = true) {
@@ -1210,6 +1273,14 @@ async function requestNotifPermission() {
   if (!('Notification' in window)) {
     LS.set('notif', 'unsupported');
     setNotifBanner('このブラウザでは通知に対応していません。');
+    showNotification('通知テスト', { body: '画面内通知で代替表示しています' });
+    return;
+  }
+
+  if (!isNotificationSecureOrigin()) {
+    LS.set('notif', 'needs_secure_origin');
+    setNotifBanner('今はfileで開いているため、通知許可の表示が出ない場合があります。localhostまたはhttpsで開くとOS通知を許可できます。画面内通知でテストしました。');
+    showNotification('通知テスト', { body: 'OS通知は安全なURLで開くと使えます' });
     return;
   }
 
@@ -1235,7 +1306,7 @@ async function requestNotifPermission() {
   setNotifBanner('ブラウザの通知許可を確認しています。表示された確認で「許可」を選んでください。');
   let result = 'default';
   try {
-    result = await Notification.requestPermission();
+    result = await requestBrowserPermission();
   } catch(e) {
     result = Notification.permission || 'default';
   } finally {
@@ -1295,6 +1366,8 @@ function scheduleTaskNotifications() {
   const perm = LS.get('notif');
   if (perm === 'granted') {
     // 既に許可済み → 通知スケジューリングは課題ロード後に実行
+  } else if ('Notification' in window && !isNotificationSecureOrigin()) {
+    setTimeout(() => setNotifBanner('通知許可を出すにはlocalhostまたはhttpsで開いてください。今は画面内通知で代替します。'), 1500);
   } else if ('Notification' in window && Notification.permission === 'denied') {
     setTimeout(() => setNotifBanner('通知がブロックされています。ブラウザまたはOS設定でこのページの通知を許可してください。'), 1500);
   } else if (!perm && 'Notification' in window && Notification.permission === 'default') {
@@ -1304,6 +1377,14 @@ function scheduleTaskNotifications() {
 })();
 
 qs('#notif-allow-btn').addEventListener('click', requestNotifPermission);
+qs('#notif-test-btn').addEventListener('click', () => {
+  const sent = showNotification('通知テスト', {
+    body: canNotify() ? 'Photo Tracker のOS通知が有効です' : 'OS通知が使えないため画面内通知で表示しています',
+    tag: 'photo-tracker-manual-notification-test',
+  });
+  setNotifBanner(sent ? 'テスト通知を送信しました。' : 'OS通知はまだ使えません。画面内通知でテストしました。');
+  if (sent) hideNotifBannerSoon();
+});
 qs('#notif-deny-btn').addEventListener('click', () => {
   qs('#notif-banner').classList.add('hidden');
   LS.set('notif', 'later');
