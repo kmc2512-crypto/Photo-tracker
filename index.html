@@ -3042,9 +3042,11 @@ async function renderLog() {
   detailView.classList.add('hidden');
 
   const list = qs('#log-list');
-  list.innerHTML = '<div class="log-empty">クラウドと同期中...</div>';
-  await ensureCloudLogsFresh(true);
-  if (renderId !== state.logRenderId) return;
+  if (!state.lastLogSyncAt) {
+    list.innerHTML = '<div class="log-empty">クラウドと同期中...</div>';
+    await ensureCloudLogsFresh(true);
+    if (renderId !== state.logRenderId) return;
+  }
 
   const meta = LS.get('meta') || {};
   const dates = Object.keys(meta).filter(d => meta[d]?.comment || meta[d]?.hasPhoto).sort().reverse();
@@ -3450,16 +3452,17 @@ async function restoreFromSupabase(options = {}) {
 
 // ── Supabase同期（起動時） ──────────────────────
 async function syncFromSupabase(options = {}) {
-  return restoreFromSupabase({
+  const result = await restoreFromSupabase({
     forcePhotos: options.forcePhotos === true,
     showMessage: false,
     refreshLog: options.refreshLog !== false,
   });
+  state.lastLogSyncAt = Date.now();
+  return result;
 }
 
 async function ensureCloudLogsFresh(force) {
-  const now = Date.now();
-  if (!force && state.lastLogSyncAt && now - state.lastLogSyncAt < 30000) return;
+  if (!force && state.lastLogSyncAt) return;
   if (state.logSyncPromise) return state.logSyncPromise;
   state.logSyncPromise = syncFromSupabase({ refreshLog: false })
     .then(result => {
@@ -3598,7 +3601,7 @@ setInterval(() => {
 renderPlan();
 initPickers();
 initTodayData().then(() => {
-  syncFromSupabase();
+  ensureCloudLogsFresh(true);
   syncTodayPhotosFromSupabase();
   syncSettingsFromSupabase();
 });
