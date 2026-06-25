@@ -2965,6 +2965,25 @@ function cleanLogObjUrls() {
   logObjUrls = {};
 }
 
+async function loadLogThumb(date, thumb, renderId) {
+  try {
+    const photoBlob = await getPhotoBlob('main_' + date);
+    if (renderId !== state.logRenderId) return;
+    thumb.innerHTML = '';
+    if (photoBlob) {
+      const url = URL.createObjectURL(photoBlob);
+      logObjUrls['main_' + date] = url;
+      const img = el('img'); img.src = url;
+      thumb.appendChild(img);
+    } else {
+      thumb.innerHTML = '<div class="log-thumb-empty">NO PHOTO</div>';
+    }
+  } catch(e) {
+    if (renderId !== state.logRenderId) return;
+    thumb.innerHTML = '<div class="log-thumb-empty">NO PHOTO</div>';
+  }
+}
+
 // ビュー切り替え
 qs('#log-view-list-btn').addEventListener('click', () => {
   state.logView = 'list';
@@ -3061,16 +3080,7 @@ async function renderLog() {
     const data = meta[date];
     const entry = el('div', 'log-entry');
     const thumb = el('div', 'log-thumb');
-    const photoBlob = await getPhotoBlob('main_' + date);
-    if (renderId !== state.logRenderId) return;
-    if (photoBlob) {
-      const url = URL.createObjectURL(photoBlob);
-      logObjUrls['main_' + date] = url;
-      const img = el('img'); img.src = url;
-      thumb.appendChild(img);
-    } else {
-      thumb.innerHTML = '<div class="log-thumb-empty">NO PHOTO</div>';
-    }
+    thumb.innerHTML = '<div class="log-thumb-empty">LOAD</div>';
     const info = el('div');
     const logMeta = el('div', 'log-meta');
     const dateEl = el('div', 'log-date'); dateEl.textContent = fmtFull(date);
@@ -3087,6 +3097,7 @@ async function renderLog() {
     entry.appendChild(thumb); entry.appendChild(info);
     entry.addEventListener('click', () => showLogDetail(date));
     list.appendChild(entry);
+    loadLogThumb(date, thumb, renderId);
   }
   if (state.logView === 'cal') renderCalendar();
 }
