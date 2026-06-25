@@ -848,9 +848,9 @@ const SB = {
           date,
           comment: data.comment || '',
           lens: data.lens || '',
-          pro_memos: data.proMemos || [],
-          has_photo: data.hasPhoto || false,
-          updated_at: new Date().toISOString()
+        pro_memos: data.proMemos || [],
+        has_photo: data.hasPhoto || false,
+        updated_at: new Date().toISOString()
         })
       });
       return res.ok;
@@ -904,6 +904,7 @@ const SB = {
         date,
         comment: data.comment || '',
         lens: data.lens || '',
+        device: data.device || '',
         proMemos: data.proMemos || [],
         hasPhoto: data.hasPhoto || false,
         updatedAt: new Date().toISOString()
@@ -933,6 +934,7 @@ const SB = {
       return {
         comment: data.comment || '',
         lens: data.lens || '',
+        device: data.device || '',
         proMemos: data.proMemos || [],
         hasPhoto: data.hasPhoto === true,
       };
@@ -1082,6 +1084,7 @@ const state = {
   activeWeek: 1,
   photoObjUrl: null,
   proObjUrls: [null, null, null],
+  device: '',
   logView: 'list',
   logSyncPromise: null,
   lastLogSyncAt: 0,
@@ -2412,7 +2415,7 @@ function renderLenses() {
   LENSES.forEach(l => {
     const b = el('button', 'lens-btn' + (state.lens === l ? ' active' : ''));
     b.textContent = l;
-    b.addEventListener('click', () => { state.lens = l; renderLenses(); });
+    b.addEventListener('click', () => { state.lens = l; renderLenses(); persistTodayDraft(true); });
     wrap.appendChild(b);
   });
 }
@@ -2425,7 +2428,14 @@ async function handlePhotoFile(file) {
   await IDB.set('main_' + state.today, blob);
   if (state.photoObjUrl) URL.revokeObjectURL(state.photoObjUrl);
   state.photoObjUrl = URL.createObjectURL(blob);
+  const info = await inferCaptureInfoFromBlob(blob);
+  if (info?.lens && (!state.lens || state.lens === LENSES[0])) {
+    state.lens = info.lens;
+    renderLenses();
+  }
+  if (info?.device) state.device = info.device;
   renderPhotoZone();
+  persistTodayDraft(true);
 }
 
 function renderPhotoZone() {
@@ -2442,6 +2452,7 @@ function renderPhotoZone() {
       state.photoObjUrl = null;
       drop.style.height = '160px';
       renderPhotoZone();
+      persistTodayDraft(true);
     });
     wrap.appendChild(img); wrap.appendChild(btn);
     drop.appendChild(wrap);
@@ -2480,6 +2491,7 @@ function renderProGrid() {
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = null;
         renderProGrid();
+        persistTodayDraft(true);
       });
       drop.appendChild(img); drop.appendChild(btn);
       drop.onclick = null;
@@ -2493,6 +2505,7 @@ function renderProGrid() {
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = URL.createObjectURL(blob);
         renderProGrid();
+        persistTodayDraft(true);
       });
       drop.appendChild(inp);
       drop.addEventListener('dragover', e => e.preventDefault());
@@ -2504,6 +2517,7 @@ function renderProGrid() {
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = URL.createObjectURL(blob);
         renderProGrid();
+        persistTodayDraft(true);
       });
       drop.onclick = () => inp.click();
     }
@@ -2512,6 +2526,7 @@ function renderProGrid() {
     memo.value = proMemos[i];
     memo.style.fontSize = '11px';
     memo.id = 'pro-memo-' + i;
+    memo.addEventListener('input', () => persistTodayDraft(true));
     slot.appendChild(drop); slot.appendChild(memo);
     grid.appendChild(slot);
   });
@@ -2527,6 +2542,7 @@ async function initTodayData() {
     if (state.proObjUrls[i]) { URL.revokeObjectURL(state.proObjUrls[i]); state.proObjUrls[i] = null; }
   }
   state.lens = LENSES[0];
+  state.device = '';
   const commentEl = qs('#photo-comment');
   if (commentEl) commentEl.value = '';
   renderPhotoZone();   // 空の状態で描画
@@ -2556,6 +2572,7 @@ async function initTodayData() {
       state.lens = todayData.lens;
       renderLenses();
     }
+    if (todayData.device) state.device = todayData.device;
   }
 }
 
@@ -2568,6 +2585,38 @@ function blobToBase64(blob) {
     r.readAsDataURL(blob);
   });
 }
+
+let draftBackupTimer = null;
+function persistTodayDraft(scheduleRemote) {
+  const commentEl = qs('#photo-comment');
+  const proMemos = [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || '');
+  const hasPhoto = !!state.photoObjUrl || state.proObjUrls.some(Boolean);
+  const hasText = !!(commentEl?.value || proMemos.some(m => m));
+  if (!hasPhoto && !hasText) return;
+
+  const meta = LS.get('meta') || {};
+  meta[state.today] = {
+    ...(meta[state.today] || {}),
+    comment: commentEl?.value || '',
+    lens: state.lens,
+    device: state.device || meta[state.today]?.device || '',
+    hasPhoto,
+    proMemos,
+  };
+  LS.set('meta', meta);
+  renderProgressBanner();
+
+  if (!scheduleRemote) return;
+  clearTimeout(draftBackupTimer);
+  draftBackupTimer = setTimeout(async () => {
+    const latest = (LS.get('meta') || {})[state.today];
+    if (!latest || !hasLogContent(latest)) return;
+    await SB.uploadLogMeta(state.today, latest);
+    await mirrorAllLogMetaToSettings();
+  }, 1200);
+}
+
+qs('#photo-comment').addEventListener('input', () => persistTodayDraft(true));
 
 // ── 保存 ──────────────────────────────────────
 qs('#save-btn').addEventListener('click', async () => {
@@ -2588,6 +2637,7 @@ qs('#save-btn').addEventListener('click', async () => {
   const dayData = {
     comment: snapshotComment,
     lens: snapshotLens,
+    device: state.device || meta[snapshotToday]?.device || '',
     hasPhoto: snapshotHasPhoto,
     proMemos: snapshotProMemos,
   };
@@ -3024,6 +3074,7 @@ async function renderLog() {
     const dateEl = el('div', 'log-date'); dateEl.textContent = fmtFull(date);
     logMeta.appendChild(dateEl);
     if (data.lens) { const tag = el('span', 'tag'); tag.textContent = data.lens; logMeta.appendChild(tag); }
+    if (data.device) { const tag = el('span', 'tag'); tag.textContent = data.device; logMeta.appendChild(tag); }
     const comment = el('div', 'log-comment'); comment.textContent = data.comment || '';
     const proMemos = data.proMemos || [];
     const proCount = proMemos.filter(m => m).length;
@@ -3048,6 +3099,7 @@ async function showLogDetail(date) {
   const dateEl = el('div', 'detail-date'); dateEl.textContent = fmtFull(date);
   content.appendChild(dateEl);
   if (data.lens) { const lensEl = el('div', 'detail-lens'); lensEl.textContent = data.lens; content.appendChild(lensEl); }
+  if (data.device) { const deviceEl = el('div', 'detail-lens'); deviceEl.textContent = data.device; content.appendChild(deviceEl); }
   const photoSection = el('div', 'detail-photo');
   const photoBlob = await getPhotoBlob('main_' + date);
   if (photoBlob) {
@@ -3115,6 +3167,7 @@ function normalizeRemoteLog(row) {
   return {
     comment: row.comment || '',
     lens: row.lens || '',
+    device: row.device || '',
     proMemos: row.pro_memos || [],
     hasPhoto: row.has_photo === true,
   };
@@ -3123,14 +3176,14 @@ function normalizeRemoteLog(row) {
 function hasLogContent(data) {
   return !!(
     data &&
-    (data.comment || data.lens || data.hasPhoto || data.proMemos?.some(m => m))
+    (data.comment || data.lens || data.device || data.hasPhoto || data.proMemos?.some(m => m))
   );
 }
 
 function hasTextLogContent(data) {
   return !!(
     data &&
-    (data.comment || data.lens || data.proMemos?.some(m => m))
+    (data.comment || data.lens || data.device || data.proMemos?.some(m => m))
   );
 }
 
@@ -3153,6 +3206,7 @@ function mergeRemoteIntoLocalLog(local, remote) {
   let changed = false;
   if (!merged.comment && remote.comment) { merged.comment = remote.comment; changed = true; }
   if (!merged.lens && remote.lens) { merged.lens = remote.lens; changed = true; }
+  if (!merged.device && remote.device) { merged.device = remote.device; changed = true; }
   if ((!merged.proMemos || merged.proMemos.every(m=>!m)) && remote.proMemos?.some(m=>m)) {
     merged.proMemos = remote.proMemos; changed = true;
   }
@@ -3176,8 +3230,52 @@ function metaDateFromFileName(name) {
   return name.match(/^meta_(\d{4}-\d{2}-\d{2})\.json$/)?.[1] || null;
 }
 
+function xmlUnescape(s) {
+  return (s || '')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function bytesToAscii(bytes) {
+  let out = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    out += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return out;
+}
+
+function normalizeLensLabel(rawLens, rawDevice) {
+  const s = ((rawLens || '') + ' ' + (rawDevice || '')).toLowerCase();
+  if (s.includes('28-70')) return 'Sigma 28-70';
+  if (s.includes('55-210')) return '55-210';
+  if (s.includes('16-50')) return '16-50';
+  if (s.includes('55mm')) return '55mm f2.8';
+  if (s.includes('iphone') || s.includes('back camera')) return 'スマホ';
+  return '';
+}
+
+async function inferCaptureInfoFromBlob(blob) {
+  try {
+    if (!blob) return null;
+    const text = bytesToAscii(new Uint8Array(await blob.arrayBuffer()));
+    const attr = name => xmlUnescape(text.match(new RegExp(name + '="([^"]+)"'))?.[1] || '');
+    const rawLens = attr('aux:Lens') || attr('exifEX:LensModel') || attr('crs:Lens') || '';
+    const deviceMatch = text.match(/iPhone\s+\d+(?:\s+Pro)?|ILCE-6400|SONY/);
+    let device = deviceMatch ? deviceMatch[0] : '';
+    if (device === 'SONY' && text.includes('ILCE-6400')) device = 'Sony α6400';
+    if (device === 'ILCE-6400') device = 'Sony α6400';
+    const lens = normalizeLensLabel(rawLens, device);
+    return { lens, device, rawLens };
+  } catch(e) {
+    return null;
+  }
+}
+
 async function restoreCloudPhotosForDate(date, remote, force, availablePhotoFiles = null) {
-  const stats = { restored: 0, skipped: 0, failed: 0, mainFound: false };
+  const stats = { restored: 0, skipped: 0, failed: 0, mainFound: false, lens: '', device: '' };
   const slots = [];
   const shouldTry = slot => {
     if (!availablePhotoFiles) return slot === 'main' || remote.hasPhoto;
@@ -3192,7 +3290,11 @@ async function restoreCloudPhotosForDate(date, remote, force, availablePhotoFile
     if (!force) {
       const local = await IDB.get(item.key);
       if (local) {
-        if (item.slot === 'main') stats.mainFound = true;
+        if (item.slot === 'main') {
+          stats.mainFound = true;
+          const info = await inferCaptureInfoFromBlob(local);
+          if (info) { stats.lens = info.lens || stats.lens; stats.device = info.device || stats.device; }
+        }
         stats.skipped++;
         continue;
       }
@@ -3203,7 +3305,11 @@ async function restoreCloudPhotosForDate(date, remote, force, availablePhotoFile
       continue;
     }
     await IDB.set(item.key, remotePhoto.blob);
-    if (item.slot === 'main') stats.mainFound = true;
+    if (item.slot === 'main') {
+      stats.mainFound = true;
+      const info = await inferCaptureInfoFromBlob(remotePhoto.blob);
+      if (info) { stats.lens = info.lens || stats.lens; stats.device = info.device || stats.device; }
+    }
     stats.restored++;
   }
   return stats;
@@ -3254,6 +3360,7 @@ async function restoreFromSupabase(options = {}) {
       const normalized = {
         comment: data.comment || '',
         lens: data.lens || '',
+        device: data.device || '',
         proMemos: data.proMemos || [],
         hasPhoto: data.hasPhoto === true,
       };
@@ -3284,6 +3391,16 @@ async function restoreFromSupabase(options = {}) {
         metaChanged = true;
         todayRestored = true;
       }
+      if (photoStats.lens && !localMeta[date].lens) {
+        localMeta[date].lens = photoStats.lens;
+        metaChanged = true;
+        todayRestored = true;
+      }
+      if (photoStats.device && !localMeta[date].device) {
+        localMeta[date].device = photoStats.device;
+        metaChanged = true;
+        todayRestored = true;
+      }
       continue;
     }
 
@@ -3299,10 +3416,24 @@ async function restoreFromSupabase(options = {}) {
       metaChanged = true;
       if (date === state.today) todayRestored = true;
     }
+    if (photoStats.lens && !localMeta[date].lens) {
+      localMeta[date].lens = photoStats.lens;
+      metaChanged = true;
+      if (date === state.today) todayRestored = true;
+    }
+    if (photoStats.device && !localMeta[date].device) {
+      localMeta[date].device = photoStats.device;
+      metaChanged = true;
+      if (date === state.today) todayRestored = true;
+    }
   }
 
   if (metaChanged) {
     LS.set('meta', localMeta);
+    for (const [date, data] of Object.entries(localMeta)) {
+      if (hasLogContent(data)) SB.uploadLogMeta(date, data);
+    }
+    mirrorAllLogMetaToSettings();
     if (todayRestored) await initTodayData();
     renderProgressBanner();
   }
