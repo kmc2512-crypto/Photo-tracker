@@ -1134,7 +1134,10 @@ function switchTab(tab) {
     // Todoタブを開くたびに他端末で追加されたタスクを取り込む
     if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
   }
-  if (tab === 'clip') renderClip();
+  if (tab === 'clip') {
+    renderClip();
+    if (typeof syncClipsFromSupabase === 'function') syncClipsFromSupabase();
+  }
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -2328,7 +2331,59 @@ renderTimerLog();
 state.clipTagFilter = 'all';
 
 function getClips() { return LS.get('clips') || []; }
-function saveClips(clips) { LS.set('clips', clips); }
+function getDeletedClipIds() { return LS.get('clips_deleted') || []; }
+function normalizeClip(c) {
+  return {
+    id: c.id || 'clip_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+    note: c.note || '',
+    url: c.url || '',
+    tags: Array.isArray(c.tags) ? c.tags : [],
+    createdAt: c.createdAt || Date.now(),
+    updatedAt: c.updatedAt || c.createdAt || Date.now(),
+  };
+}
+function saveClips(clips, syncRemote = true) {
+  const normalized = clips.map(normalizeClip);
+  LS.set('clips', normalized);
+  if (syncRemote) mirrorClipsToSupabase(normalized);
+}
+async function mirrorClipsToSupabase(clips = getClips()) {
+  await SB.setSetting('clips', clips.map(normalizeClip));
+  await SB.setSetting('clips_deleted', getDeletedClipIds());
+}
+async function syncClipsFromSupabase() {
+  const [remoteClips, remoteDeleted] = await Promise.all([
+    SB.getSetting('clips'),
+    SB.getSetting('clips_deleted')
+  ]);
+  const localClips = getClips().map(normalizeClip);
+  const deletedIds = new Set([...(Array.isArray(remoteDeleted) ? remoteDeleted : []), ...getDeletedClipIds()]);
+  const byId = new Map();
+
+  const addClip = c => {
+    const clip = normalizeClip(c);
+    if (deletedIds.has(clip.id)) return;
+    const existing = byId.get(clip.id);
+    if (!existing || (clip.updatedAt || 0) > (existing.updatedAt || 0)) byId.set(clip.id, clip);
+  };
+  if (Array.isArray(remoteClips)) remoteClips.forEach(addClip);
+  localClips.forEach(addClip);
+
+  const merged = [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+  const deleted = [...deletedIds];
+  const remoteNeedsUpdate = !Array.isArray(remoteClips)
+    || JSON.stringify((remoteClips || []).map(normalizeClip).sort((a,b) => b.createdAt - a.createdAt)) !== JSON.stringify(merged)
+    || JSON.stringify((Array.isArray(remoteDeleted) ? remoteDeleted : []).sort()) !== JSON.stringify([...deleted].sort());
+  const changed = JSON.stringify(localClips) !== JSON.stringify(merged)
+    || JSON.stringify(getDeletedClipIds().sort()) !== JSON.stringify([...deleted].sort());
+
+  LS.set('clips_deleted', deleted);
+  LS.set('clips', merged);
+  if (changed || remoteNeedsUpdate) {
+    await mirrorClipsToSupabase(merged);
+  }
+  if (changed && state.tab === 'clip') renderClip();
+}
 
 function getAllClipTags() {
   const clips = getClips();
@@ -2383,6 +2438,8 @@ function renderClip() {
     date.textContent = new Date(c.createdAt).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const del = el('button', 'clip-del-btn'); del.textContent = '削除';
     del.addEventListener('click', () => {
+      const deletedIds = getDeletedClipIds();
+      if (!deletedIds.includes(c.id)) LS.set('clips_deleted', [...deletedIds, c.id]);
       const clips2 = getClips().filter(x => x.id !== c.id);
       saveClips(clips2); renderClip();
     });
@@ -2398,7 +2455,8 @@ qs('#clip-add-btn').addEventListener('click', () => {
   const rawTags = qs('#clip-tags-input').value.trim();
   const tags = rawTags ? rawTags.split(',').map(t=>t.trim()).filter(Boolean) : [];
   const clips = getClips();
-  clips.push({ id: 'clip_' + Date.now(), note, url: qs('#clip-url-input').value.trim(), tags, createdAt: Date.now() });
+  const now = Date.now();
+  clips.push({ id: 'clip_' + now, note, url: qs('#clip-url-input').value.trim(), tags, createdAt: now, updatedAt: now });
   saveClips(clips);
   qs('#clip-note-input').value = '';
   qs('#clip-url-input').value = '';
@@ -3519,6 +3577,8 @@ async function syncTodayPhotosFromSupabase() {
 
 // ── 起動時にGAS連携URL・手動タスクをSupabaseから同期 ──
 async function syncSettingsFromSupabase() {
+  await syncClipsFromSupabase();
+
   // GAS連携URL: リモートにあればローカルより優先（リモートが正の場合のみ上書き）
   const remoteUrl = await SB.getSetting('script_url');
   if (typeof remoteUrl === 'string' && remoteUrl) {
