@@ -579,7 +579,7 @@ input[type=time]{display:none}
     <div class="notice hidden" id="todo-cloud-sync-msg-wrap"><p id="todo-cloud-sync-msg"></p></div>
     <!-- 通知バナー -->
     <div class="notif-banner hidden" id="notif-banner">
-      <p>課題の締め切り通知を受け取りますか？</p>
+      <p id="notif-banner-text" aria-live="polite">課題の締め切り通知を受け取りますか？</p>
       <div class="notif-banner-btns">
         <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
         <button class="ghost-btn" id="notif-deny-btn">あとで</button>
@@ -1191,16 +1191,72 @@ function showNotification(title, options = {}) {
   }
 }
 
+function setNotifBanner(message, visible = true) {
+  qs('#notif-banner-text').textContent = message;
+  qs('#notif-banner').classList.toggle('hidden', !visible);
+}
+
+function hideNotifBannerSoon(delay = 2400) {
+  setTimeout(() => qs('#notif-banner').classList.add('hidden'), delay);
+}
+
+function setNotifButtonBusy(isBusy) {
+  const btn = qs('#notif-allow-btn');
+  btn.disabled = isBusy;
+  btn.textContent = isBusy ? '確認中' : '許可する';
+}
+
 async function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  const result = await Notification.requestPermission();
+  if (!('Notification' in window)) {
+    LS.set('notif', 'unsupported');
+    setNotifBanner('このブラウザでは通知に対応していません。');
+    return;
+  }
+
+  if (Notification.permission === 'granted') {
+    LS.set('notif', 'granted');
+    scheduleTaskNotifications();
+    showNotification('通知テスト', {
+      body: 'Photo Tracker の通知が有効です',
+      tag: 'photo-tracker-notification-test',
+    });
+    setNotifBanner('通知はすでに許可されています。テスト通知を送信しました。');
+    hideNotifBannerSoon();
+    return;
+  }
+
+  if (Notification.permission === 'denied') {
+    LS.set('notif', 'denied');
+    setNotifBanner('通知がブロックされています。ブラウザまたはOS設定でこのページの通知を許可してください。');
+    return;
+  }
+
+  setNotifButtonBusy(true);
+  setNotifBanner('ブラウザの通知許可を確認しています。表示された確認で「許可」を選んでください。');
+  let result = 'default';
+  try {
+    result = await Notification.requestPermission();
+  } catch(e) {
+    result = Notification.permission || 'default';
+  } finally {
+    setNotifButtonBusy(false);
+  }
+
   if (result === 'granted') {
     LS.set('notif', 'granted');
-    qs('#notif-banner').classList.add('hidden');
     scheduleTaskNotifications();
-  } else {
+    showNotification('通知テスト', {
+      body: 'Photo Tracker の通知が有効です',
+      tag: 'photo-tracker-notification-test',
+    });
+    setNotifBanner('通知を許可しました。テスト通知を送信しました。');
+    hideNotifBannerSoon();
+  } else if (result === 'denied') {
     LS.set('notif', 'denied');
-    qs('#notif-banner').classList.add('hidden');
+    setNotifBanner('通知がブロックされました。ブラウザまたはOS設定でこのページの通知を許可してください。');
+  } else {
+    LS.set('notif', 'later');
+    setNotifBanner('通知許可がまだ完了していません。必要な時にもう一度「許可する」を押してください。');
   }
 }
 
@@ -1239,9 +1295,11 @@ function scheduleTaskNotifications() {
   const perm = LS.get('notif');
   if (perm === 'granted') {
     // 既に許可済み → 通知スケジューリングは課題ロード後に実行
+  } else if ('Notification' in window && Notification.permission === 'denied') {
+    setTimeout(() => setNotifBanner('通知がブロックされています。ブラウザまたはOS設定でこのページの通知を許可してください。'), 1500);
   } else if (!perm && 'Notification' in window && Notification.permission === 'default') {
     // まだ未確認 → バナー表示
-    setTimeout(() => qs('#notif-banner').classList.remove('hidden'), 1500);
+    setTimeout(() => setNotifBanner('課題の締め切り通知を受け取りますか？'), 1500);
   }
 })();
 
