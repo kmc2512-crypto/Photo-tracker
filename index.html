@@ -2605,6 +2605,8 @@ qs('#save-btn').addEventListener('click', async () => {
     if (!metaOk) uploadFailed = true;
     const metaBackupOk = await SB.uploadLogMeta(snapshotToday, dayData);
     if (!metaBackupOk) uploadFailed = true;
+    const allMetaBackupOk = await mirrorAllLogMetaToSettings();
+    if (!allMetaBackupOk) uploadFailed = true;
 
     const photoBlob = await IDB.get('main_' + snapshotToday);
     if (photoBlob) {
@@ -2868,6 +2870,8 @@ async function resyncPhotos(force) {
       const ok = await SB.uploadLogMeta(date, data);
       if (ok) metaSent++; else metaFailed++;
     }
+    const allMetaOk = await mirrorAllLogMetaToSettings();
+    if (!allMetaOk) metaFailed++;
     for (let idx = 0; idx < photoKeys.length; idx++) {
       const key = photoKeys[idx];
       btn.textContent = `送信中... (${idx+1}/${photoKeys.length})`;
@@ -3130,6 +3134,19 @@ function hasTextLogContent(data) {
   );
 }
 
+async function mirrorAllLogMetaToSettings() {
+  const meta = LS.get('meta') || {};
+  const textMeta = {};
+  for (const [date, data] of Object.entries(meta)) {
+    if (hasLogContent(data)) textMeta[date] = data;
+  }
+  return SB.setSetting('photo_log_meta_backup', {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    meta: textMeta
+  });
+}
+
 function mergeRemoteIntoLocalLog(local, remote) {
   if (!local) return { data: remote, changed: true };
   const merged = { ...local };
@@ -3230,6 +3247,19 @@ async function restoreFromSupabase(options = {}) {
       proMemos: [],
       hasPhoto: true,
     });
+  }
+  const mirroredMeta = await SB.getSetting('photo_log_meta_backup');
+  if (mirroredMeta && mirroredMeta.meta && typeof mirroredMeta.meta === 'object') {
+    for (const [date, data] of Object.entries(mirroredMeta.meta)) {
+      const normalized = {
+        comment: data.comment || '',
+        lens: data.lens || '',
+        proMemos: data.proMemos || [],
+        hasPhoto: data.hasPhoto === true,
+      };
+      const existing = remoteLogsByDate.get(date);
+      remoteLogsByDate.set(date, existing ? mergeRemoteIntoLocalLog(existing, normalized).data : normalized);
+    }
   }
 
   const localMeta = LS.get('meta') || {};
