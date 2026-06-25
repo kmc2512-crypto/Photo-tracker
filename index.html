@@ -1079,6 +1079,7 @@ const state = {
   tasks: [],
   tasksDone: LS.get('tasks_done') || {},
   doneTimers: {}, // key → タイマーID（完了から5分後に自動削除）
+  taskNotificationTimers: [],
   checks: LS.get('checks') || {},
   scriptUrl: LS.get('script_url') || '',
   activeWeek: 1,
@@ -1175,7 +1176,21 @@ function renderProgressBanner() {
 qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
 renderProgressBanner();
 
-// ── PWAプッシュ通知 ───────────────────────────
+// ── 通知 ────────────────────────────────────
+function canNotify() {
+  return 'Notification' in window && Notification.permission === 'granted';
+}
+
+function showNotification(title, options = {}) {
+  if (!canNotify()) return false;
+  try {
+    new Notification(title, { icon: '/Photo-tracker/icon-192.png', ...options });
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
 async function requestNotifPermission() {
   if (!('Notification' in window)) return;
   const result = await Notification.requestPermission();
@@ -1190,20 +1205,32 @@ async function requestNotifPermission() {
 }
 
 function scheduleTaskNotifications() {
-  if (Notification.permission !== 'granted') return;
-  const tasks = state.tasks.filter(t => t.due && !state.tasksDone[t.id||t.title+t.due]);
+  state.taskNotificationTimers.forEach(id => clearTimeout(id));
+  state.taskNotificationTimers = [];
+  if (!canNotify()) return;
+  const tasks = getAllTasks().filter(t => t.due && !state.tasksDone[t.id||t.title+t.due]);
+  const todayKey = getLocalDateStr();
   tasks.forEach(t => {
-    const due = new Date(t.due + 'T09:00:00');
+    const notifyTime = t.dueTime || '09:00';
+    const due = new Date(t.due + 'T' + notifyTime + ':00');
     const now = new Date();
     const msUntil = due - now;
-    // 締め切り当日の朝9時に通知（最大24時間先まで）
+    const isDueToday = t.due === todayKey;
     if (msUntil > 0 && msUntil < 86400000) {
-      setTimeout(() => {
-        new Notification('📷 課題の締め切り', {
-          body: t.title + '\n本日が締め切りです',
-          icon: '/Photo-tracker/icon-192.png'
+      const timerId = setTimeout(() => {
+        showNotification('課題の締め切り', {
+          body: `${t.title}\n本日 ${notifyTime} 締切です`,
+          tag: 'task-due-' + (t.id || t.title + t.due),
+          renotify: true,
         });
       }, msUntil);
+      state.taskNotificationTimers.push(timerId);
+    } else if (isDueToday && !LS.get('notified_task_' + (t.id || t.title + t.due) + '_' + todayKey)) {
+      showNotification('今日が締め切りの課題があります', {
+        body: `${t.title}\n本日締切です`,
+        tag: 'task-due-today-' + (t.id || t.title + t.due),
+      });
+      LS.set('notified_task_' + (t.id || t.title + t.due) + '_' + todayKey, true);
     }
   });
 }
@@ -1518,6 +1545,7 @@ function recordDeletedTaskId(id) {
 // 手動タスクを保存（ローカル＋Supabase両方に反映）
 async function saveManualTasks(manual) {
   LS.set('manual_tasks', manual);
+  scheduleTaskNotifications();
   const ok = await SB.setSetting('manual_tasks', manual);
   if (!ok) {
     console.warn('Supabaseへのタスク同期に失敗しました（ローカルには保存済み）');
@@ -1539,6 +1567,7 @@ function toggleTaskDone(k, t) {
   const wasDone = !!state.tasksDone[k];
   state.tasksDone[k] = !wasDone;
   LS.set('tasks_done', state.tasksDone);
+  scheduleTaskNotifications();
 
   if (!wasDone) {
     // 完了にした → 5分後に自動削除スケジュール
@@ -2235,9 +2264,11 @@ function timerTick() {
     clearInterval(timerState.interval);
     timerState.running = false;
     // 通知
-    if (Notification.permission === 'granted') {
-      new Notification(timerState.phase === 'work' ? '⏰ 集中完了！休憩しよう' : '▶ 休憩終了！次のセッションへ', { icon: '/Photo-tracker/icon-192.png' });
-    }
+    showNotification(timerState.phase === 'work' ? '集中完了' : '休憩終了', {
+      body: timerState.phase === 'work' ? '休憩しよう' : '次のセッションへ',
+      tag: 'photo-tracker-timer',
+      renotify: true,
+    });
     // ログ記録（集中フェーズ完了時）
     if (timerState.phase === 'work') {
       const entry = { time: new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}), mins: Math.round(timerState.totalSeconds/60), set: timerState.set };
@@ -2265,6 +2296,11 @@ qs('#timer-start-btn').addEventListener('click', () => {
     clearInterval(timerState.interval);
     timerState.running = false;
   } else {
+    if ('Notification' in window && Notification.permission === 'default' && LS.get('notif') !== 'denied') {
+      requestNotifPermission();
+    } else if ('Notification' in window && Notification.permission !== 'granted') {
+      qs('#notif-banner').classList.remove('hidden');
+    }
     timerState.running = true;
     timerState.interval = setInterval(timerTick, 1000);
   }
@@ -3646,6 +3682,7 @@ async function syncSettingsFromSupabase() {
       if (state.tab === 'todo') renderTodo();
     }
   }
+  scheduleTaskNotifications();
 }
 
 // ── 初期化 ────────────────────────────────────
