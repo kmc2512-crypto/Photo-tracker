@@ -1022,6 +1022,8 @@ const state = {
   photoObjUrl: null,
   proObjUrls: [null, null, null],
   logView: 'list',
+  logSyncPromise: null,
+  lastLogSyncAt: 0,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
 };
@@ -1060,8 +1062,6 @@ function switchTab(tab) {
   panel.classList.remove('hidden');
   if (tab === 'log') {
     renderLog();
-    // ログタブを開くたびに他端末で保存されたログを取り込む
-    if (typeof syncFromSupabase === 'function') syncFromSupabase();
   }
   if (tab === 'learn') renderLearn();
   if (tab === 'todo') {
@@ -2915,10 +2915,13 @@ async function renderLog() {
   listView.classList.remove('hidden');
   detailView.classList.add('hidden');
 
+  const list = qs('#log-list');
+  list.innerHTML = '<div class="log-empty">クラウドと同期中...</div>';
+  await ensureCloudLogsFresh(true);
+
   const meta = LS.get('meta') || {};
   const dates = Object.keys(meta).filter(d => meta[d]?.comment || meta[d]?.hasPhoto).sort().reverse();
   qs('#log-count').textContent = dates.length + ' ENTRIES';
-  const list = qs('#log-list');
   list.innerHTML = '';
 
   if (dates.length === 0) {
@@ -3035,7 +3038,7 @@ function normalizeRemoteLog(row) {
     comment: row.comment || '',
     lens: row.lens || '',
     proMemos: row.pro_memos || [],
-    hasPhoto: row.has_photo || false,
+    hasPhoto: row.has_photo === true,
   };
 }
 
@@ -3060,15 +3063,18 @@ function mergeRemoteIntoLocalLog(local, remote) {
 }
 
 async function restoreCloudPhotosForDate(date, remote, force) {
-  const stats = { restored: 0, skipped: 0, failed: 0 };
-  const slots = [];
-  if (remote.hasPhoto) slots.push({ key: 'main_' + date, slot: 'main' });
+  const stats = { restored: 0, skipped: 0, failed: 0, mainFound: false };
+  const slots = [{ key: 'main_' + date, slot: 'main' }];
   for (let i = 0; i < 3; i++) slots.push({ key: 'pro' + i + '_' + date, slot: i });
 
   for (const item of slots) {
     if (!force) {
       const local = await IDB.get(item.key);
-      if (local) { stats.skipped++; continue; }
+      if (local) {
+        if (item.slot === 'main') stats.mainFound = true;
+        stats.skipped++;
+        continue;
+      }
     }
     const remotePhoto = await SB.fetchPhoto(date, item.slot);
     if (!remotePhoto) {
@@ -3076,13 +3082,14 @@ async function restoreCloudPhotosForDate(date, remote, force) {
       continue;
     }
     await IDB.set(item.key, remotePhoto.blob);
+    if (item.slot === 'main') stats.mainFound = true;
     stats.restored++;
   }
   return stats;
 }
 
 async function restoreFromSupabase(options = {}) {
-  const { forcePhotos = false, showMessage = false } = options;
+  const { forcePhotos = false, showMessage = false, refreshLog = true } = options;
   const msg = qs('#resync-msg');
   const btn = qs('#restore-cloud-btn');
   const resyncBtn = qs('#resync-photos-btn');
@@ -3118,6 +3125,11 @@ async function restoreFromSupabase(options = {}) {
     if (date === state.today && hasLogContent(local)) {
       const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos);
       restored += photoStats.restored; skipped += photoStats.skipped; failed += photoStats.failed;
+      if (photoStats.mainFound && !localMeta[date].hasPhoto) {
+        localMeta[date].hasPhoto = true;
+        metaChanged = true;
+        todayRestored = true;
+      }
       continue;
     }
 
@@ -3128,6 +3140,11 @@ async function restoreFromSupabase(options = {}) {
 
     const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos);
     restored += photoStats.restored; skipped += photoStats.skipped; failed += photoStats.failed;
+    if (photoStats.mainFound && !localMeta[date].hasPhoto) {
+      localMeta[date].hasPhoto = true;
+      metaChanged = true;
+      if (date === state.today) todayRestored = true;
+    }
   }
 
   if (metaChanged) {
@@ -3136,7 +3153,7 @@ async function restoreFromSupabase(options = {}) {
     renderProgressBanner();
   }
 
-  if (state.tab === 'log') renderLog();
+  if (refreshLog && state.tab === 'log') renderLog();
 
   if (showMessage) {
     msg.innerHTML = `復元完了: ログ ${rows.length}件確認 / 写真 ${restored}件復元 / ${skipped}件は端末に存在 / ${failed}件は取得失敗`;
@@ -3147,8 +3164,25 @@ async function restoreFromSupabase(options = {}) {
 }
 
 // ── Supabase同期（起動時） ──────────────────────
-async function syncFromSupabase() {
-  return restoreFromSupabase({ forcePhotos: false, showMessage: false });
+async function syncFromSupabase(options = {}) {
+  return restoreFromSupabase({
+    forcePhotos: options.forcePhotos === true,
+    showMessage: false,
+    refreshLog: options.refreshLog !== false,
+  });
+}
+
+async function ensureCloudLogsFresh(force) {
+  const now = Date.now();
+  if (!force && state.lastLogSyncAt && now - state.lastLogSyncAt < 30000) return;
+  if (state.logSyncPromise) return state.logSyncPromise;
+  state.logSyncPromise = syncFromSupabase({ refreshLog: false })
+    .then(result => {
+      state.lastLogSyncAt = Date.now();
+      return result;
+    })
+    .finally(() => { state.logSyncPromise = null; });
+  return state.logSyncPromise;
 }
 
 // ── 起動時に今日の写真をSupabaseから取得（ローカルにない場合） ──
