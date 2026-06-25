@@ -528,8 +528,9 @@ input[type=time]{display:none}
     <!-- 写真の再同期 -->
     <div class="backup-section">
       <div class="lbl" style="margin-bottom:12px">写真の再同期</div>
-      <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">この端末にある写真のうち、まだクラウドに上がっていないものをまとめて送ります。別の端末でログが表示されない場合に実行してください。</p>
+      <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">端末の履歴削除で消えたログはクラウドから復元できます。この端末にだけ残っている写真は、再送信でクラウドへ退避できます。</p>
       <div class="backup-btns">
+        <button class="save-btn" id="restore-cloud-btn">クラウドから復元</button>
         <button class="save-btn" id="resync-photos-btn">この端末の写真を再送信</button>
         <button class="ghost-btn" id="force-resync-photos-btn">強制的に全部上書き送信</button>
       </div>
@@ -2830,6 +2831,7 @@ async function resyncPhotos(force) {
 
 qs('#resync-photos-btn').addEventListener('click', () => resyncPhotos(false));
 qs('#force-resync-photos-btn').addEventListener('click', () => resyncPhotos(true));
+qs('#restore-cloud-btn').addEventListener('click', () => restoreFromSupabase({ forcePhotos: false, showMessage: true }));
 
 // ── ログ（リスト＋カレンダー） ──────────────────
 let logObjUrls = {};
@@ -3028,51 +3030,125 @@ function showLightbox(src) {
 
 qs('#detail-back-btn').addEventListener('click', () => renderLog());
 
-// ── Supabase同期（起動時） ──────────────────────
-async function syncFromSupabase() {
+function normalizeRemoteLog(row) {
+  return {
+    comment: row.comment || '',
+    lens: row.lens || '',
+    proMemos: row.pro_memos || [],
+    hasPhoto: row.has_photo || false,
+  };
+}
+
+function hasLogContent(data) {
+  return !!(
+    data &&
+    (data.comment || data.lens || data.hasPhoto || data.proMemos?.some(m => m))
+  );
+}
+
+function mergeRemoteIntoLocalLog(local, remote) {
+  if (!local) return { data: remote, changed: true };
+  const merged = { ...local };
+  let changed = false;
+  if (!merged.comment && remote.comment) { merged.comment = remote.comment; changed = true; }
+  if (!merged.lens && remote.lens) { merged.lens = remote.lens; changed = true; }
+  if ((!merged.proMemos || merged.proMemos.every(m=>!m)) && remote.proMemos?.some(m=>m)) {
+    merged.proMemos = remote.proMemos; changed = true;
+  }
+  if (!merged.hasPhoto && remote.hasPhoto) { merged.hasPhoto = true; changed = true; }
+  return { data: merged, changed };
+}
+
+async function restoreCloudPhotosForDate(date, remote, force) {
+  const stats = { restored: 0, skipped: 0, failed: 0 };
+  const slots = [];
+  if (remote.hasPhoto) slots.push({ key: 'main_' + date, slot: 'main' });
+  for (let i = 0; i < 3; i++) slots.push({ key: 'pro' + i + '_' + date, slot: i });
+
+  for (const item of slots) {
+    if (!force) {
+      const local = await IDB.get(item.key);
+      if (local) { stats.skipped++; continue; }
+    }
+    const remotePhoto = await SB.fetchPhoto(date, item.slot);
+    if (!remotePhoto) {
+      if (item.slot === 'main' && remote.hasPhoto) stats.failed++;
+      continue;
+    }
+    await IDB.set(item.key, remotePhoto.blob);
+    stats.restored++;
+  }
+  return stats;
+}
+
+async function restoreFromSupabase(options = {}) {
+  const { forcePhotos = false, showMessage = false } = options;
+  const msg = qs('#resync-msg');
+  const btn = qs('#restore-cloud-btn');
+  const resyncBtn = qs('#resync-photos-btn');
+  const forceBtn = qs('#force-resync-photos-btn');
+
+  if (showMessage) {
+    btn.disabled = true;
+    resyncBtn.disabled = true;
+    forceBtn.disabled = true;
+    msg.textContent = 'クラウドから復元中...';
+  }
+
   const rows = await SB.fetchAll();
-  if (!rows || rows.length === 0) return;
+  if (!rows || rows.length === 0) {
+    if (showMessage) msg.textContent = 'クラウドに復元できるログが見つかりませんでした';
+    if (showMessage) {
+      btn.disabled = false; resyncBtn.disabled = false; forceBtn.disabled = false;
+    }
+    return { metaChanged: false, restored: 0, skipped: 0, failed: 0 };
+  }
 
   const localMeta = LS.get('meta') || {};
-  let updated = false;
-  const todayKey = state.today; // ★ 今日のデータは絶対に同期で上書きしない（編集中の可能性があるため）
+  let metaChanged = false;
+  let todayRestored = false;
+  let restored = 0, skipped = 0, failed = 0;
 
   for (const row of rows) {
     const date = row.date;
-    if (date === todayKey) continue; // ★ 今日のデータはスキップ（ローカルが常に正）
-
-    const remote = {
-      comment: row.comment || '',
-      lens: row.lens || '',
-      proMemos: row.pro_memos || [],
-      hasPhoto: row.has_photo || false,
-    };
+    const remote = normalizeRemoteLog(row);
     const local = localMeta[date];
 
-    if (!local) {
-      // ローカルに無ければリモートをそのまま採用
-      localMeta[date] = remote;
-      updated = true;
-    } else {
-      // ローカルに既にデータがある場合は、フィールド単位で「空のものだけ」補完する
-      // （リモートが空文字でローカルの内容を上書きしてしまう事故を防ぐ）
-      const merged = { ...local };
-      if (!merged.comment && remote.comment) { merged.comment = remote.comment; updated = true; }
-      if (!merged.lens && remote.lens) { merged.lens = remote.lens; updated = true; }
-      if ((!merged.proMemos || merged.proMemos.every(m=>!m)) && remote.proMemos?.some(m=>m)) {
-        merged.proMemos = remote.proMemos; updated = true;
-      }
-      if (!merged.hasPhoto && remote.hasPhoto) { merged.hasPhoto = true; updated = true; }
-      localMeta[date] = merged;
+    // 今日の編集中データだけは上書きしない。ただし履歴削除後の空状態なら復元する。
+    if (date === state.today && hasLogContent(local)) {
+      const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos);
+      restored += photoStats.restored; skipped += photoStats.skipped; failed += photoStats.failed;
+      continue;
     }
+
+    const result = mergeRemoteIntoLocalLog(local, remote);
+    localMeta[date] = result.data;
+    if (result.changed) metaChanged = true;
+    if (date === state.today && result.changed) todayRestored = true;
+
+    const photoStats = await restoreCloudPhotosForDate(date, remote, forcePhotos);
+    restored += photoStats.restored; skipped += photoStats.skipped; failed += photoStats.failed;
   }
 
-  if (updated) {
+  if (metaChanged) {
     LS.set('meta', localMeta);
-    // ログタブが開いていれば再描画
-    if (state.tab === 'log') renderLog();
+    if (todayRestored) await initTodayData();
     renderProgressBanner();
   }
+
+  if (state.tab === 'log') renderLog();
+
+  if (showMessage) {
+    msg.innerHTML = `復元完了: ログ ${rows.length}件確認 / 写真 ${restored}件復元 / ${skipped}件は端末に存在 / ${failed}件は取得失敗`;
+    btn.disabled = false; resyncBtn.disabled = false; forceBtn.disabled = false;
+  }
+
+  return { metaChanged, restored, skipped, failed };
+}
+
+// ── Supabase同期（起動時） ──────────────────────
+async function syncFromSupabase() {
+  return restoreFromSupabase({ forcePhotos: false, showMessage: false });
 }
 
 // ── 起動時に今日の写真をSupabaseから取得（ローカルにない場合） ──
