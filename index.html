@@ -87,6 +87,14 @@ button{cursor:pointer}
 .tab-btn.active{color:var(--fg);border-bottom-color:var(--fg)}
 .nav-right{display:flex;align-items:center;gap:12px}
 .streak{font-size:10px;color:var(--fg6);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.sync-pill{border:1px solid var(--border2);background:transparent;color:var(--fg5);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px}
+.sync-pill::before{content:'';width:5px;height:5px;background:var(--fg5);display:block}
+.sync-pill.ok{color:var(--fg4)}
+.sync-pill.ok::before{background:var(--fg4)}
+.sync-pill.pending{color:#d4a820}
+.sync-pill.pending::before{background:#d4a820}
+.sync-pill.warn{color:var(--overdue)}
+.sync-pill.warn::before{background:var(--overdue)}
 .theme-btn{background:none;border:1px solid var(--border2);color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s}
 .theme-btn:hover{border-color:var(--fg5);color:var(--fg)}
 .theme-btn:active{transform:scale(0.96)}
@@ -309,6 +317,12 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .runtime-guard.show{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .runtime-guard-title{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--fg)}
 .runtime-guard-text{font-size:10px;color:var(--fg5);letter-spacing:.04em;line-height:1.7;margin-top:5px}
+.confirm-modal{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:18px}
+.confirm-modal.hidden{display:none}
+.confirm-panel{width:min(420px,100%);background:var(--bg);border:1px solid var(--border2);padding:20px}
+.confirm-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:.02em;margin-bottom:10px}
+.confirm-body{font-size:11px;color:var(--fg4);letter-spacing:.04em;line-height:1.8;margin-bottom:18px}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px}
 .sync-health{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 0}
 .sync-health-item{border:1px solid var(--border);padding:10px 12px}
 .sync-health-label{font-size:8px;letter-spacing:.18em;color:var(--fg6);margin-bottom:6px}
@@ -502,10 +516,13 @@ input[type=time]{display:none}
   .tab-btn{padding:0 10px;height:44px;font-size:9px;letter-spacing:.08em;white-space:nowrap;flex-shrink:0}
   .nav-right{position:absolute;top:8px;right:12px;gap:8px}
   .streak{display:none}
+  .sync-pill{height:28px;padding:0 8px;font-size:8px}
   .theme-btn{width:28px;height:28px;font-size:11px}
   .main{padding:20px 16px 60px}
   .runtime-guard.show{flex-direction:column;align-items:stretch}
   .runtime-guard .notif-actions{width:100%}
+  .confirm-actions{flex-direction:column}
+  .confirm-actions .ghost-btn,.confirm-actions .save-btn{width:100%;justify-content:center}
   .day-date{font-size:22px}
   .progress-banner{padding:12px}
   .pb-theme{font-size:12px}
@@ -577,6 +594,7 @@ input[type=time]{display:none}
     <button class="tab-btn" data-tab="data" role="tab" id="tab-btn-data" aria-selected="false" aria-controls="tab-data">データ</button>
   </div>
   <div class="nav-right">
+    <button class="sync-pill" id="sync-pill" type="button">確認中</button>
     <span class="streak" id="streak" aria-label="連続記録日数"></span>
     <button class="theme-btn" id="theme-btn" aria-label="ライトモードに切り替え">☀</button>
   </div>
@@ -585,11 +603,11 @@ input[type=time]{display:none}
   <div class="runtime-guard" id="runtime-guard">
     <div>
       <div class="runtime-guard-title">file表示で開いています</div>
-      <div class="runtime-guard-text">通知・PWA・Service WorkerはlocalhostかGitHub Pagesで安定します。保存はできますが、本番運用は下のリンクから開いてください。</div>
+      <div class="runtime-guard-text">通知・PWA・Service WorkerはGitHub Pagesかlocalhostで安定します。保存はできますが、普段使いはGitHub Pagesで開いてください。</div>
     </div>
     <div class="notif-actions">
-      <a class="ghost-link" href="http://127.0.0.1:8766/index.html">LOCALHOST</a>
       <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/">GITHUB PAGES</a>
+      <a class="ghost-link" href="http://127.0.0.1:8767/index.html">LOCALHOST</a>
     </div>
   </div>
   <!-- TODAY -->
@@ -715,10 +733,13 @@ input[type=time]{display:none}
           <div class="lbl" style="margin-bottom:6px">繰り返し</div>
           <select id="todo-repeat-input" aria-label="繰り返し">
             <option value="none">なし</option>
+            <option value="daily">毎日</option>
             <option value="weekly">毎週</option>
+            <option value="biweekly">隔週</option>
+            <option value="monthly">毎月</option>
           </select>
         </div>
-        <div style="font-size:10px;color:var(--fg5);letter-spacing:.04em;line-height:1.7">毎週を選ぶと、締め切り日と同じ曜日に今後8週間分を表示します。</div>
+        <div style="font-size:10px;color:var(--fg5);letter-spacing:.04em;line-height:1.7">繰り返しを選ぶと、今後の予定を自動で表示します。</div>
       </div>
 
       <!-- 締め切りモード -->
@@ -832,6 +853,7 @@ input[type=time]{display:none}
           </div>
           <div class="settings-actions">
             <button class="ghost-btn" id="todo-cloud-sync-btn">クラウド同期</button>
+            <button class="ghost-btn" id="cloud-safety-btn">クラウド確認</button>
             <button class="ghost-btn" id="todo-url-btn">GAS連携</button>
             <button class="ghost-btn" id="todo-sync-btn">SYNC</button>
           </div>
@@ -886,7 +908,7 @@ input[type=time]{display:none}
             <label class="notif-check"><input type="checkbox" data-notif-lead="dayOf">当日 朝</label>
           </div>
           <div class="notif-actions">
-            <a class="ghost-link" href="http://127.0.0.1:8766/index.html">LOCALHOST</a>
+            <a class="ghost-link" href="http://127.0.0.1:8767/index.html">LOCALHOST</a>
             <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/">GITHUB PAGES</a>
           </div>
         </div>
@@ -908,10 +930,10 @@ input[type=time]{display:none}
             <div class="settings-card-sub">コメント・レンズ・デバイス・Todo・クリップ・通知設定をまとめて退避します。写真本体はStorage、文字情報はJSONにも保存します。</div>
           </div>
           <div class="settings-actions">
-            <button class="save-btn" id="backup-export-btn">書き出す</button>
-            <button class="ghost-btn" id="backup-import-btn">読み込む</button>
-            <button class="ghost-btn" id="backup-cloud-btn">今すぐ全体保存</button>
-            <button class="ghost-btn" id="backup-cloud-restore-btn">全体復元</button>
+            <button class="save-btn" id="backup-export-btn">書き出し</button>
+            <button class="ghost-btn" id="backup-import-btn">読み込み</button>
+            <button class="ghost-btn" id="backup-cloud-btn">保存</button>
+            <button class="ghost-btn" id="backup-cloud-restore-btn">復元</button>
             <input type="file" accept=".json" id="backup-file-input" class="hidden">
           </div>
         </div>
@@ -926,9 +948,9 @@ input[type=time]{display:none}
             <div class="settings-card-sub">履歴削除や端末変更で消えた写真・コメント・レンズ・デバイスを、クラウド側の複数バックアップから戻します。</div>
           </div>
           <div class="settings-actions">
-            <button class="save-btn" id="restore-cloud-btn">写真ログを復元</button>
-            <button class="save-btn" id="resync-photos-btn">写真をクラウド退避</button>
-            <button class="ghost-btn" id="force-resync-photos-btn">全部上書き送信</button>
+            <button class="save-btn" id="restore-cloud-btn">復元</button>
+            <button class="save-btn" id="resync-photos-btn">退避</button>
+            <button class="ghost-btn" id="force-resync-photos-btn">上書き送信</button>
           </div>
         </div>
         <p id="resync-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
@@ -993,6 +1015,16 @@ input[type=time]{display:none}
 <div class="app-toast" id="app-toast" role="status" aria-live="polite">
   <div class="app-toast-title" id="app-toast-title"></div>
   <div class="app-toast-body" id="app-toast-body"></div>
+</div>
+<div class="confirm-modal hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="confirm-panel">
+    <div class="confirm-title" id="confirm-title">確認</div>
+    <div class="confirm-body" id="confirm-body"></div>
+    <div class="confirm-actions">
+      <button class="ghost-btn" id="confirm-cancel-btn">キャンセル</button>
+      <button class="save-btn" id="confirm-ok-btn">実行</button>
+    </div>
+  </div>
 </div>
 
 <script src="app.js"></script>

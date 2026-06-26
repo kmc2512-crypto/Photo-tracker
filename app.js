@@ -89,6 +89,8 @@ function setSyncHealth(patch) {
 function updateSyncHealth() {
   const health = LS.get('sync_health') || {};
   const origin = location.protocol === 'file:' ? 'FILE' : (location.hostname.includes('github.io') ? 'GITHUB PAGES' : 'LOCALHOST');
+  const hasWarning = health.lastSaveOk === false || health.lastLogBackupOk === false || health.lastCloudCheckOk === false || health.lastTodoSyncOk === false;
+  const hasPending = health.pending === true;
   const save = health.lastSaveAt
     ? `${health.lastSaveOk === false ? '要確認' : 'OK'} / ${new Date(health.lastSaveAt).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}`
     : '未保存';
@@ -102,6 +104,12 @@ function updateSyncHealth() {
   if (saveEl) saveEl.textContent = save;
   if (logEl) logEl.textContent = log;
   if (originEl) originEl.textContent = originText;
+  const pill = qs('#sync-pill');
+  if (pill) {
+    pill.classList.remove('ok', 'pending', 'warn');
+    pill.classList.add(hasWarning ? 'warn' : hasPending ? 'pending' : 'ok');
+    pill.textContent = hasWarning ? '要確認' : hasPending ? '保存中' : '同期済み';
+  }
 }
 
 // NOTE: anon keyのフロント直書きはSupabaseでは一般的だが、テーブル側のRLS（Row Level Security）設定を必ず確認すること
@@ -454,6 +462,7 @@ function switchTab(tab) {
   }
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
 
 // ── 日付表示＋ストリーク ──────────────────────
 (function() {
@@ -566,6 +575,31 @@ function showAppToast(title, body = '') {
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => toast.classList.remove('show'), 8000);
   flashDocumentTitle(title);
+}
+
+function confirmAction({ title = '確認', body = '', okText = '実行' }) {
+  return new Promise(resolve => {
+    const modal = qs('#confirm-modal');
+    const ok = qs('#confirm-ok-btn');
+    const cancel = qs('#confirm-cancel-btn');
+    qs('#confirm-title').textContent = title;
+    qs('#confirm-body').textContent = body;
+    ok.textContent = okText;
+    modal.classList.remove('hidden');
+    const close = result => {
+      modal.classList.add('hidden');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      resolve(result);
+    };
+    const onOk = () => close(true);
+    const onCancel = () => close(false);
+    const onBackdrop = e => { if (e.target === modal) close(false); };
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+  });
 }
 
 function updateNotificationStatus() {
@@ -1193,23 +1227,50 @@ function addDaysToDateStr(dateStr, days) {
   return getLocalDateStr(d);
 }
 
-function expandWeeklyTask(t) {
-  if (t.repeat !== 'weekly' || !t.due) return [t];
+function addMonthsClamped(date, months) {
+  const d = new Date(date);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return d;
+}
+
+function repeatLabel(repeat) {
+  if (repeat === 'daily') return '毎日';
+  if (repeat === 'weekly') return '毎週';
+  if (repeat === 'biweekly') return '隔週';
+  if (repeat === 'monthly') return '毎月';
+  return '';
+}
+
+function expandRecurringTask(t) {
+  if (!t.repeat || t.repeat === 'none' || !t.due) return [t];
   const deletedIds = LS.get('manual_tasks_deleted') || [];
   const today = new Date(); today.setHours(0,0,0,0);
   const firstDue = new Date(t.due + 'T00:00:00');
-  let startWeek = 0;
-  if (firstDue < today) startWeek = Math.max(0, Math.floor((today - firstDue) / (7 * 86400000)));
-  const weeks = [];
-  for (let i = 0; i < 8; i++) {
-    const weekIndex = startWeek + i;
-    const due = new Date(firstDue);
-    due.setDate(firstDue.getDate() + weekIndex * 7);
+  const count = t.repeat === 'daily' ? 21 : t.repeat === 'monthly' ? 6 : 8;
+  const stepDays = t.repeat === 'daily' ? 1 : t.repeat === 'weekly' ? 7 : t.repeat === 'biweekly' ? 14 : 0;
+  const items = [];
+  let index = 0;
+  let guard = 0;
+  while (items.length < count && guard < 120) {
+    let due;
+    if (t.repeat === 'monthly') {
+      due = addMonthsClamped(firstDue, index);
+    } else {
+      due = new Date(firstDue);
+      due.setDate(firstDue.getDate() + index * stepDays);
+    }
+    index++;
+    guard++;
+    if (due < today) continue;
     const offset = Math.round((due - firstDue) / 86400000);
     const dueStr = getLocalDateStr(due);
-    const id = `${t.id}_weekly_${dueStr}`;
+    const id = `${t.id}_${t.repeat}_${dueStr}`;
     if (deletedIds.includes(id)) continue;
-    weeks.push({
+    items.push({
       ...t,
       id,
       due: dueStr,
@@ -1219,13 +1280,13 @@ function expandWeeklyTask(t) {
       _sourceTask: t,
     });
   }
-  return weeks;
+  return items;
 }
 
 // GASからのタスクはstate.tasks、手動タスクはLS('manual_tasks')に分離
 function getAllTasks() {
   const manual = LS.get('manual_tasks') || [];
-  const expandedManual = manual.flatMap(t => expandWeeklyTask(t));
+  const expandedManual = manual.flatMap(t => expandRecurringTask(t));
   return [...state.tasks, ...expandedManual];
 }
 
@@ -1371,7 +1432,8 @@ function renderTodo() {
       const pr = el('span', 'priority-tag priority-' + (t.priority || 'normal'));
       pr.textContent = priorityLabel(t.priority);
       meta.appendChild(pr);
-      if (t.repeat === 'weekly') { const tag = el('span', 'tag'); tag.textContent = '毎週'; meta.appendChild(tag); }
+      const repeatText = repeatLabel(t.repeat);
+      if (repeatText) { const tag = el('span', 'tag'); tag.textContent = repeatText; meta.appendChild(tag); }
       if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
 
       // 日付・期間の表示
@@ -1815,6 +1877,33 @@ qs('#todo-cloud-sync-btn').addEventListener('click', async () => {
 
   btn.disabled = false;
   btn.textContent = 'クラウド同期';
+});
+
+qs('#cloud-safety-btn')?.addEventListener('click', async () => {
+  const btn = qs('#cloud-safety-btn');
+  const msgWrap = qs('#todo-cloud-sync-msg-wrap');
+  const msgEl = qs('#todo-cloud-sync-msg');
+  msgWrap.classList.remove('hidden');
+  btn.disabled = true;
+  btn.textContent = '確認中';
+  try {
+    const key = '_safety_check_' + Date.now();
+    const settingWrite = await SB.setSetting(key, { ok: true, checkedAt: new Date().toISOString() });
+    const settingRead = settingWrite ? await SB.getSetting(key) : null;
+    const logs = await SB.fetchAll();
+    const storage = await SB.listPhotoKeys();
+    const ok = settingWrite && settingRead?.ok === true && Array.isArray(logs) && Array.isArray(storage);
+    setSyncHealth({ lastCloudCheckAt: new Date().toISOString(), lastCloudCheckOk: ok });
+    msgEl.textContent = ok
+      ? `クラウド確認OK。設定・ログ・写真置き場を確認できました。`
+      : `クラウド確認で一部を確認できませんでした。保存は端末に残りますが、別端末同期は設定確認が必要です。`;
+  } catch(e) {
+    setSyncHealth({ lastCloudCheckAt: new Date().toISOString(), lastCloudCheckOk: false });
+    msgEl.textContent = 'クラウド確認に失敗しました。ネットワークかクラウド設定を確認してください。';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'クラウド確認';
+  }
 });
 
 async function syncTodoTasks(url) {
@@ -2389,6 +2478,14 @@ qs('#save-btn').addEventListener('click', async () => {
 
   saveBtn.disabled = true;
   saveBtn.textContent = '保存中...';
+  const progressMsg = qs('#saved-msg');
+  const setSaveProgress = text => {
+    progressMsg.textContent = text;
+    progressMsg.classList.remove('hidden');
+    saveBtn.textContent = text;
+    setSyncHealth({ pending: true });
+  };
+  setSaveProgress('文字保存中');
 
   // メタデータと写真のアップロードを両方待ってから完了表示
   let uploadFailed = false;
@@ -2396,22 +2493,24 @@ qs('#save-btn').addEventListener('click', async () => {
     const metaOk = await SB.upsert(snapshotToday, dayData);
     console.log('[SAVE] upsert result', metaOk);
     if (!metaOk) uploadFailed = true;
+    setSaveProgress('バックアップ中');
     const metaBackupOk = await SB.uploadLogMeta(snapshotToday, dayData);
     if (!metaBackupOk) uploadFailed = true;
     const allMetaBackupOk = await mirrorAllLogMetaToSettings();
     if (!allMetaBackupOk) uploadFailed = true;
 
+    const uploadJobs = [];
     const photoBlob = await IDB.get('main_' + snapshotToday);
-    if (photoBlob) {
-      const ok = await SB.uploadPhoto(snapshotToday, 'main', photoBlob, photoBlob.type || 'image/jpeg');
-      if (!ok) uploadFailed = true;
-    }
+    if (photoBlob) uploadJobs.push({ slot: 'main', blob: photoBlob });
     for (let i = 0; i < 3; i++) {
       const blob = await IDB.get('pro' + i + '_' + snapshotToday);
-      if (blob) {
-        const ok = await SB.uploadPhoto(snapshotToday, i, blob, blob.type || 'image/jpeg');
-        if (!ok) uploadFailed = true;
-      }
+      if (blob) uploadJobs.push({ slot: i, blob });
+    }
+    for (let i = 0; i < uploadJobs.length; i++) {
+      const job = uploadJobs[i];
+      setSaveProgress(`写真送信中 ${i + 1}/${uploadJobs.length}`);
+      const ok = await SB.uploadPhoto(snapshotToday, job.slot, job.blob, job.blob.type || 'image/jpeg');
+      if (!ok) uploadFailed = true;
     }
   } catch(e) {
     console.error('[SAVE] error', e);
@@ -2422,6 +2521,7 @@ qs('#save-btn').addEventListener('click', async () => {
     lastSaveOk: !uploadFailed,
     lastLogBackupAt: new Date().toISOString(),
     lastLogBackupOk: !uploadFailed,
+    pending: false,
   });
 
   saveBtn.disabled = false;
@@ -2710,6 +2810,12 @@ qs('#backup-cloud-btn').addEventListener('click', async () => {
 });
 
 qs('#backup-cloud-restore-btn').addEventListener('click', async () => {
+  const confirmed = await confirmAction({
+    title: '全体復元',
+    body: 'クラウドに保存されたバックアップで、この端末の設定・Todo・クリップ・通知設定を復元します。現在の端末データは上書きされる可能性があります。',
+    okText: '復元する'
+  });
+  if (!confirmed) return;
   qs('#backup-msg').textContent = 'クラウド全体バックアップを確認しています...';
   const data = await SB.getSetting('full_backup');
   try {
@@ -2788,7 +2894,14 @@ async function resyncPhotos(force) {
 }
 
 qs('#resync-photos-btn').addEventListener('click', () => resyncPhotos(false));
-qs('#force-resync-photos-btn').addEventListener('click', () => resyncPhotos(true));
+qs('#force-resync-photos-btn').addEventListener('click', async () => {
+  const confirmed = await confirmAction({
+    title: '上書き送信',
+    body: 'この端末に残っている写真と文字情報をクラウドへ上書き送信します。クラウド側の古い内容を置き換える操作です。',
+    okText: '上書き送信'
+  });
+  if (confirmed) resyncPhotos(true);
+});
 qs('#restore-cloud-btn').addEventListener('click', () => restoreFromSupabase({ forcePhotos: false, showMessage: true }));
 
 // ── ログ（リスト＋カレンダー） ──────────────────
