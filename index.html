@@ -342,12 +342,33 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .done-log-title{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:10px}
 .done-log-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--bg3);padding:7px 0;font-size:10px;color:var(--fg4)}
 .done-log-time{color:var(--fg6);font-variant-numeric:tabular-nums;white-space:nowrap}
-.gantt-wrap{overflow:hidden;margin-bottom:32px;border:1px solid var(--border)}
+.settings-grid{display:grid;gap:20px}
+.settings-card{background:var(--bg2);border:1px solid var(--border);padding:16px}
+.settings-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.settings-card-title{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em}
+.settings-card-sub{font-size:10px;color:var(--fg5);letter-spacing:.05em;line-height:1.7;margin-top:5px}
+.settings-actions{display:flex;gap:8px;flex-wrap:wrap}
+.gantt-wrap{overflow:hidden;margin-bottom:32px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 #gantt-inner{background:var(--bg);display:flex;flex-direction:column}
-#gantt-grid-scroll{scrollbar-width:thin;scrollbar-color:var(--border3) transparent}
-#gantt-grid-scroll::-webkit-scrollbar{height:5px}
-#gantt-grid-scroll::-webkit-scrollbar-thumb{background:var(--border3);border-radius:2px}
-#gantt-grid-scroll::-webkit-scrollbar-track{background:transparent}
+.gantt-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:10px;color:var(--fg5);letter-spacing:.08em}
+.gantt-list{display:flex;flex-direction:column}
+.gantt-row2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(180px,1.7fr) auto;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid var(--bg3)}
+.gantt-row2:last-child{border-bottom:none}
+.gantt-task{display:flex;align-items:center;gap:10px;min-width:0}
+.gantt-title{font-size:12px;color:var(--fg);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-title.done{text-decoration:line-through;color:var(--fg7)}
+.gantt-meta{font-size:9px;color:var(--fg5);letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;font-variant-numeric:tabular-nums}
+.gantt-rail{height:7px;background:var(--bg3);position:relative;overflow:hidden}
+.gantt-fill{height:100%;background:var(--fg4);min-width:3px;transition:width .2s ease}
+.gantt-fill.hot{background:#d05828}
+.gantt-fill.warn{background:#b89818}
+.gantt-fill.over{background:#c83838}
+.gantt-fill.done{background:var(--border3)}
+.gantt-badge{font-size:10px;color:var(--fg4);letter-spacing:.06em;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.gantt-badge.hot{color:#ff7040}
+.gantt-badge.warn{color:#d4a820}
+.gantt-badge.over{color:#ff6060}
+.gantt-badge.done{color:var(--fg6)}
 .timer-wrap{display:flex;flex-direction:column;align-items:center;padding:40px 0}
 .timer-mode-tabs{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:40px}
 .timer-mode-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--fg5);padding:0 20px;height:36px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
@@ -474,6 +495,9 @@ input[type=time]{display:none}
   .todo-add-form .form-row{flex-direction:column}
   .todo-add-form input[type=date]{width:100%}
   .gantt-wrap{margin:0 -16px;border-left:none;border-right:none}
+  .gantt-summary{padding-left:16px;padding-right:16px}
+  .gantt-row2{grid-template-columns:1fr;gap:9px;padding:14px 16px}
+  .gantt-badge{text-align:left}
   .log-entry{grid-template-columns:64px 1fr;gap:10px}
   .log-thumb{height:64px}
   .log-tools{grid-template-columns:1fr}
@@ -484,7 +508,9 @@ input[type=time]{display:none}
   .notif-actions{width:100%}
   .notif-actions .ghost-btn,.notif-actions .ghost-link{flex:1;justify-content:center}
   .todo-header{flex-direction:column;gap:12px}
-  .todo-header>div:last-child{width:100%;flex-wrap:wrap}
+  .settings-card-head{flex-direction:column}
+  .settings-actions{width:100%}
+  .settings-actions .ghost-btn{flex:1;justify-content:center}
   .week-card{padding:14px}
   .todo-filters{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .todo-filters::-webkit-scrollbar{display:none}
@@ -495,8 +521,8 @@ input[type=time]{display:none}
   .tab-btn{padding:0 8px;font-size:8px}
   .main{padding:16px 12px 60px}
 }
-#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
-#tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden{animation:none}
+#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
+#tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden,#tab-settings.hidden{animation:none}
 @keyframes tab-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
@@ -511,6 +537,7 @@ input[type=time]{display:none}
     <button class="tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">Todo</button>
     <button class="tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
     <button class="tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
+    <button class="tab-btn" data-tab="settings" role="tab" id="tab-btn-settings" aria-selected="false" aria-controls="tab-settings">設定</button>
   </div>
   <div class="nav-right">
     <span class="streak" id="streak" aria-label="連続記録日数"></span>
@@ -638,54 +665,7 @@ input[type=time]{display:none}
         <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">Todo</div>
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px" id="todo-count" aria-live="polite">0 TASKS</div>
       </div>
-      <div style="display:flex;gap:8px;padding-top:4px">
-        <button class="ghost-btn" id="todo-cloud-sync-btn">クラウド同期</button>
-        <button class="ghost-btn" id="todo-url-btn">GAS連携</button>
-        <button class="ghost-btn" id="todo-sync-btn">SYNC</button>
-      </div>
     </div>
-    <div class="notice hidden" id="todo-cloud-sync-msg-wrap"><p id="todo-cloud-sync-msg"></p></div>
-    <!-- 通知バナー -->
-    <div class="notif-banner hidden" id="notif-banner">
-      <p id="notif-banner-text" aria-live="polite">課題の締め切り通知を受け取りますか？</p>
-      <div class="notif-banner-btns">
-        <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
-        <button class="ghost-btn" id="notif-deny-btn">あとで</button>
-      </div>
-    </div>
-    <pre class="notif-diag hidden" id="notif-diag"></pre>
-    <div class="notif-settings">
-      <div class="notif-settings-head">
-        <div>
-          <div class="notif-settings-title">通知設定</div>
-          <div class="notif-status" id="notif-status">確認中...</div>
-        </div>
-        <div class="notif-actions">
-          <button class="ghost-btn" id="notif-test-btn">テスト</button>
-          <button class="ghost-btn" id="notif-diagnose-btn">診断</button>
-        </div>
-      </div>
-      <div class="notif-options">
-        <label class="notif-check"><input type="checkbox" data-notif-lead="dayBefore">前日 20:00</label>
-        <label class="notif-check"><input type="checkbox" data-notif-lead="hourBefore">1時間前</label>
-        <label class="notif-check"><input type="checkbox" data-notif-lead="dueTime">締切時刻</label>
-        <label class="notif-check"><input type="checkbox" data-notif-lead="dayOf">当日 朝</label>
-      </div>
-      <div class="notif-actions">
-        <a class="ghost-link" href="http://127.0.0.1:8766/index.html">LOCALHOST</a>
-        <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/">GITHUB PAGES</a>
-      </div>
-    </div>
-    <!-- GAS URL設定 -->
-    <div class="notice hidden" id="todo-url-panel">
-      <p>Apps ScriptのURLを貼る（スプレッドシートからタスクを同期）</p>
-      <div class="url-input-wrap"><input type="text" id="todo-url-input" placeholder="https://script.google.com/macros/s/..."></div>
-      <div class="url-btns">
-        <button class="save-btn" id="todo-url-save-btn">保存してSYNC</button>
-        <button class="ghost-btn" id="todo-url-cancel-btn">キャンセル</button>
-      </div>
-    </div>
-    <div class="notice hidden" id="todo-error" role="alert" aria-live="assertive"><p id="todo-error-msg"></p></div>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">
       <div class="lbl" style="margin-bottom:12px" id="todo-form-heading">タスクを追加</div>
@@ -802,6 +782,78 @@ input[type=time]{display:none}
     <!-- ガントビュー -->
     <div id="todo-gantt-view" class="hidden">
       <div class="gantt-wrap"><div id="gantt-inner"></div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" class="hidden" role="tabpanel" aria-labelledby="tab-btn-settings" tabindex="0">
+    <div class="log-header">
+      <h1>設定</h1>
+      <p>SYNC / NOTIFICATION</p>
+    </div>
+    <div class="settings-grid">
+      <section class="settings-card">
+        <div class="settings-card-head">
+          <div>
+            <div class="settings-card-title">同期</div>
+            <div class="settings-card-sub">Todo・クリップ・通知設定をクラウドと外部連携でそろえます。</div>
+          </div>
+          <div class="settings-actions">
+            <button class="ghost-btn" id="todo-cloud-sync-btn">クラウド同期</button>
+            <button class="ghost-btn" id="todo-url-btn">GAS連携</button>
+            <button class="ghost-btn" id="todo-sync-btn">SYNC</button>
+          </div>
+        </div>
+        <div class="notice hidden" id="todo-cloud-sync-msg-wrap"><p id="todo-cloud-sync-msg"></p></div>
+        <div class="notice hidden" id="todo-url-panel">
+          <p>Apps ScriptのURLを貼る（スプレッドシートからタスクを同期）</p>
+          <div class="url-input-wrap"><input type="text" id="todo-url-input" placeholder="https://script.google.com/macros/s/..."></div>
+          <div class="url-btns">
+            <button class="save-btn" id="todo-url-save-btn">保存してSYNC</button>
+            <button class="ghost-btn" id="todo-url-cancel-btn">キャンセル</button>
+          </div>
+        </div>
+        <div class="notice hidden" id="todo-error" role="alert" aria-live="assertive"><p id="todo-error-msg"></p></div>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-head">
+          <div>
+            <div class="settings-card-title">通知</div>
+            <div class="settings-card-sub">期限の前日・1時間前・締切時刻・当日朝の通知を管理します。</div>
+          </div>
+        </div>
+        <div class="notif-banner hidden" id="notif-banner">
+          <p id="notif-banner-text" aria-live="polite">課題の締め切り通知を受け取りますか？</p>
+          <div class="notif-banner-btns">
+            <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
+            <button class="ghost-btn" id="notif-deny-btn">あとで</button>
+          </div>
+        </div>
+        <pre class="notif-diag hidden" id="notif-diag"></pre>
+        <div class="notif-settings">
+          <div class="notif-settings-head">
+            <div>
+              <div class="notif-settings-title">通知設定</div>
+              <div class="notif-status" id="notif-status">確認中...</div>
+            </div>
+            <div class="notif-actions">
+              <button class="ghost-btn" id="notif-test-btn">テスト</button>
+              <button class="ghost-btn" id="notif-diagnose-btn">診断</button>
+            </div>
+          </div>
+          <div class="notif-options">
+            <label class="notif-check"><input type="checkbox" data-notif-lead="dayBefore">前日 20:00</label>
+            <label class="notif-check"><input type="checkbox" data-notif-lead="hourBefore">1時間前</label>
+            <label class="notif-check"><input type="checkbox" data-notif-lead="dueTime">締切時刻</label>
+            <label class="notif-check"><input type="checkbox" data-notif-lead="dayOf">当日 朝</label>
+          </div>
+          <div class="notif-actions">
+            <a class="ghost-link" href="http://127.0.0.1:8766/index.html">LOCALHOST</a>
+            <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/">GITHUB PAGES</a>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -1253,7 +1305,7 @@ function switchTab(tab) {
     b.classList.toggle('active', isActive);
     b.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
-  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip').forEach(d => d.classList.add('hidden'));
+  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
   panel.classList.remove('hidden');
   if (tab === 'log') {
@@ -1268,6 +1320,10 @@ function switchTab(tab) {
   if (tab === 'clip') {
     renderClip();
     if (typeof syncClipsFromSupabase === 'function') syncClipsFromSupabase();
+  }
+  if (tab === 'settings') {
+    if (typeof updateNotificationStatus === 'function') updateNotificationStatus();
+    if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
   }
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -2261,228 +2317,91 @@ function renderTodoDoneLog() {
 function renderGantt(tasks) {
   const wrap = qs('#gantt-inner');
   wrap.innerHTML = '';
-  const withDue = tasks.filter(t => t.due).sort((a,b) => a.due < b.due ? -1 : 1);
+  const withDue = tasks.filter(t => t.due).sort((a,b) => {
+    if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+    return priorityRank(a.priority) - priorityRank(b.priority);
+  });
   if (withDue.length === 0) {
     wrap.innerHTML = '<div class="log-empty" style="padding:20px">締め切りのあるタスクがありません</div>';
     return;
   }
 
   const today = new Date(); today.setHours(0,0,0,0);
-  const isLight = document.documentElement.classList.contains('light');
-  const isMobile = window.innerWidth <= 600;
+  const activeCount = withDue.filter(t => !state.tasksDone[t.id || t.title + t.due]).length;
+  const urgentCount = withDue.filter(t => {
+    const done = !!state.tasksDone[t.id || t.title + t.due];
+    const dueDate = new Date(t.due + 'T00:00:00');
+    const daysLeft = Math.round((dueDate - today) / 86400000);
+    return !done && daysLeft <= 2;
+  }).length;
 
-  // 表示範囲
-  const firstStart = withDue.reduce((min, t) => {
-    if (t.start) { const d = new Date(t.start + 'T00:00:00'); return d < min ? d : min; }
-    return min;
-  }, today);
-  const rangeStart = new Date(firstStart); rangeStart.setHours(0,0,0,0);
-  const maxDue = new Date(withDue[withDue.length-1].due + 'T00:00:00');
-  const rangeEnd = new Date(Math.max(maxDue.getTime() + 5*86400000, today.getTime() + 30*86400000));
-  const totalDays = Math.round((rangeEnd - rangeStart) / 86400000);
+  const summary = el('div', 'gantt-summary');
+  const left = el('div');
+  left.textContent = `${withDue.length} DEADLINES`;
+  const right = el('div');
+  right.textContent = urgentCount ? `URGENT ${urgentCount}` : `ACTIVE ${activeCount}`;
+  summary.appendChild(left);
+  summary.appendChild(right);
+  wrap.appendChild(summary);
 
-  // サイズ設定
-  const LABEL_W = isMobile ? 110 : 164;
-  const DAY_W   = isMobile ? 20  : 26;
-  const ROW_H   = 40;
-  const BAR_H   = 18;
-  const HDR_H   = 40;
-  const totalW  = totalDays * DAY_W;
+  const list = el('div', 'gantt-list');
+  const daysBetween = (a, b) => Math.round((a - b) / 86400000);
+  const fmtShort = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric', weekday:'short'});
 
-  const dayOffset = d => Math.max(0, Math.round((d - rangeStart) / 86400000));
-  const todayOff  = dayOffset(today);
-
-  // 色
-  function barColor(daysLeft, done, over) {
-    if (done)        return isLight ? '#b0b0b0' : '#404040';
-    if (over)        return isLight ? '#c03030' : '#c83838';
-    if (daysLeft<=2) return isLight ? '#bf4f20' : '#d05828';
-    if (daysLeft<=7) return isLight ? '#9a8020' : '#b89818';
-    return isLight ? '#606060' : '#4a4a4a';
-  }
-  function nameColor(daysLeft, done, over) {
-    if (done)        return 'var(--fg7)';
-    if (over)        return isLight ? '#c03030' : '#ff6060';
-    if (daysLeft<=2) return isLight ? '#bf4f20' : '#ff7040';
-    if (daysLeft<=7) return isLight ? '#907010' : '#d4a820';
-    return 'var(--fg)';
-  }
-
-  // ヘッダー (1段 / sticky)
-  const header = el('div');
-  header.style.cssText = `display:flex;height:${HDR_H}px;border-bottom:1px solid var(--border);background:var(--bg2)`;
-
-  const lh = el('div');
-  lh.style.cssText = `width:${LABEL_W}px;flex-shrink:0;border-right:1px solid var(--border);display:flex;align-items:center;padding:0 8px`;
-  const lhT = el('div');
-  lhT.style.cssText = 'font-size:9px;letter-spacing:.18em;color:var(--fg5);text-transform:uppercase';
-  lhT.textContent = 'TASK';
-  lh.appendChild(lhT);
-  header.appendChild(lh);
-
-  const ghOut = el('div');
-  ghOut.style.cssText = 'flex:1;overflow:hidden';
-  const ghIn = el('div');
-  ghIn.style.cssText = `width:${totalW}px;height:${HDR_H}px;position:relative`;
-
-  // 月ラベル＋月区切り
-  let lastMo = -1;
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
-    if (d.getMonth() !== lastMo) {
-      lastMo = d.getMonth();
-      if (i > 0) {
-        const sep = el('div');
-        sep.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;bottom:0;width:1px;background:var(--border)`;
-        ghIn.appendChild(sep);
-      }
-      const ml = el('div');
-      ml.style.cssText = `position:absolute;left:${i*DAY_W+4}px;top:4px;font-size:9px;color:var(--fg5);letter-spacing:.06em;white-space:nowrap;font-variant-numeric:tabular-nums`;
-      ml.textContent = `${d.getFullYear()}/${d.getMonth()+1}`;
-      ghIn.appendChild(ml);
-    }
-  }
-
-  // 日付ラベル（自動間隔）
-  const minGap = Math.max(1, Math.ceil(28 / DAY_W));
-  const nicelist = [1,2,3,5,7,10,14];
-  const interval = nicelist.find(n => n >= minGap) || 14;
-
-  for (let i = 0; i < totalDays; i += interval) {
-    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
-    const isTd = d.getTime() === today.getTime();
-    const lbl = el('div');
-    lbl.style.cssText = `position:absolute;left:${i*DAY_W}px;bottom:4px;width:${interval*DAY_W}px;text-align:center;font-size:9px;color:${isTd?'var(--fg)':'var(--fg6)'};font-weight:${isTd?600:400};letter-spacing:.04em;white-space:nowrap;font-variant-numeric:tabular-nums`;
-    lbl.textContent = isTd ? '今日' : `${d.getMonth()+1}/${d.getDate()}`;
-    ghIn.appendChild(lbl);
-  }
-  // 今日がintervalに含まれない場合に追加
-  if (todayOff % interval !== 0 && todayOff >= 0 && todayOff < totalDays) {
-    const tl = el('div');
-    tl.style.cssText = `position:absolute;left:${todayOff*DAY_W}px;bottom:4px;width:${interval*DAY_W}px;text-align:center;font-size:10px;color:var(--fg);font-weight:600;letter-spacing:.04em;white-space:nowrap`;
-    tl.textContent = '今日';
-    ghIn.appendChild(tl);
-  }
-
-  ghOut.appendChild(ghIn);
-  header.appendChild(ghOut);
-  wrap.appendChild(header);
-
-  // 本体
-  const body = el('div');
-  body.style.cssText = 'display:flex';
-
-  const labelCol = el('div');
-  labelCol.style.cssText = `width:${LABEL_W}px;flex-shrink:0;border-right:1px solid var(--border)`;
-
-  const gridScroll = el('div');
-  gridScroll.id = 'gantt-grid-scroll';
-  gridScroll.style.cssText = 'flex:1;overflow-x:auto;-webkit-overflow-scrolling:touch';
-
-  const grid = el('div');
-  grid.style.cssText = `width:${totalW}px;position:relative`;
-
-  // 背景（週末・今日）
-  let lastMoBg = -1;
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(rangeStart); d.setDate(d.getDate() + i);
-    const isTd = d.getTime() === today.getTime();
-    const isSun = d.getDay() === 0;
-    const isSat = d.getDay() === 6;
-    const mo = d.getMonth();
-    const isMonthB = mo !== lastMoBg;
-    if (isMonthB) lastMoBg = mo;
-
-    if (isTd) {
-      const bg = el('div');
-      bg.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;bottom:0;width:${DAY_W}px;background:${isLight?'rgba(0,0,0,.05)':'rgba(255,255,255,.06)'};pointer-events:none;z-index:0`;
-      grid.appendChild(bg);
-      const line = el('div');
-      line.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;bottom:0;width:2px;background:${isLight?'rgba(0,0,0,.18)':'rgba(255,255,255,.22)'};pointer-events:none;z-index:1`;
-      grid.appendChild(line);
-    } else if (isSat || isSun) {
-      const wk = el('div');
-      wk.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;bottom:0;width:${DAY_W}px;background:${isLight?'rgba(0,0,0,.018)':'rgba(255,255,255,.018)'};pointer-events:none`;
-      grid.appendChild(wk);
-    }
-    if (isMonthB && i > 0) {
-      const ml = el('div');
-      ml.style.cssText = `position:absolute;left:${i*DAY_W}px;top:0;bottom:0;width:1px;background:var(--border);pointer-events:none`;
-      grid.appendChild(ml);
-    }
-  }
-
-  // タスク行
   withDue.forEach(t => {
     const k = t.id || t.title + t.due;
     const done = !!state.tasksDone[k];
     const dueDate = new Date(t.due + 'T00:00:00');
-    const daysLeft = Math.round((dueDate - today) / 86400000);
+    const daysLeft = daysBetween(dueDate, today);
     const over = daysLeft < 0 && !done;
     const isRange = t.dateType === 'range' && t.start;
-    const bc = barColor(daysLeft, done, over);
-    const nc = nameColor(daysLeft, done, over);
+    const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
+    const totalSpan = startDate ? Math.max(1, daysBetween(dueDate, startDate)) : Math.max(3, Math.min(21, Math.abs(daysLeft) + 7));
+    const elapsed = startDate ? Math.max(0, daysBetween(today, startDate)) : Math.max(0, totalSpan - Math.max(0, daysLeft));
+    const progress = done ? 100 : over ? 100 : Math.max(7, Math.min(100, Math.round((elapsed / totalSpan) * 100)));
 
-    // タスク名セル
-    const nameCell = el('div');
-    nameCell.style.cssText = `height:${ROW_H}px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid var(--bg3)`;
-    const cb = el('div', 'cb' + (done ? ' done' : ''));
-    cb.style.flexShrink = '0';
-    cb.addEventListener('click', () => toggleTaskDone(k, t));
-    const nt = el('div');
-    nt.style.cssText = `flex:1;font-size:11px;letter-spacing:.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:${done?'var(--fg7)':nc}`;
-    if (done) nt.style.textDecoration = 'line-through';
-    nt.textContent = t.title;
-    if (t.subject) nt.title = `[${t.subject}] ${t.title}`;
-    nameCell.appendChild(cb);
-    nameCell.appendChild(nt);
-    labelCol.appendChild(nameCell);
-
-    // グリッド行
-    const gridRow = el('div');
-    gridRow.style.cssText = `position:relative;height:${ROW_H}px;border-bottom:1px solid var(--bg3)`;
-
-    // バー位置
-    let bs, be;
-    if (isRange && t.start) {
-      bs = dayOffset(new Date(t.start + 'T00:00:00'));
-      be = dayOffset(dueDate) + 1;
-    } else {
-      // 締め切りタスク: 今日〜締切日（過期・完了は締切日1日分）
-      bs = (done || over) ? dayOffset(dueDate) : todayOff;
-      be = dayOffset(dueDate) + 1;
-    }
-    bs = Math.max(0, bs);
-    be = Math.min(totalDays, Math.max(bs + 1, be));
-    const barW = Math.max(DAY_W, (be - bs) * DAY_W);
-
-    const bar = el('div');
-    bar.style.cssText = `position:absolute;left:${bs*DAY_W}px;top:${(ROW_H-BAR_H)/2}px;width:${barW}px;height:${BAR_H}px;background:${bc};border-radius:2px;display:flex;align-items:center;padding:0 7px;overflow:hidden;z-index:3;opacity:${done?.42:1}`;
-
+    const tone = done ? 'done' : over ? 'over' : daysLeft <= 2 ? 'hot' : daysLeft <= 7 ? 'warn' : '';
     const badgeText = done ? '完了'
       : over ? `${Math.abs(daysLeft)}日超過`
-      : isRange ? `${Math.round((dueDate-new Date(t.start+'T00:00:00'))/86400000)}日間`
-      : daysLeft===0 ? '今日締切'
-      : daysLeft===1 ? '明日締切'
+      : daysLeft === 0 ? '今日締切'
+      : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const bl = el('div');
-    bl.style.cssText = 'font-size:9px;color:#fff;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums';
-    bl.textContent = badgeText;
-    bar.appendChild(bl);
-    gridRow.appendChild(bar);
-    grid.appendChild(gridRow);
+    const row = el('div', 'gantt-row2');
+
+    const task = el('div', 'gantt-task');
+    const cb = el('div', 'cb' + (done ? ' done' : ''));
+    cb.addEventListener('click', () => toggleTaskDone(k, t));
+    const text = el('div');
+    text.style.minWidth = '0';
+    const nt = el('div', 'gantt-title' + (done ? ' done' : ''));
+    nt.textContent = t.title;
+    const meta = el('div', 'gantt-meta');
+    const metaParts = [];
+    if (t.subject) metaParts.push(t.subject);
+    metaParts.push(priorityLabel(t.priority));
+    metaParts.push(isRange && startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
+    meta.textContent = metaParts.join(' / ');
+    text.appendChild(nt);
+    text.appendChild(meta);
+    task.appendChild(cb);
+    task.appendChild(text);
+
+    const rail = el('div', 'gantt-rail');
+    const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
+    fill.style.width = `${progress}%`;
+    rail.appendChild(fill);
+
+    const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : ''));
+    badge.textContent = badgeText;
+
+    row.appendChild(task);
+    row.appendChild(rail);
+    row.appendChild(badge);
+    list.appendChild(row);
   });
 
-  gridScroll.appendChild(grid);
-  body.appendChild(labelCol);
-  body.appendChild(gridScroll);
-  wrap.appendChild(body);
-
-  gridScroll.addEventListener('scroll', () => { ghOut.scrollLeft = gridScroll.scrollLeft; });
-  const initScroll = Math.max(0, todayOff * DAY_W - DAY_W * 3);
-  gridScroll.scrollLeft = initScroll;
-  ghOut.scrollLeft = initScroll;
+  wrap.appendChild(list);
 }
 
 // Todo フィルタ・ビュー切り替え
