@@ -199,8 +199,11 @@ html:not(.light) .pro-drop img{outline:1px solid rgba(255,255,255,.07)}
 .log-header{margin-bottom:28px}
 .log-header h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
 .log-header p{font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px;font-variant-numeric:tabular-nums}
-.log-tools{display:grid;grid-template-columns:1fr 130px 130px;gap:8px;margin-bottom:16px}
+.log-tools{display:grid;grid-template-columns:1fr 128px 128px 128px;gap:8px;margin-bottom:10px}
 .log-tools input,.log-tools select{height:34px;border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;padding:0 10px;outline:none}
+.log-filter-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.log-check{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--fg4);letter-spacing:.06em;min-height:28px}
+.log-check input{width:14px;height:14px;accent-color:var(--fg)}
 .log-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
 .stat-cell{background:var(--bg2);border:1px solid var(--border);padding:10px 12px;min-height:54px}
 .stat-num{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
@@ -293,6 +296,7 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .backup-section{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}
 .backup-section .lbl{margin-bottom:12px}
 .backup-btns{display:flex;gap:8px;flex-wrap:wrap}
+.backup-state{background:var(--bg2);border:1px solid var(--border);padding:10px 12px;margin:12px 0 14px;font-size:10px;color:var(--fg4);line-height:1.7;letter-spacing:.04em}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6;text-wrap:pretty}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
@@ -318,10 +322,18 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-add-form input[type=text]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;flex:1;min-width:140px}
 .todo-add-form input[type=date]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;width:140px;color:var(--fg);background:transparent;font-variant-numeric:tabular-nums}
 .todo-add-form input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.6)}
+.todo-add-form select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:120px}
 .todo-filters{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:0;width:fit-content}
 .todo-filter-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:0 14px;height:32px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
 .todo-filter-btn.active{background:var(--fg);color:var(--bg)}
 .todo-filter-btn:active{opacity:.8}
+.priority-tag{font-size:9px;letter-spacing:.1em;border:1px solid var(--border2);padding:2px 6px;color:var(--fg5)}
+.priority-high{border-color:rgba(204,102,102,.55);color:var(--overdue)}
+.priority-low{color:var(--fg6)}
+.done-log{border-top:1px solid var(--border);margin-top:24px;padding-top:16px}
+.done-log-title{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:10px}
+.done-log-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--bg3);padding:7px 0;font-size:10px;color:var(--fg4)}
+.done-log-time{color:var(--fg6);font-variant-numeric:tabular-nums;white-space:nowrap}
 .gantt-wrap{overflow:hidden;margin-bottom:32px;border:1px solid var(--border)}
 #gantt-inner{background:var(--bg);display:flex;flex-direction:column}
 #gantt-grid-scroll{scrollbar-width:thin;scrollbar-color:var(--border3) transparent}
@@ -458,6 +470,13 @@ input[type=time]{display:none}
   .log-thumb{height:64px}
   .log-tools{grid-template-columns:1fr}
   .log-stats{grid-template-columns:repeat(2,1fr)}
+  .log-filter-row{align-items:stretch}
+  .log-filter-row select{width:100%;height:34px;background:var(--input-bg);color:var(--fg);border:1px solid var(--border2);font-family:'DM Mono',monospace;font-size:11px;padding:0 10px}
+  .notif-settings-head{flex-direction:column}
+  .notif-actions{width:100%}
+  .notif-actions .ghost-btn,.notif-actions .ghost-link{flex:1;justify-content:center}
+  .todo-header{flex-direction:column;gap:12px}
+  .todo-header>div:last-child{width:100%;flex-wrap:wrap}
   .week-card{padding:14px}
   .todo-filters{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .todo-filters::-webkit-scrollbar{display:none}
@@ -544,12 +563,13 @@ input[type=time]{display:none}
     <!-- バックアップ・リストア -->
     <div class="backup-section">
       <div class="lbl" style="margin-bottom:12px">バックアップ / リストア</div>
-      <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">メタデータ（コメント・レンズ・進捗）をJSONファイルに書き出します。写真データはデバイスに依存するためエクスポートされません。</p>
+      <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">コメント・レンズ・デバイス・Todo・クリップ・通知設定はクラウド全体バックアップに保存されます。写真本体はStorageへ送信し、履歴削除後は下の復元から戻せます。</p>
+      <div class="backup-state" id="auto-backup-status">自動バックアップ: 確認中</div>
       <div class="backup-btns">
         <button class="save-btn" id="backup-export-btn">書き出す</button>
         <button class="ghost-btn" id="backup-import-btn">読み込む</button>
-        <button class="ghost-btn" id="backup-cloud-btn">クラウド全体保存</button>
-        <button class="ghost-btn" id="backup-cloud-restore-btn">クラウド全体復元</button>
+        <button class="ghost-btn" id="backup-cloud-btn">今すぐ全体保存</button>
+        <button class="ghost-btn" id="backup-cloud-restore-btn">全体復元</button>
         <input type="file" accept=".json" id="backup-file-input" class="hidden">
       </div>
       <p id="backup-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
@@ -559,8 +579,8 @@ input[type=time]{display:none}
       <div class="lbl" style="margin-bottom:12px">写真の再同期</div>
       <p style="font-size:11px;color:var(--fg4);margin-bottom:14px;line-height:1.8;letter-spacing:.02em">端末の履歴削除で消えたログはクラウドから復元できます。この端末にだけ残っている写真は、再送信でクラウドへ退避できます。</p>
       <div class="backup-btns">
-        <button class="save-btn" id="restore-cloud-btn">クラウドから復元</button>
-        <button class="save-btn" id="resync-photos-btn">この端末の写真を再送信</button>
+        <button class="save-btn" id="restore-cloud-btn">写真ログを復元</button>
+        <button class="save-btn" id="resync-photos-btn">写真をクラウド退避</button>
         <button class="ghost-btn" id="force-resync-photos-btn">強制的に全部上書き送信</button>
       </div>
       <p id="resync-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
@@ -585,8 +605,13 @@ input[type=time]{display:none}
       </div>
       <div class="log-tools">
         <input type="text" id="log-search-input" placeholder="コメント・レンズ・デバイスを検索" aria-label="ログ検索">
+        <input type="date" id="log-date-filter" aria-label="日付で絞り込み">
+        <input type="month" id="log-month-filter" aria-label="月で絞り込み">
         <select id="log-lens-filter" aria-label="レンズで絞り込み"><option value="all">レンズすべて</option></select>
+      </div>
+      <div class="log-filter-row">
         <select id="log-device-filter" aria-label="デバイスで絞り込み"><option value="all">デバイスすべて</option></select>
+        <label class="log-check"><input type="checkbox" id="log-comment-only-filter">コメントありだけ</label>
       </div>
       <div class="log-stats" id="log-stats"></div>
       <div id="log-list"></div>
@@ -660,6 +685,11 @@ input[type=time]{display:none}
       <div class="form-row" style="margin-bottom:14px">
         <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名">
         <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:180px" aria-label="科目・カテゴリ">
+        <select id="todo-priority-input" aria-label="優先度">
+          <option value="normal">通常</option>
+          <option value="high">高優先</option>
+          <option value="low">低優先</option>
+        </select>
       </div>
       <!-- 日付タイプ選択 -->
       <div style="margin-bottom:16px">
@@ -744,6 +774,7 @@ input[type=time]{display:none}
         </div>
         <div class="todo-filters" id="todo-period-filters">
           <button class="todo-filter-btn active" data-period="all">全期間</button>
+          <button class="todo-filter-btn" data-period="today">今日</button>
           <button class="todo-filter-btn" data-period="week">今週</button>
           <button class="todo-filter-btn" data-period="2weeks">2週間</button>
           <button class="todo-filter-btn" data-period="month">今月</button>
@@ -756,6 +787,10 @@ input[type=time]{display:none}
     </div>
     <!-- リストビュー -->
     <div id="todo-list-view"><div id="todo-list"></div></div>
+    <div class="done-log" id="todo-done-log-wrap">
+      <div class="done-log-title">完了ログ</div>
+      <div id="todo-done-log"></div>
+    </div>
     <!-- ガントビュー -->
     <div id="todo-gantt-view" class="hidden">
       <div class="gantt-wrap"><div id="gantt-inner"></div></div>
@@ -901,7 +936,7 @@ const LS = {
 
 window.PTR_BACKUP_KEYS = new Set([
   'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','script_url',
-  'clips','clips_deleted','timer_log_today','notif','notif_leads'
+  'clips','clips_deleted','timer_log_today','todo_done_log','notif','notif_leads'
 ]);
 
 // NOTE: anon keyのフロント直書きはSupabaseでは一般的だが、テーブル側のRLS（Row Level Security）設定を必ず確認すること
@@ -1163,8 +1198,11 @@ const state = {
   lastLogSyncAt: 0,
   logRenderId: 0,
   logQuery: '',
+  logDateFilter: '',
+  logMonthFilter: '',
   logLensFilter: 'all',
   logDeviceFilter: 'all',
+  logCommentOnly: false,
   toastTimer: null,
   titleTimer: null,
   fullBackupTimer: null,
@@ -1539,9 +1577,8 @@ async function requestNotifPermission() {
       requireInteraction: true,
       tag: 'photo-tracker-notification-test-' + Date.now(),
     });
-    setNotifBanner(sent ? 'OS通知を送信しました。macOSの通知センターも確認してください。' : 'OS通知を呼び出せませんでした。ページ内通知で表示しています。');
+    qs('#notif-banner').classList.add('hidden');
     updateNotificationStatus();
-    if (sent) hideNotifBannerSoon();
     return;
   }
 
@@ -1573,9 +1610,8 @@ async function requestNotifPermission() {
       requireInteraction: true,
       tag: 'photo-tracker-notification-test-' + Date.now(),
     });
-    setNotifBanner(sent ? '通知を許可しました。OS通知を送信しました。' : '通知は許可されましたが、OS通知の呼び出しに失敗しました。ページ内通知で表示しています。');
+    qs('#notif-banner').classList.add('hidden');
     updateNotificationStatus();
-    if (sent) hideNotifBannerSoon();
   } else if (result === 'denied') {
     LS.set('notif', 'denied');
     setNotifBanner('通知がブロックされました。ブラウザまたはOS設定でこのページの通知を許可してください。');
@@ -1650,6 +1686,7 @@ function scheduleTaskNotifications() {
     setTimeout(() => setNotifBanner(notificationStatusMessage()), 800);
   } else if (perm === 'granted' || status === 'granted') {
     // 既に許可済み → 通知スケジューリングは課題ロード後に実行
+    qs('#notif-banner').classList.add('hidden');
   } else if (!perm && status === 'default') {
     // まだ未確認 → バナー表示
     setTimeout(() => setNotifBanner(notificationStatusMessage()), 1500);
@@ -2000,6 +2037,7 @@ function toggleTaskDone(k, t) {
   scheduleTaskNotifications();
 
   if (!wasDone) {
+    recordCompletedTask(t || { id: k, title: k });
     // 完了にした → 5分後に自動削除スケジュール
     const timerId = setTimeout(() => {
       delete state.doneTimers[k];
@@ -2032,6 +2070,7 @@ state.editingTaskId = null; // 編集中の手動タスクID（nullなら新規�
 
 function getDeadlineLimit(period) {
   const today = new Date(); today.setHours(0,0,0,0);
+  if (period === 'today') return today;
   if (period === 'week') {
     const end = new Date(today); end.setDate(end.getDate() + 7); return end;
   }
@@ -2056,7 +2095,9 @@ function renderTodo() {
     if (filter === 'active' && done) return false;
     if (filter === 'done' && !done) return false;
     // 期間フィルタ（締め切りなしは全期間のみ表示）
-    if (limit && t.due) {
+    if (state.todoPeriod === 'today') {
+      if (t.due !== getLocalDateStr()) return false;
+    } else if (limit && t.due) {
       const due = new Date(t.due + 'T00:00:00');
       if (due > limit) return false;
     } else if (limit && !t.due) {
@@ -2075,9 +2116,13 @@ function renderTodo() {
     list.innerHTML = '';
     if (filtered.length === 0) {
       list.innerHTML = '<div class="log-empty">タスクがありません</div>';
+      renderTodoDoneLog();
       return;
     }
     filtered.sort((a,b) => {
+      const pa = priorityRank(a.priority);
+      const pb = priorityRank(b.priority);
+      if (pa !== pb) return pb - pa;
       if (!a.due && !b.due) return 0;
       if (!a.due) return 1;
       if (!b.due) return -1;
@@ -2093,6 +2138,9 @@ function renderTodo() {
       const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
       title.textContent = t.title;
       const meta = el('div', 'task-meta');
+      const pr = el('span', 'priority-tag priority-' + (t.priority || 'normal'));
+      pr.textContent = priorityLabel(t.priority);
+      meta.appendChild(pr);
       if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
 
       // 日付・期間の表示
@@ -2156,6 +2204,50 @@ function renderTodo() {
     qs('#todo-gantt-view').classList.remove('hidden');
     renderGantt(filtered);
   }
+  renderTodoDoneLog();
+}
+
+function priorityRank(priority) {
+  return priority === 'high' ? 3 : priority === 'normal' || !priority ? 2 : 1;
+}
+
+function priorityLabel(priority) {
+  if (priority === 'high') return 'HIGH';
+  if (priority === 'low') return 'LOW';
+  return 'NORMAL';
+}
+
+function recordCompletedTask(t) {
+  const logs = LS.get('todo_done_log') || [];
+  logs.unshift({
+    id: t.id || t.title + t.due,
+    title: t.title || '',
+    subject: t.subject || '',
+    priority: t.priority || 'normal',
+    completedAt: new Date().toISOString(),
+  });
+  LS.set('todo_done_log', logs.slice(0, 50));
+}
+
+function renderTodoDoneLog() {
+  const wrap = qs('#todo-done-log');
+  if (!wrap) return;
+  const logs = LS.get('todo_done_log') || [];
+  if (logs.length === 0) {
+    wrap.innerHTML = '<div class="log-empty" style="line-height:1.8">まだ完了ログがありません</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  logs.slice(0, 8).forEach(item => {
+    const row = el('div', 'done-log-row');
+    const left = el('div');
+    left.textContent = item.title || 'Untitled';
+    const right = el('div', 'done-log-time');
+    right.textContent = new Date(item.completedAt).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    row.appendChild(left);
+    row.appendChild(right);
+    wrap.appendChild(row);
+  });
 }
 
 function renderGantt(tasks) {
@@ -2440,6 +2532,7 @@ qs('#todo-add-btn').addEventListener('click', () => {
     id: isEditing ? state.editingTaskId : 'manual_' + Date.now(),
     title,
     subject: qs('#todo-subject-input').value.trim(),
+    priority: qs('#todo-priority-input').value || 'normal',
     _manual: true,
     dateType: state.todoDateType,
   };
@@ -2487,6 +2580,7 @@ function startEditTask(t) {
 
   qs('#todo-title-input').value = t.title || '';
   qs('#todo-subject-input').value = t.subject || '';
+  qs('#todo-priority-input').value = t.priority || 'normal';
 
   const dt = t.dateType || (t.due ? 'deadline' : 'none');
   document.querySelectorAll('[data-datetype]').forEach(b => b.classList.toggle('active', b.dataset.datetype === dt));
@@ -2537,6 +2631,7 @@ function exitEditMode() {
   state.editingTaskId = null;
   qs('#todo-title-input').value = '';
   qs('#todo-subject-input').value = '';
+  qs('#todo-priority-input').value = 'normal';
   qs('#todo-due-input').value = '';
   qs('#todo-due-time-input').value = '';
   qs('#todo-start-input').value = '';
@@ -3394,6 +3489,7 @@ function createFullBackupPayload(reason = 'manual') {
     clips: LS.get('clips') || [],
     clipsDeleted: LS.get('clips_deleted') || [],
     timerLogToday: LS.get('timer_log_today') || [],
+    todoDoneLog: LS.get('todo_done_log') || [],
     notif: LS.get('notif') || '',
     notifLeads: LS.get('notif_leads') || getNotifLeads(),
     learnData: collectLearnData(),
@@ -3411,6 +3507,7 @@ function applyFullBackupPayload(data) {
   if (data.clips) LS.set('clips', data.clips);
   if (data.clipsDeleted) LS.set('clips_deleted', data.clipsDeleted);
   if (data.timerLogToday) LS.set('timer_log_today', data.timerLogToday);
+  if (data.todoDoneLog) LS.set('todo_done_log', data.todoDoneLog);
   if (data.notif) LS.set('notif', data.notif);
   if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
   if (data.learnData) Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
@@ -3420,13 +3517,31 @@ async function writeFullBackupToCloud(reason = 'manual') {
   const payload = createFullBackupPayload(reason);
   const ok = await SB.setSetting('full_backup', payload);
   if (ok) state.lastFullBackupAt = Date.now();
+  renderAutoBackupStatus(ok ? 'ok' : 'failed');
   return ok;
 }
 
 function scheduleFullBackup(reason = 'auto') {
   clearTimeout(state.fullBackupTimer);
+  renderAutoBackupStatus('pending');
   state.fullBackupTimer = setTimeout(() => writeFullBackupToCloud(reason), 2200);
 }
+
+function renderAutoBackupStatus(mode = '') {
+  const el2 = qs('#auto-backup-status');
+  if (!el2) return;
+  const time = state.lastFullBackupAt
+    ? new Date(state.lastFullBackupAt).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})
+    : '未実行';
+  const suffix = mode === 'pending' ? '保存待ち'
+    : mode === 'failed' ? '保存失敗'
+    : mode === 'ok' ? '保存済み'
+    : '待機中';
+  el2.textContent = `自動バックアップ: ${suffix} / 最終保存 ${time} / 保存先 Supabase settings + Storage`;
+}
+
+renderAutoBackupStatus();
+setInterval(() => scheduleFullBackup('periodic'), 10 * 60 * 1000);
 
 qs('#backup-export-btn').addEventListener('click', () => {
   const payload = createFullBackupPayload('export');
@@ -3582,6 +3697,9 @@ function getFilteredLogDates(meta) {
   const q = state.logQuery.trim().toLowerCase();
   return getAllLogDates(meta).filter(date => {
     const data = meta[date] || {};
+    if (state.logDateFilter && date !== state.logDateFilter) return false;
+    if (state.logMonthFilter && !date.startsWith(state.logMonthFilter)) return false;
+    if (state.logCommentOnly && !(data.comment || data.proMemos?.some(Boolean))) return false;
     if (state.logLensFilter !== 'all' && data.lens !== state.logLensFilter) return false;
     if (state.logDeviceFilter !== 'all' && data.device !== state.logDeviceFilter) return false;
     if (!q) return true;
@@ -3597,16 +3715,36 @@ function renderLogStats(meta, dates) {
   const total = dates.length;
   const withText = dates.filter(d => meta[d]?.comment || meta[d]?.proMemos?.some(Boolean)).length;
   const withPhoto = dates.filter(d => meta[d]?.hasPhoto).length;
-  const lensCount = new Set(dates.map(d => meta[d]?.lens).filter(Boolean)).size;
+  const monthKey = state.logMonthFilter || getLocalDateStr().slice(0, 7);
+  const monthDates = getAllLogDates(meta).filter(d => d.startsWith(monthKey));
+  const streak = longestLogStreak(monthDates);
   const cells = [
     ['LOGS', total],
     ['TEXT', withText],
     ['PHOTO', withPhoto],
-    ['LENSES', lensCount],
+    ['MONTH/STREAK', `${monthDates.length}/${streak}`],
   ];
   qs('#log-stats').innerHTML = cells.map(([label, value]) => (
     `<div class="stat-cell"><div class="stat-num">${value}</div><div class="stat-label">${label}</div></div>`
   )).join('');
+}
+
+function longestLogStreak(dates) {
+  const set = new Set(dates);
+  let best = 0;
+  for (const date of dates) {
+    const prev = new Date(date + 'T00:00:00');
+    prev.setDate(prev.getDate() - 1);
+    if (set.has(getLocalDateStr(prev))) continue;
+    let cur = 0;
+    const d = new Date(date + 'T00:00:00');
+    while (set.has(getLocalDateStr(d))) {
+      cur++;
+      d.setDate(d.getDate() + 1);
+    }
+    best = Math.max(best, cur);
+  }
+  return best;
 }
 
 async function loadLogThumb(date, thumb, renderId) {
@@ -3648,12 +3786,24 @@ qs('#log-search-input').addEventListener('input', e => {
   state.logQuery = e.target.value || '';
   renderLog();
 });
+qs('#log-date-filter').addEventListener('change', e => {
+  state.logDateFilter = e.target.value || '';
+  renderLog();
+});
+qs('#log-month-filter').addEventListener('change', e => {
+  state.logMonthFilter = e.target.value || '';
+  renderLog();
+});
 qs('#log-lens-filter').addEventListener('change', e => {
   state.logLensFilter = e.target.value || 'all';
   renderLog();
 });
 qs('#log-device-filter').addEventListener('change', e => {
   state.logDeviceFilter = e.target.value || 'all';
+  renderLog();
+});
+qs('#log-comment-only-filter').addEventListener('change', e => {
+  state.logCommentOnly = !!e.target.checked;
   renderLog();
 });
 
