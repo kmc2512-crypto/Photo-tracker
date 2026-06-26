@@ -342,12 +342,20 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .done-log-title{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:10px}
 .done-log-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--bg3);padding:7px 0;font-size:10px;color:var(--fg4)}
 .done-log-time{color:var(--fg6);font-variant-numeric:tabular-nums;white-space:nowrap}
-.settings-grid{display:grid;gap:20px}
-.settings-card{background:var(--bg2);border:1px solid var(--border);padding:16px}
-.settings-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
-.settings-card-title{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em}
-.settings-card-sub{font-size:10px;color:var(--fg5);letter-spacing:.05em;line-height:1.7;margin-top:5px}
-.settings-actions{display:flex;gap:8px;flex-wrap:wrap}
+.settings-grid{display:grid;gap:34px}
+.settings-card{background:transparent;border-top:1px solid var(--border);padding:24px 0 0}
+.settings-card-head{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);gap:26px;align-items:start;margin-bottom:18px}
+.settings-card-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:.02em;line-height:1.2}
+.settings-card-sub{font-size:10px;color:var(--fg5);letter-spacing:.05em;line-height:1.75;margin-top:9px;text-wrap:pretty}
+.settings-actions{display:grid;grid-template-columns:repeat(3,minmax(0,150px));gap:8px;align-items:start}
+.settings-actions .ghost-btn{justify-content:center;width:100%}
+#tab-settings .notice{margin:12px 0 0}
+#tab-settings .notif-banner{background:transparent;margin:0 0 12px;padding:14px 16px}
+#tab-settings .notif-settings{background:transparent;margin:0;padding:0;border:none}
+#tab-settings .notif-settings-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:start;margin-bottom:18px;padding:16px;border:1px solid var(--border)}
+#tab-settings .notif-status{max-width:760px}
+#tab-settings .notif-options{margin:0 0 14px;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+#tab-settings .notif-actions:last-child{padding-top:2px}
 .gantt-wrap{overflow:hidden;margin-bottom:32px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 #gantt-inner{background:var(--bg);display:flex;flex-direction:column}
 .gantt-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:10px;color:var(--fg5);letter-spacing:.08em}
@@ -508,9 +516,13 @@ input[type=time]{display:none}
   .notif-actions{width:100%}
   .notif-actions .ghost-btn,.notif-actions .ghost-link{flex:1;justify-content:center}
   .todo-header{flex-direction:column;gap:12px}
-  .settings-card-head{flex-direction:column}
-  .settings-actions{width:100%}
-  .settings-actions .ghost-btn{flex:1;justify-content:center}
+  .settings-grid{gap:28px}
+  .settings-card-head{grid-template-columns:1fr;gap:14px}
+  .settings-actions{grid-template-columns:1fr}
+  #tab-settings .notif-settings-head{grid-template-columns:1fr}
+  #tab-settings .notif-banner{flex-direction:column;align-items:stretch}
+  #tab-settings .notif-banner-btns{width:100%}
+  #tab-settings .notif-banner-btns .save-btn,#tab-settings .notif-banner-btns .ghost-btn{flex:1;justify-content:center}
   .week-card{padding:14px}
   .todo-filters{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .todo-filters::-webkit-scrollbar{display:none}
@@ -1454,6 +1466,8 @@ function updateNotificationStatus() {
   ].filter(Boolean).join(' / ') || 'なし';
   const origin = location.protocol === 'file:' ? 'FILE' : (location.hostname.includes('github.io') ? 'GITHUB PAGES' : 'LOCALHOST');
   statusEl.textContent = `${origin} · ${notificationStatusMessage()} · ${activeLeads}`;
+  const banner = qs('#notif-banner');
+  if (banner && status !== 'default') banner.classList.add('hidden');
 }
 
 function playNotificationChime() {
