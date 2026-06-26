@@ -1,0 +1,19 @@
+{
+  "name": "Photo Tracker",
+  "short_name": "Photo",
+  "description": "写真ログ、Todo、タイマー、クリップを同期できる個人用トラッカー",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080808",
+  "theme_color": "#080808",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
