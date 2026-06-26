@@ -298,10 +298,16 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
 .notif-diag{background:var(--bg2);border:1px solid var(--border);padding:12px 14px;margin:-8px 0 20px;color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;line-height:1.7;white-space:pre-wrap}
 .notif-settings{background:var(--bg2);border:1px solid var(--border);padding:14px 16px;margin-bottom:20px}
-.notif-settings-title{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:10px}
-.notif-options{display:flex;gap:10px;flex-wrap:wrap}
+.notif-settings-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.notif-settings-title{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5);margin-bottom:6px}
+.notif-status{font-size:10px;color:var(--fg4);letter-spacing:.04em;line-height:1.6}
+.notif-options{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .notif-check{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--fg4);letter-spacing:.06em;min-height:28px}
 .notif-check input{width:14px;height:14px;accent-color:var(--fg)}
+.notif-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ghost-link{background:none;border:1px solid var(--border2);color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:0 14px;height:32px;display:inline-flex;align-items:center;text-decoration:none;transition:border-color .15s,color .15s,transform .1s;min-width:40px}
+.ghost-link:hover{border-color:var(--fg5);color:var(--fg)}
+.ghost-link:active{transform:scale(0.96)}
 .app-toast{position:fixed;right:18px;top:18px;z-index:80;max-width:min(420px,calc(100vw - 36px));background:var(--fg);color:var(--bg);border:1px solid var(--fg);padding:14px 16px;box-shadow:0 12px 36px rgba(0,0,0,.35);opacity:0;transform:translateY(-10px);pointer-events:none;transition:opacity .18s,transform .18s}
 .app-toast.show{opacity:1;transform:translateY(0)}
 .app-toast-title{font-size:12px;font-weight:700;letter-spacing:.08em;margin-bottom:5px}
@@ -611,19 +617,30 @@ input[type=time]{display:none}
       <p id="notif-banner-text" aria-live="polite">課題の締め切り通知を受け取りますか？</p>
       <div class="notif-banner-btns">
         <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
-        <button class="ghost-btn" id="notif-test-btn">テスト</button>
-        <button class="ghost-btn" id="notif-diagnose-btn">診断</button>
         <button class="ghost-btn" id="notif-deny-btn">あとで</button>
       </div>
     </div>
     <pre class="notif-diag hidden" id="notif-diag"></pre>
     <div class="notif-settings">
-      <div class="notif-settings-title">通知タイミング</div>
+      <div class="notif-settings-head">
+        <div>
+          <div class="notif-settings-title">通知設定</div>
+          <div class="notif-status" id="notif-status">確認中...</div>
+        </div>
+        <div class="notif-actions">
+          <button class="ghost-btn" id="notif-test-btn">テスト</button>
+          <button class="ghost-btn" id="notif-diagnose-btn">診断</button>
+        </div>
+      </div>
       <div class="notif-options">
         <label class="notif-check"><input type="checkbox" data-notif-lead="dayBefore">前日 20:00</label>
         <label class="notif-check"><input type="checkbox" data-notif-lead="hourBefore">1時間前</label>
         <label class="notif-check"><input type="checkbox" data-notif-lead="dueTime">締切時刻</label>
         <label class="notif-check"><input type="checkbox" data-notif-lead="dayOf">当日 朝</label>
+      </div>
+      <div class="notif-actions">
+        <a class="ghost-link" href="http://127.0.0.1:8766/index.html">LOCALHOST</a>
+        <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/">GITHUB PAGES</a>
       </div>
     </div>
     <!-- GAS URL設定 -->
@@ -1245,12 +1262,15 @@ renderProgressBanner();
 
 // ── 通知 ────────────────────────────────────
 const LOCALHOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$/;
+const LOCAL_APP_URL = 'http://127.0.0.1:8766/index.html';
+const GH_PAGES_URL = 'https://kmc2512-crypto.github.io/Photo-tracker/';
 
 function isNotificationSecureOrigin() {
   return window.isSecureContext || location.protocol === 'https:' || (location.protocol === 'http:' && LOCALHOST_RE.test(location.hostname));
 }
 
 function notificationStatus() {
+  if (location.protocol === 'file:') return 'file';
   if (!('Notification' in window)) return 'unsupported';
   if (!isNotificationSecureOrigin()) return 'insecure';
   return Notification.permission;
@@ -1258,6 +1278,7 @@ function notificationStatus() {
 
 function notificationStatusMessage() {
   const status = notificationStatus();
+  if (status === 'file') return '通知の本番運用はlocalhostまたはGitHub Pagesで開いてください。file表示ではOS通知・Service Workerが安定しません。';
   if (status === 'unsupported') return 'このブラウザではOS通知機能が使えません。ページ内通知で代替します。ChromeやSafariで開くとOS通知を使える可能性があります。';
   if (status === 'insecure') return '通知許可を出すにはlocalhostまたはhttpsで開いてください。今はページ内通知で代替します。';
   if (status === 'denied') return '通知がブロックされています。ブラウザまたはmacOS設定でこのページの通知を許可してください。';
@@ -1267,6 +1288,7 @@ function notificationStatusMessage() {
 
 function sentBodyForStatus(status) {
   if (status === 'granted') return 'Photo Tracker のOS通知が有効です。';
+  if (status === 'file') return 'file表示ではOS通知が安定しないため、ページ内通知で表示しています。';
   if (status === 'unsupported') return 'このブラウザではOS通知が使えないため、ページ内通知で表示しています。';
   if (status === 'denied') return 'OS通知がブロックされているため、ページ内通知で表示しています。';
   if (status === 'insecure') return 'このURLではOS通知許可を出せないため、ページ内通知で表示しています。';
@@ -1315,6 +1337,21 @@ function showAppToast(title, body = '') {
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => toast.classList.remove('show'), 8000);
   flashDocumentTitle(title);
+}
+
+function updateNotificationStatus() {
+  const statusEl = qs('#notif-status');
+  if (!statusEl) return;
+  const status = notificationStatus();
+  const leads = getNotifLeads();
+  const activeLeads = [
+    leads.dayBefore !== false ? '前日' : '',
+    leads.hourBefore !== false ? '1時間前' : '',
+    leads.dueTime !== false ? '締切時刻' : '',
+    leads.dayOf !== false ? '当日' : '',
+  ].filter(Boolean).join(' / ') || 'なし';
+  const origin = location.protocol === 'file:' ? 'FILE' : (location.hostname.includes('github.io') ? 'GITHUB PAGES' : 'LOCALHOST');
+  statusEl.textContent = `${origin} · ${notificationStatusMessage()} · ${activeLeads}`;
 }
 
 function playNotificationChime() {
@@ -1393,6 +1430,8 @@ async function diagnoseNotifications() {
   const lines = [
     '通知診断',
     `URL: ${location.href}`,
+    `recommended local URL: ${LOCAL_APP_URL}`,
+    `GitHub Pages URL: ${GH_PAGES_URL}`,
     `secureContext: ${window.isSecureContext ? 'yes' : 'no'}`,
     `Notification API: ${'Notification' in window ? 'yes' : 'no'}`,
     `Notification.permission: ${'Notification' in window ? Notification.permission : 'missing'}`,
@@ -1419,6 +1458,7 @@ async function diagnoseNotifications() {
   qs('#notif-diag').textContent = lines.join('\n');
   qs('#notif-diag').classList.remove('hidden');
   setNotifBanner(notificationStatusMessage());
+  updateNotificationStatus();
 }
 
 function requestBrowserPermission() {
@@ -1434,6 +1474,7 @@ function getNotifLeads() {
 function saveNotifLeads(leads) {
   LS.set('notif_leads', leads);
   scheduleTaskNotifications();
+  updateNotificationStatus();
 }
 
 function initNotifLeadControls() {
@@ -1464,9 +1505,18 @@ function setNotifButtonBusy(isBusy) {
 }
 
 async function requestNotifPermission() {
+  if (location.protocol === 'file:') {
+    LS.set('notif', 'file');
+    setNotifBanner(notificationStatusMessage());
+    updateNotificationStatus();
+    showNotification('通知テスト', { body: '通知の本番運用はlocalhostまたはGitHub Pagesで開いてください。' });
+    return;
+  }
+
   if (!('Notification' in window)) {
     LS.set('notif', 'unsupported');
     setNotifBanner(notificationStatusMessage());
+    updateNotificationStatus();
     showNotification('通知テスト', { body: 'このブラウザではOS通知が使えないため、ページ内通知で代替表示しています。' });
     return;
   }
@@ -1474,6 +1524,7 @@ async function requestNotifPermission() {
   if (!isNotificationSecureOrigin()) {
     LS.set('notif', 'needs_secure_origin');
     setNotifBanner(notificationStatusMessage());
+    updateNotificationStatus();
     showNotification('通知テスト', { body: 'OS通知は安全なURLで開くと使えます。今はページ内通知で代替表示しています。' });
     return;
   }
@@ -1489,6 +1540,7 @@ async function requestNotifPermission() {
       tag: 'photo-tracker-notification-test-' + Date.now(),
     });
     setNotifBanner(sent ? 'OS通知を送信しました。macOSの通知センターも確認してください。' : 'OS通知を呼び出せませんでした。ページ内通知で表示しています。');
+    updateNotificationStatus();
     if (sent) hideNotifBannerSoon();
     return;
   }
@@ -1496,6 +1548,7 @@ async function requestNotifPermission() {
   if (Notification.permission === 'denied') {
     LS.set('notif', 'denied');
     setNotifBanner('通知がブロックされています。ブラウザまたはOS設定でこのページの通知を許可してください。');
+    updateNotificationStatus();
     return;
   }
 
@@ -1521,13 +1574,16 @@ async function requestNotifPermission() {
       tag: 'photo-tracker-notification-test-' + Date.now(),
     });
     setNotifBanner(sent ? '通知を許可しました。OS通知を送信しました。' : '通知は許可されましたが、OS通知の呼び出しに失敗しました。ページ内通知で表示しています。');
+    updateNotificationStatus();
     if (sent) hideNotifBannerSoon();
   } else if (result === 'denied') {
     LS.set('notif', 'denied');
     setNotifBanner('通知がブロックされました。ブラウザまたはOS設定でこのページの通知を許可してください。');
+    updateNotificationStatus();
   } else {
     LS.set('notif', 'later');
     setNotifBanner('通知許可がまだ完了していません。必要な時にもう一度「許可する」を押してください。');
+    updateNotificationStatus();
   }
 }
 
@@ -1537,7 +1593,7 @@ function scheduleTaskNotifications() {
   const tasks = getAllTasks().filter(t => t.due && !state.tasksDone[t.id||t.title+t.due]);
   const todayKey = getLocalDateStr();
   const leads = getNotifLeads();
-  const addTimer = (when, t, title, body, suffix, leadWindow = 14 * 86400000) => {
+  const addTimer = (when, t, title, body, suffix, leadWindow = 14 * 86400000, onFire = null) => {
     const msUntil = when - new Date();
     if (msUntil <= 0 || msUntil > leadWindow) return;
     const timerId = setTimeout(() => {
@@ -1546,6 +1602,7 @@ function scheduleTaskNotifications() {
         tag: 'task-' + suffix + '-' + (t.id || t.title + t.due),
         renotify: true,
       });
+      if (onFire) onFire();
     }, msUntil);
     state.taskNotificationTimers.push(timerId);
   };
@@ -1567,21 +1624,29 @@ function scheduleTaskNotifications() {
     if (leads.dueTime) {
       addTimer(due, t, '課題の締め切り', `${t.title}\n本日 ${notifyTime} 締切です`, 'due-time');
     }
-    if (leads.dayOf && isDueToday && now < due && !LS.get('notified_task_' + (t.id || t.title + t.due) + '_' + todayKey)) {
-      showNotification('今日が締め切りの課題があります', {
-        body: `${t.title}\n本日締切です`,
-        tag: 'task-due-today-' + (t.id || t.title + t.due),
-      });
-      LS.set('notified_task_' + (t.id || t.title + t.due) + '_' + todayKey, true);
+    if (leads.dayOf) {
+      const notifyKey = 'notified_task_' + (t.id || t.title + t.due) + '_' + todayKey;
+      const dayOf = new Date(t.due + 'T09:00:00');
+      if (isDueToday && now >= dayOf && now < due && !LS.get(notifyKey)) {
+        showNotification('今日が締め切りの課題があります', {
+          body: `${t.title}\n本日 ${notifyTime} 締切です`,
+          tag: 'task-due-today-' + (t.id || t.title + t.due),
+        });
+        LS.set(notifyKey, true);
+      } else if (!LS.get(notifyKey)) {
+        addTimer(dayOf, t, '今日が締め切りの課題があります', `${t.title}\n本日 ${notifyTime} 締切です`, 'day-of', 14 * 86400000, () => LS.set(notifyKey, true));
+      }
     }
   });
+  updateNotificationStatus();
 }
 
 (function initNotif() {
   const perm = LS.get('notif');
   const status = notificationStatus();
   if (canNotify()) ensureNotificationWorker();
-  if (status === 'unsupported' || status === 'insecure' || status === 'denied') {
+  updateNotificationStatus();
+  if (status === 'file' || status === 'unsupported' || status === 'insecure' || status === 'denied') {
     setTimeout(() => setNotifBanner(notificationStatusMessage()), 800);
   } else if (perm === 'granted' || status === 'granted') {
     // 既に許可済み → 通知スケジューリングは課題ロード後に実行
@@ -1592,6 +1657,10 @@ function scheduleTaskNotifications() {
 })();
 
 initNotifLeadControls();
+setInterval(scheduleTaskNotifications, 60000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) scheduleTaskNotifications();
+});
 qs('#notif-allow-btn').addEventListener('click', requestNotifPermission);
 qs('#notif-test-btn').addEventListener('click', async () => {
   const status = notificationStatus();
@@ -1603,6 +1672,7 @@ qs('#notif-test-btn').addEventListener('click', async () => {
     tag: 'photo-tracker-manual-notification-test-' + Date.now(),
   });
   setNotifBanner(sent ? 'OSテスト通知を送信しました。macOSの通知センターも確認してください。' : notificationStatusMessage() + ' テストはページ内通知で表示しました。');
+  updateNotificationStatus();
   if (sent) hideNotifBannerSoon();
 });
 qs('#notif-diagnose-btn').addEventListener('click', diagnoseNotifications);
