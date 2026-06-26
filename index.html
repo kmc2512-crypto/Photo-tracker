@@ -287,6 +287,7 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6;text-wrap:pretty}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
+.notif-diag{background:var(--bg2);border:1px solid var(--border);padding:12px 14px;margin:-8px 0 20px;color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;line-height:1.7;white-space:pre-wrap}
 .app-toast{position:fixed;right:18px;top:18px;z-index:80;max-width:min(420px,calc(100vw - 36px));background:var(--fg);color:var(--bg);border:1px solid var(--fg);padding:14px 16px;box-shadow:0 12px 36px rgba(0,0,0,.35);opacity:0;transform:translateY(-10px);pointer-events:none;transition:opacity .18s,transform .18s}
 .app-toast.show{opacity:1;transform:translateY(0)}
 .app-toast-title{font-size:12px;font-weight:700;letter-spacing:.08em;margin-bottom:5px}
@@ -587,9 +588,11 @@ input[type=time]{display:none}
       <div class="notif-banner-btns">
         <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
         <button class="ghost-btn" id="notif-test-btn">テスト</button>
+        <button class="ghost-btn" id="notif-diagnose-btn">診断</button>
         <button class="ghost-btn" id="notif-deny-btn">あとで</button>
       </div>
     </div>
+    <pre class="notif-diag hidden" id="notif-diag"></pre>
     <!-- GAS URL設定 -->
     <div class="notice hidden" id="todo-url-panel">
       <p>Apps ScriptのURLを貼る（スプレッドシートからタスクを同期）</p>
@@ -1103,6 +1106,8 @@ const state = {
   titleTimer: null,
   swRegistration: null,
   swReadyPromise: null,
+  lastNotificationError: '',
+  lastNotificationMethod: '',
   defaultTitle: document.title,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
@@ -1239,7 +1244,10 @@ function ensureNotificationWorker() {
       state.swRegistration = reg;
       return reg;
     })
-    .catch(() => null);
+    .catch(e => {
+      state.lastNotificationError = 'Service Worker登録失敗: ' + e.message;
+      return null;
+    });
   return state.swReadyPromise;
 }
 
@@ -1305,13 +1313,16 @@ async function showNotificationAsync(title, options = {}, fallback = true) {
           tag: options.tag || 'photo-tracker-notification',
         });
         osSent = true;
+        state.lastNotificationMethod = 'serviceWorker.showNotification';
       } else {
         new Notification(title, options);
         osSent = true;
+        state.lastNotificationMethod = 'new Notification';
       }
     }
   } catch(e) {
     osSent = false;
+    state.lastNotificationError = e.message || String(e);
   }
 
   if (fallback) {
@@ -1320,6 +1331,40 @@ async function showNotificationAsync(title, options = {}, fallback = true) {
     if (!osSent) playNotificationChime();
   }
   return osSent;
+}
+
+async function diagnoseNotifications() {
+  let reg = null;
+  if (canUseServiceWorkerNotifications()) reg = await ensureNotificationWorker();
+  const lines = [
+    '通知診断',
+    `URL: ${location.href}`,
+    `secureContext: ${window.isSecureContext ? 'yes' : 'no'}`,
+    `Notification API: ${'Notification' in window ? 'yes' : 'no'}`,
+    `Notification.permission: ${'Notification' in window ? Notification.permission : 'missing'}`,
+    `Service Worker API: ${'serviceWorker' in navigator ? 'yes' : 'no'}`,
+    `Service Worker登録: ${reg ? 'yes' : 'no'}`,
+    `Service Worker scope: ${reg?.scope || '-'}`,
+    `Service Worker controller: ${navigator.serviceWorker?.controller ? 'yes' : 'no'}`,
+    `local notif setting: ${LS.get('notif') || '-'}`,
+    `last method: ${state.lastNotificationMethod || '-'}`,
+    `last error: ${state.lastNotificationError || '-'}`,
+  ];
+  if ('Notification' in window && Notification.permission === 'denied') {
+    lines.push('');
+    lines.push('原因: ブラウザがこのURLの通知を denied と返しています。コードからはOS通知を出せません。');
+    lines.push('対処: ブラウザ/アプリ側のサイト設定で 127.0.0.1:8766 の通知許可をリセットしてから再許可してください。');
+  } else if (!('Notification' in window)) {
+    lines.push('');
+    lines.push('原因: このブラウザ環境にNotification APIがありません。OS通知は出せません。');
+    lines.push('対処: Chrome/Safariなど通常ブラウザで http://127.0.0.1:8766/index.html を開いてください。');
+  } else if (!reg) {
+    lines.push('');
+    lines.push('原因: Service Workerを登録できていません。OS通知の強化経路が使えません。');
+  }
+  qs('#notif-diag').textContent = lines.join('\n');
+  qs('#notif-diag').classList.remove('hidden');
+  setNotifBanner(notificationStatusMessage());
 }
 
 function requestBrowserPermission() {
@@ -1465,6 +1510,7 @@ qs('#notif-test-btn').addEventListener('click', async () => {
   setNotifBanner(sent ? 'OSテスト通知を送信しました。macOSの通知センターも確認してください。' : notificationStatusMessage() + ' テストはページ内通知で表示しました。');
   if (sent) hideNotifBannerSoon();
 });
+qs('#notif-diagnose-btn').addEventListener('click', diagnoseNotifications);
 qs('#notif-deny-btn').addEventListener('click', () => {
   qs('#notif-banner').classList.add('hidden');
   LS.set('notif', 'later');
