@@ -1,5 +1,5 @@
-const CACHE_NAME = 'photo-tracker-shell-v2';
-const SHELL_ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
+const CACHE_NAME = 'photo-tracker-shell-v3';
+const SHELL_ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
