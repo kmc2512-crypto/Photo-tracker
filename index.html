@@ -3175,7 +3175,16 @@ qs('#save-btn').addEventListener('click', async () => {
   const snapshotComment = commentEl.value;
   const snapshotLens = state.lens;
   const snapshotProMemos = [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || '');
-  const snapshotHasPhoto = !!state.photoObjUrl;
+  const snapshotHasPhoto = !!state.photoObjUrl || state.proObjUrls.some(Boolean);
+  const snapshotHasText = !!snapshotComment.trim() || snapshotProMemos.some(m => m.trim());
+
+  if (!snapshotHasPhoto && !snapshotHasText) {
+    const msg = qs('#saved-msg');
+    msg.textContent = '写真かコメントを入力してください';
+    msg.classList.remove('hidden');
+    setTimeout(() => { msg.classList.add('hidden'); msg.textContent = '保存済み'; }, 3000);
+    return;
+  }
 
   console.log('[SAVE] snapshot', { date: snapshotToday, comment: snapshotComment, lens: snapshotLens });
 
