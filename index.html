@@ -1101,6 +1101,8 @@ const state = {
   logRenderId: 0,
   toastTimer: null,
   titleTimer: null,
+  swRegistration: null,
+  swReadyPromise: null,
   defaultTitle: document.title,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
@@ -1222,6 +1224,25 @@ function canNotify() {
   return notificationStatus() === 'granted';
 }
 
+function canUseServiceWorkerNotifications() {
+  return 'serviceWorker' in navigator && isNotificationSecureOrigin();
+}
+
+function ensureNotificationWorker() {
+  if (!canUseServiceWorkerNotifications()) return Promise.resolve(null);
+  if (state.swRegistration) return Promise.resolve(state.swRegistration);
+  if (state.swReadyPromise) return state.swReadyPromise;
+  const swUrl = new URL('sw.js', location.href).href;
+  state.swReadyPromise = navigator.serviceWorker.register(swUrl)
+    .then(() => navigator.serviceWorker.ready)
+    .then(reg => {
+      state.swRegistration = reg;
+      return reg;
+    })
+    .catch(() => null);
+  return state.swReadyPromise;
+}
+
 function flashDocumentTitle(title) {
   clearTimeout(state.titleTimer);
   document.title = `● ${title}`;
@@ -1263,11 +1284,31 @@ function playNotificationChime() {
 }
 
 function showNotification(title, options = {}, fallback = true) {
+  showNotificationAsync(title, options, fallback);
+  return canNotify();
+}
+
+async function showNotificationAsync(title, options = {}, fallback = true) {
   let osSent = false;
   try {
     if (canNotify()) {
-      new Notification(title, options);
-      osSent = true;
+      const reg = await ensureNotificationWorker();
+      if (reg?.showNotification) {
+        await reg.showNotification(title, {
+          badge: options.badge,
+          body: options.body,
+          data: options.data || { url: location.href },
+          icon: options.icon,
+          renotify: options.renotify,
+          requireInteraction: options.requireInteraction,
+          silent: options.silent,
+          tag: options.tag || 'photo-tracker-notification',
+        });
+        osSent = true;
+      } else {
+        new Notification(title, options);
+        osSent = true;
+      }
     }
   } catch(e) {
     osSent = false;
@@ -1319,13 +1360,15 @@ async function requestNotifPermission() {
 
   if (Notification.permission === 'granted') {
     LS.set('notif', 'granted');
+    await ensureNotificationWorker();
     scheduleTaskNotifications();
-    showNotification('通知テスト', {
+    const sent = await showNotificationAsync('通知テスト', {
       body: 'Photo Tracker の通知が有効です',
+      requireInteraction: true,
       tag: 'photo-tracker-notification-test',
     });
-    setNotifBanner('通知はすでに許可されています。テスト通知を送信しました。');
-    hideNotifBannerSoon();
+    setNotifBanner(sent ? 'OS通知を送信しました。macOSの通知センターも確認してください。' : 'OS通知を呼び出せませんでした。ページ内通知で表示しています。');
+    if (sent) hideNotifBannerSoon();
     return;
   }
 
@@ -1348,13 +1391,15 @@ async function requestNotifPermission() {
 
   if (result === 'granted') {
     LS.set('notif', 'granted');
+    await ensureNotificationWorker();
     scheduleTaskNotifications();
-    showNotification('通知テスト', {
+    const sent = await showNotificationAsync('通知テスト', {
       body: 'Photo Tracker の通知が有効です',
+      requireInteraction: true,
       tag: 'photo-tracker-notification-test',
     });
-    setNotifBanner('通知を許可しました。テスト通知を送信しました。');
-    hideNotifBannerSoon();
+    setNotifBanner(sent ? '通知を許可しました。OS通知を送信しました。' : '通知は許可されましたが、OS通知の呼び出しに失敗しました。ページ内通知で表示しています。');
+    if (sent) hideNotifBannerSoon();
   } else if (result === 'denied') {
     LS.set('notif', 'denied');
     setNotifBanner('通知がブロックされました。ブラウザまたはOS設定でこのページの通知を許可してください。');
@@ -1397,6 +1442,7 @@ function scheduleTaskNotifications() {
 (function initNotif() {
   const perm = LS.get('notif');
   const status = notificationStatus();
+  if (canNotify()) ensureNotificationWorker();
   if (status === 'unsupported' || status === 'insecure' || status === 'denied') {
     setTimeout(() => setNotifBanner(notificationStatusMessage()), 800);
   } else if (perm === 'granted' || status === 'granted') {
@@ -1408,13 +1454,15 @@ function scheduleTaskNotifications() {
 })();
 
 qs('#notif-allow-btn').addEventListener('click', requestNotifPermission);
-qs('#notif-test-btn').addEventListener('click', () => {
+qs('#notif-test-btn').addEventListener('click', async () => {
   const status = notificationStatus();
-  const sent = showNotification('通知テスト', {
+  if (canNotify()) await ensureNotificationWorker();
+  const sent = await showNotificationAsync('通知テスト', {
     body: sentBodyForStatus(status),
+    requireInteraction: true,
     tag: 'photo-tracker-manual-notification-test',
   });
-  setNotifBanner(sent ? 'OSテスト通知を送信しました。' : notificationStatusMessage() + ' テストはページ内通知で表示しました。');
+  setNotifBanner(sent ? 'OSテスト通知を送信しました。macOSの通知センターも確認してください。' : notificationStatusMessage() + ' テストはページ内通知で表示しました。');
   if (sent) hideNotifBannerSoon();
 });
 qs('#notif-deny-btn').addEventListener('click', () => {
