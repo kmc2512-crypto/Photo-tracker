@@ -1296,26 +1296,32 @@ function showNotification(title, options = {}, fallback = true) {
   return canNotify();
 }
 
+function buildNotificationOptions(options = {}) {
+  const out = {
+    body: options.body,
+    data: options.data || { url: location.href },
+    requireInteraction: options.requireInteraction,
+    silent: options.silent,
+    timestamp: options.timestamp || Date.now(),
+  };
+  if (options.badge) out.badge = options.badge;
+  if (options.icon) out.icon = options.icon;
+  if (options.tag) out.tag = options.tag;
+  if (options.renotify && options.tag) out.renotify = true;
+  return out;
+}
+
 async function showNotificationAsync(title, options = {}, fallback = true) {
   let osSent = false;
   try {
     if (canNotify()) {
       const reg = await ensureNotificationWorker();
       if (reg?.showNotification) {
-        await reg.showNotification(title, {
-          badge: options.badge,
-          body: options.body,
-          data: options.data || { url: location.href },
-          icon: options.icon,
-          renotify: options.renotify,
-          requireInteraction: options.requireInteraction,
-          silent: options.silent,
-          tag: options.tag || 'photo-tracker-notification',
-        });
+        await reg.showNotification(title, buildNotificationOptions(options));
         osSent = true;
         state.lastNotificationMethod = 'serviceWorker.showNotification';
       } else {
-        new Notification(title, options);
+        new Notification(title, buildNotificationOptions(options));
         osSent = true;
         state.lastNotificationMethod = 'new Notification';
       }
@@ -1407,10 +1413,11 @@ async function requestNotifPermission() {
     LS.set('notif', 'granted');
     await ensureNotificationWorker();
     scheduleTaskNotifications();
+    const nowLabel = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const sent = await showNotificationAsync('通知テスト', {
-      body: 'Photo Tracker の通知が有効です',
+      body: `Photo Tracker の通知が有効です\n${nowLabel}`,
       requireInteraction: true,
-      tag: 'photo-tracker-notification-test',
+      tag: 'photo-tracker-notification-test-' + Date.now(),
     });
     setNotifBanner(sent ? 'OS通知を送信しました。macOSの通知センターも確認してください。' : 'OS通知を呼び出せませんでした。ページ内通知で表示しています。');
     if (sent) hideNotifBannerSoon();
@@ -1438,10 +1445,11 @@ async function requestNotifPermission() {
     LS.set('notif', 'granted');
     await ensureNotificationWorker();
     scheduleTaskNotifications();
+    const nowLabel = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const sent = await showNotificationAsync('通知テスト', {
-      body: 'Photo Tracker の通知が有効です',
+      body: `Photo Tracker の通知が有効です\n${nowLabel}`,
       requireInteraction: true,
-      tag: 'photo-tracker-notification-test',
+      tag: 'photo-tracker-notification-test-' + Date.now(),
     });
     setNotifBanner(sent ? '通知を許可しました。OS通知を送信しました。' : '通知は許可されましたが、OS通知の呼び出しに失敗しました。ページ内通知で表示しています。');
     if (sent) hideNotifBannerSoon();
@@ -1502,10 +1510,11 @@ qs('#notif-allow-btn').addEventListener('click', requestNotifPermission);
 qs('#notif-test-btn').addEventListener('click', async () => {
   const status = notificationStatus();
   if (canNotify()) await ensureNotificationWorker();
+  const nowLabel = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const sent = await showNotificationAsync('通知テスト', {
-    body: sentBodyForStatus(status),
+    body: `${sentBodyForStatus(status)}\n${nowLabel}`,
     requireInteraction: true,
-    tag: 'photo-tracker-manual-notification-test',
+    tag: 'photo-tracker-manual-notification-test-' + Date.now(),
   });
   setNotifBanner(sent ? 'OSテスト通知を送信しました。macOSの通知センターも確認してください。' : notificationStatusMessage() + ' テストはページ内通知で表示しました。');
   if (sent) hideNotifBannerSoon();
