@@ -332,6 +332,7 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6;text-wrap:pretty}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
+.notif-banner-btns .save-btn,.notif-banner-btns .ghost-btn{height:34px;min-width:74px;padding:0 14px;justify-content:center;font-size:10px;line-height:1}
 .notif-diag{background:var(--bg2);border:1px solid var(--border);padding:12px 14px;margin:-8px 0 20px;color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;line-height:1.7;white-space:pre-wrap}
 .notif-settings{background:var(--bg2);border:1px solid var(--border);padding:14px 16px;margin-bottom:20px}
 .notif-settings-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
@@ -885,7 +886,7 @@ input[type=time]{display:none}
         <div class="notif-banner hidden" id="notif-banner">
           <p id="notif-banner-text" aria-live="polite">課題の締め切り通知を受け取りますか？</p>
           <div class="notif-banner-btns">
-            <button class="save-btn" id="notif-allow-btn" style="padding:6px 14px;font-size:10px">許可する</button>
+            <button class="save-btn" id="notif-allow-btn">許可する</button>
             <button class="ghost-btn" id="notif-deny-btn">あとで</button>
           </div>
         </div>
