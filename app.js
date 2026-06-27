@@ -1518,23 +1518,6 @@ function setPriorityValue(priority) {
   const value = ['high', 'normal', 'low'].includes(priority) ? priority : 'normal';
   const input = qs('#todo-priority-input');
   if (input) input.value = value;
-  const trigger = qs('#todo-priority-trigger');
-  if (trigger) trigger.textContent = value === 'high' ? '高優先' : value === 'low' ? '低優先' : '通常';
-  document.querySelectorAll('.priority-option').forEach(btn => {
-    const active = btn.dataset.priority === value;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-}
-
-function closePriorityMenu() {
-  const menu = qs('#todo-priority-menu');
-  const trigger = qs('#todo-priority-trigger');
-  if (menu) menu.classList.add('hidden');
-  if (trigger) {
-    trigger.classList.remove('open');
-    trigger.setAttribute('aria-expanded', 'false');
-  }
 }
 
 function recordCompletedTask(t) {
@@ -1690,24 +1673,6 @@ qs('#todo-view-gantt-btn').addEventListener('click', () => {
   renderTodo();
 });
 
-qs('#todo-priority-trigger')?.addEventListener('click', e => {
-  e.stopPropagation();
-  const menu = qs('#todo-priority-menu');
-  const trigger = qs('#todo-priority-trigger');
-  if (!menu || !trigger) return;
-  const willOpen = menu.classList.contains('hidden');
-  menu.classList.toggle('hidden', !willOpen);
-  trigger.classList.toggle('open', willOpen);
-  trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-});
-document.querySelectorAll('.priority-option').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    setPriorityValue(btn.dataset.priority);
-    closePriorityMenu();
-  });
-});
-document.addEventListener('click', closePriorityMenu);
 setPriorityValue(qs('#todo-priority-input')?.value || 'normal');
 
 // 日付タイプ切り替え
