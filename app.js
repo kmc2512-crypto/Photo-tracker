@@ -1518,11 +1518,23 @@ function setPriorityValue(priority) {
   const value = ['high', 'normal', 'low'].includes(priority) ? priority : 'normal';
   const input = qs('#todo-priority-input');
   if (input) input.value = value;
-  document.querySelectorAll('.priority-choice').forEach(btn => {
+  const trigger = qs('#todo-priority-trigger');
+  if (trigger) trigger.textContent = value === 'high' ? '高優先' : value === 'low' ? '低優先' : '通常';
+  document.querySelectorAll('.priority-option').forEach(btn => {
     const active = btn.dataset.priority === value;
     btn.classList.toggle('active', active);
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
   });
+}
+
+function closePriorityMenu() {
+  const menu = qs('#todo-priority-menu');
+  const trigger = qs('#todo-priority-trigger');
+  if (menu) menu.classList.add('hidden');
+  if (trigger) {
+    trigger.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
 }
 
 function recordCompletedTask(t) {
@@ -1563,7 +1575,7 @@ function renderGantt(tasks) {
   wrap.innerHTML = '';
   const withDue = tasks.filter(t => t.due).sort((a,b) => {
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
-    return priorityRank(b.priority) - priorityRank(a.priority);
+    return priorityRank(a.priority) - priorityRank(b.priority);
   });
   if (withDue.length === 0) {
     wrap.innerHTML = '<div class="log-empty" style="padding:20px">締め切りのあるタスクがありません</div>';
@@ -1611,10 +1623,7 @@ function renderGantt(tasks) {
       : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const priority = ['high', 'normal', 'low'].includes(t.priority) ? t.priority : 'normal';
-    const priorityClass = 'priority-' + priority;
-    const priorityText = priorityLabel(priority);
-    const row = el('div', 'gantt-row2 ' + priorityClass);
+    const row = el('div', 'gantt-row2');
 
     const task = el('div', 'gantt-task');
     const cb = el('div', 'cb' + (done ? ' done' : ''));
@@ -1626,7 +1635,7 @@ function renderGantt(tasks) {
     const meta = el('div', 'gantt-meta');
     const metaParts = [];
     if (t.subject) metaParts.push(t.subject);
-    metaParts.push(priorityText);
+    metaParts.push(priorityLabel(t.priority));
     metaParts.push(isRange && startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
     meta.textContent = metaParts.join(' / ');
     text.appendChild(nt);
@@ -1635,12 +1644,12 @@ function renderGantt(tasks) {
     task.appendChild(text);
 
     const rail = el('div', 'gantt-rail');
-    const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : '') + ' ' + priorityClass);
+    const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
     fill.style.width = `${progress}%`;
     rail.appendChild(fill);
 
-    const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : '') + ' ' + priorityClass);
-    badge.textContent = priority === 'normal' ? badgeText : `${priorityText} / ${badgeText}`;
+    const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : ''));
+    badge.textContent = badgeText;
 
     row.appendChild(task);
     row.appendChild(rail);
@@ -1681,9 +1690,24 @@ qs('#todo-view-gantt-btn').addEventListener('click', () => {
   renderTodo();
 });
 
-document.querySelectorAll('.priority-choice').forEach(btn => {
-  btn.addEventListener('click', () => setPriorityValue(btn.dataset.priority));
+qs('#todo-priority-trigger')?.addEventListener('click', e => {
+  e.stopPropagation();
+  const menu = qs('#todo-priority-menu');
+  const trigger = qs('#todo-priority-trigger');
+  if (!menu || !trigger) return;
+  const willOpen = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !willOpen);
+  trigger.classList.toggle('open', willOpen);
+  trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
 });
+document.querySelectorAll('.priority-option').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    setPriorityValue(btn.dataset.priority);
+    closePriorityMenu();
+  });
+});
+document.addEventListener('click', closePriorityMenu);
 setPriorityValue(qs('#todo-priority-input')?.value || 'normal');
 
 // 日付タイプ切り替え
