@@ -356,6 +356,18 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-add-form input[type=date]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;width:140px;color:var(--fg);background:transparent;font-variant-numeric:tabular-nums}
 .todo-add-form input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.6)}
 .todo-add-form select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:120px}
+.priority-picker{display:grid;grid-template-columns:repeat(3,minmax(74px,1fr));border:1px solid var(--border2);background:var(--input-bg);min-height:34px}
+.priority-choice{appearance:none;background:transparent;border:0;border-right:1px solid var(--border);color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;height:32px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .14s,color .14s,border-color .14s}
+.priority-choice:last-child{border-right:0}
+.priority-choice::before{content:'';width:6px;height:6px;border:1px solid var(--fg6);background:transparent;display:block;flex:0 0 auto}
+.priority-choice.active{background:var(--fg);color:var(--bg);font-weight:700}
+.priority-choice.active::before{border-color:var(--bg);background:var(--bg)}
+.priority-choice.high:not(.active){color:#e0644a}
+.priority-choice.high::before{border-color:#b84b38}
+.priority-choice.low:not(.active){color:var(--fg6)}
+.priority-choice.low::before{border-color:var(--fg6)}
+.priority-choice:hover{color:var(--fg);background:var(--bg3)}
+.priority-choice.active:hover{background:var(--fg);color:var(--bg)}
 .todo-filters{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:0;width:fit-content}
 .todo-filter-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:0 14px;height:32px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
 .todo-filter-btn.active{background:var(--fg);color:var(--bg)}
@@ -394,7 +406,9 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 #gantt-inner{background:var(--bg);display:flex;flex-direction:column}
 .gantt-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:10px;color:var(--fg5);letter-spacing:.08em}
 .gantt-list{display:flex;flex-direction:column}
-.gantt-row2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(180px,1.7fr) auto;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid var(--bg3)}
+.gantt-row2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(180px,1.7fr) auto;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid var(--bg3);border-left:2px solid transparent}
+.gantt-row2.priority-high{border-left-color:#c83838;padding-left:12px;background:linear-gradient(90deg,rgba(200,56,56,.08),transparent 34%)}
+.gantt-row2.priority-low{opacity:.76}
 .gantt-row2:last-child{border-bottom:none}
 .gantt-task{display:flex;align-items:center;gap:10px;min-width:0}
 .gantt-title{font-size:12px;color:var(--fg);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -406,11 +420,15 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .gantt-fill.warn{background:#b89818}
 .gantt-fill.over{background:#c83838}
 .gantt-fill.done{background:var(--border3)}
+.gantt-fill.priority-high{box-shadow:0 0 0 1px rgba(255,96,96,.2) inset}
+.gantt-fill.priority-low{background:var(--border3)}
 .gantt-badge{font-size:10px;color:var(--fg4);letter-spacing:.06em;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
 .gantt-badge.hot{color:#ff7040}
 .gantt-badge.warn{color:#d4a820}
 .gantt-badge.over{color:#ff6060}
 .gantt-badge.done{color:var(--fg6)}
+.gantt-badge.priority-high{font-weight:700;color:#ff6060}
+.gantt-badge.priority-low{color:var(--fg6)}
 .timer-wrap{display:flex;flex-direction:column;align-items:center;padding:40px 0}
 .timer-mode-tabs{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:40px}
 .timer-mode-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--fg5);padding:0 20px;height:36px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
@@ -541,9 +559,12 @@ input[type=time]{display:none}
   .timer-mode-btn{white-space:nowrap;flex-shrink:0}
   .todo-add-form .form-row{flex-direction:column}
   .todo-add-form input[type=date]{width:100%}
+  .priority-picker{width:100%;grid-template-columns:repeat(3,1fr)}
+  .priority-choice{padding:0 8px}
   .gantt-wrap{margin:0 -16px;border-left:none;border-right:none}
   .gantt-summary{padding-left:16px;padding-right:16px}
   .gantt-row2{grid-template-columns:1fr;gap:9px;padding:14px 16px}
+  .gantt-row2.priority-high{padding-left:16px}
   .gantt-badge{text-align:left}
   .log-entry{grid-template-columns:64px 1fr;gap:10px}
   .log-thumb{height:64px}
@@ -714,11 +735,12 @@ input[type=time]{display:none}
       <div class="form-row" style="margin-bottom:14px">
         <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名">
         <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:180px" aria-label="科目・カテゴリ">
-        <select id="todo-priority-input" aria-label="優先度">
-          <option value="normal">通常</option>
-          <option value="high">高優先</option>
-          <option value="low">低優先</option>
-        </select>
+        <input type="hidden" id="todo-priority-input" value="normal">
+        <div class="priority-picker" role="radiogroup" aria-label="優先度">
+          <button type="button" class="priority-choice active" data-priority="normal" aria-pressed="true">通常</button>
+          <button type="button" class="priority-choice high" data-priority="high" aria-pressed="false">高優先</button>
+          <button type="button" class="priority-choice low" data-priority="low" aria-pressed="false">低優先</button>
+        </div>
       </div>
       <!-- 日付タイプ選択 -->
       <div style="margin-bottom:16px">

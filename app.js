@@ -1514,6 +1514,17 @@ function priorityLabel(priority) {
   return 'NORMAL';
 }
 
+function setPriorityValue(priority) {
+  const value = ['high', 'normal', 'low'].includes(priority) ? priority : 'normal';
+  const input = qs('#todo-priority-input');
+  if (input) input.value = value;
+  document.querySelectorAll('.priority-choice').forEach(btn => {
+    const active = btn.dataset.priority === value;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
 function recordCompletedTask(t) {
   const logs = LS.get('todo_done_log') || [];
   logs.unshift({
@@ -1552,7 +1563,7 @@ function renderGantt(tasks) {
   wrap.innerHTML = '';
   const withDue = tasks.filter(t => t.due).sort((a,b) => {
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
-    return priorityRank(a.priority) - priorityRank(b.priority);
+    return priorityRank(b.priority) - priorityRank(a.priority);
   });
   if (withDue.length === 0) {
     wrap.innerHTML = '<div class="log-empty" style="padding:20px">締め切りのあるタスクがありません</div>';
@@ -1600,7 +1611,10 @@ function renderGantt(tasks) {
       : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const row = el('div', 'gantt-row2');
+    const priority = ['high', 'normal', 'low'].includes(t.priority) ? t.priority : 'normal';
+    const priorityClass = 'priority-' + priority;
+    const priorityText = priorityLabel(priority);
+    const row = el('div', 'gantt-row2 ' + priorityClass);
 
     const task = el('div', 'gantt-task');
     const cb = el('div', 'cb' + (done ? ' done' : ''));
@@ -1612,7 +1626,7 @@ function renderGantt(tasks) {
     const meta = el('div', 'gantt-meta');
     const metaParts = [];
     if (t.subject) metaParts.push(t.subject);
-    metaParts.push(priorityLabel(t.priority));
+    metaParts.push(priorityText);
     metaParts.push(isRange && startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
     meta.textContent = metaParts.join(' / ');
     text.appendChild(nt);
@@ -1621,12 +1635,12 @@ function renderGantt(tasks) {
     task.appendChild(text);
 
     const rail = el('div', 'gantt-rail');
-    const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
+    const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : '') + ' ' + priorityClass);
     fill.style.width = `${progress}%`;
     rail.appendChild(fill);
 
-    const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : ''));
-    badge.textContent = badgeText;
+    const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : '') + ' ' + priorityClass);
+    badge.textContent = priority === 'normal' ? badgeText : `${priorityText} / ${badgeText}`;
 
     row.appendChild(task);
     row.appendChild(rail);
@@ -1666,6 +1680,11 @@ qs('#todo-view-gantt-btn').addEventListener('click', () => {
   qs('#todo-view-list-btn').classList.remove('active');
   renderTodo();
 });
+
+document.querySelectorAll('.priority-choice').forEach(btn => {
+  btn.addEventListener('click', () => setPriorityValue(btn.dataset.priority));
+});
+setPriorityValue(qs('#todo-priority-input')?.value || 'normal');
 
 // 日付タイプ切り替え
 state.todoDateType = 'deadline';
@@ -1741,7 +1760,7 @@ function startEditTask(t) {
 
   qs('#todo-title-input').value = t.title || '';
   qs('#todo-subject-input').value = t.subject || '';
-  qs('#todo-priority-input').value = t.priority || 'normal';
+  setPriorityValue(t.priority || 'normal');
   qs('#todo-repeat-input').value = t.repeat || 'none';
 
   const dt = t.dateType || (t.due ? 'deadline' : 'none');
@@ -1793,7 +1812,7 @@ function exitEditMode() {
   state.editingTaskId = null;
   qs('#todo-title-input').value = '';
   qs('#todo-subject-input').value = '';
-  qs('#todo-priority-input').value = 'normal';
+  setPriorityValue('normal');
   qs('#todo-repeat-input').value = 'none';
   qs('#todo-due-input').value = '';
   qs('#todo-due-time-input').value = '';
