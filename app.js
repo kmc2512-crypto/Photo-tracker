@@ -1406,25 +1406,7 @@ function toggleTaskDone(k, t) {
     // 完了にした → 5分後に自動削除スケジュール
     const timerId = setTimeout(() => {
       delete state.doneTimers[k];
-      // GAS/Classroomタスクは完了済みIDを保持して、再SYNCしても復活させない
-      // 手動タスクは配列からも削除
-      if (t && t._manual) {
-        const manual = LS.get('manual_tasks') || [];
-        recordDeletedTaskId(k);
-        saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
-      } else if (t) {
-        recordExternalCompletedTaskId(k);
-        state.tasks = state.tasks.filter(x => getTaskKey(x) !== k);
-        const cache = LS.get('tasks_cache');
-        if (cache && Array.isArray(cache.tasks)) {
-          const nextCache = {...cache, tasks: filterVisibleExternalTasks(cache.tasks), hiddenCompletedAt: new Date().toISOString()};
-          LS.set('tasks_cache', nextCache);
-          SB.setSetting('gas_tasks_cache', nextCache);
-        }
-      }
-      delete state.tasksDone[k];
-      LS.set('tasks_done', state.tasksDone);
-      renderTodo();
+      dismissTodoTask(k, t);
     }, DONE_DELAY_MS);
     state.doneTimers[k] = timerId;
   } else {
@@ -1435,6 +1417,35 @@ function toggleTaskDone(k, t) {
     }
     if (t && !t._manual) removeExternalCompletedTaskId(k);
   }
+  renderTodo();
+}
+
+async function dismissTodoTask(k, t) {
+  if (state.doneTimers[k]) {
+    clearTimeout(state.doneTimers[k]);
+    delete state.doneTimers[k];
+  }
+
+  if (t && t._manual) {
+    recordDeletedTaskId(k);
+    if (!t._repeatInstance) {
+      const manual = LS.get('manual_tasks') || [];
+      await saveManualTasks(manual.filter(x => getTaskKey(x) !== k));
+    }
+  } else {
+    recordExternalCompletedTaskId(k);
+    state.tasks = state.tasks.filter(x => getTaskKey(x) !== k);
+    const cache = LS.get('tasks_cache');
+    if (cache && Array.isArray(cache.tasks)) {
+      const nextCache = {...cache, tasks: filterVisibleExternalTasks(cache.tasks), hiddenCompletedAt: new Date().toISOString()};
+      LS.set('tasks_cache', nextCache);
+      SB.setSetting('gas_tasks_cache', nextCache);
+    }
+  }
+
+  delete state.tasksDone[k];
+  LS.set('tasks_done', state.tasksDone);
+  scheduleTaskNotifications();
   renderTodo();
 }
 
@@ -1556,26 +1567,19 @@ function renderTodo() {
         meta.appendChild(countdown);
       }
 
-      // 手動タスクは編集・削除ボタン
+      // 手動タスクは編集可能。削除は同期元を問わず常に表示。
       if (t._manual) {
         const edit = el('button', 'clip-del-btn'); edit.textContent = '編集';
         edit.style.marginLeft = 'auto';
         edit.addEventListener('click', () => startEditTask(t._sourceTask || t));
         meta.appendChild(edit);
-
-        const del = el('button', 'clip-del-btn'); del.textContent = '削除';
-        del.addEventListener('click', () => {
-          if (t._repeatInstance) {
-            recordDeletedTaskId(k);
-          } else {
-            const manual = LS.get('manual_tasks') || [];
-            recordDeletedTaskId(k);
-            saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
-          }
-          renderTodo();
-        });
-        meta.appendChild(del);
       }
+      const del = el('button', 'clip-del-btn');
+      del.textContent = done ? '消す' : '削除';
+      if (!t._manual) del.title = 'Classroom/GAS同期後も戻らないように非表示にします';
+      if (!t._manual && !t._repeatInstance && !t._sourceTask) del.style.marginLeft = 'auto';
+      del.addEventListener('click', () => dismissTodoTask(k, t));
+      meta.appendChild(del);
       info.appendChild(title); info.appendChild(meta);
       row.appendChild(cb); row.appendChild(info);
       list.appendChild(row);
