@@ -1628,6 +1628,9 @@ function renderGantt(tasks) {
   const wrap = qs('#gantt-inner');
   wrap.innerHTML = '';
   const withDue = tasks.filter(t => t.due).sort((a,b) => {
+    const aDone = !!state.tasksDone[a.id || a.title + a.due];
+    const bDone = !!state.tasksDone[b.id || b.title + b.due];
+    if (aDone !== bDone) return aDone ? 1 : -1;
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
     return priorityRank(a.priority) - priorityRank(b.priority);
   });
@@ -1656,7 +1659,63 @@ function renderGantt(tasks) {
 
   const list = el('div', 'gantt-list');
   const daysBetween = (a, b) => Math.round((a - b) / 86400000);
+  const addDays = (base, days) => {
+    const d = new Date(base);
+    d.setDate(base.getDate() + days);
+    return d;
+  };
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   const fmtShort = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric', weekday:'short'});
+  const fmtTick = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
+  const maxPastDays = Math.min(10, Math.max(2, ...withDue.map(t => {
+    const done = !!state.tasksDone[t.id || t.title + t.due];
+    if (done) return 0;
+    const dueDate = new Date(t.due + 'T00:00:00');
+    return Math.max(0, -daysBetween(dueDate, today) + 1);
+  })));
+  const maxFutureDays = Math.max(14, ...withDue.map(t => {
+    const dueDate = new Date(t.due + 'T00:00:00');
+    return daysBetween(dueDate, today);
+  }).filter(n => n > 0));
+  const windowStart = addDays(today, -maxPastDays);
+  const windowEnd = addDays(today, Math.min(30, Math.max(14, maxFutureDays + 2)));
+  const windowTotal = Math.max(1, daysBetween(windowEnd, windowStart));
+  const percentForDate = date => clamp((daysBetween(date, windowStart) / windowTotal) * 100, 0, 100);
+  const todayPct = percentForDate(today);
+  const tickCount = 8;
+  const ticks = Array.from({length: tickCount + 1}, (_, i) => {
+    const date = addDays(windowStart, Math.round((windowTotal / tickCount) * i));
+    return {date, pct: percentForDate(date), today: getLocalDateStr(date) === getLocalDateStr(today)};
+  });
+
+  const scale = el('div', 'gantt-scale');
+  const scaleTitle = el('div', 'gantt-scale-title');
+  scaleTitle.textContent = 'TASK';
+  const tickRail = el('div', 'gantt-ticks');
+  ticks.forEach(tick => {
+    const line = el('div', 'gantt-tick' + (tick.today ? ' today' : ''));
+    line.style.left = `${tick.pct}%`;
+    const label = el('div', 'gantt-tick-label' + (tick.today ? ' today' : ''));
+    label.style.left = `${tick.pct}%`;
+    label.textContent = tick.today ? '今日' : fmtTick(tick.date);
+    tickRail.appendChild(line);
+    tickRail.appendChild(label);
+  });
+  if (!ticks.some(tick => tick.today)) {
+    const line = el('div', 'gantt-tick today');
+    line.style.left = `${todayPct}%`;
+    const label = el('div', 'gantt-tick-label today');
+    label.style.left = `${todayPct}%`;
+    label.textContent = '今日';
+    tickRail.appendChild(line);
+    tickRail.appendChild(label);
+  }
+  const scaleEnd = el('div', 'gantt-scale-title');
+  scaleEnd.textContent = 'DUE';
+  scale.appendChild(scaleTitle);
+  scale.appendChild(tickRail);
+  scale.appendChild(scaleEnd);
+  list.appendChild(scale);
 
   withDue.forEach(t => {
     const k = t.id || t.title + t.due;
@@ -1666,9 +1725,12 @@ function renderGantt(tasks) {
     const over = daysLeft < 0 && !done;
     const isRange = t.dateType === 'range' && t.start;
     const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
-    const totalSpan = startDate ? Math.max(1, daysBetween(dueDate, startDate)) : Math.max(3, Math.min(21, Math.abs(daysLeft) + 7));
-    const elapsed = startDate ? Math.max(0, daysBetween(today, startDate)) : Math.max(0, totalSpan - Math.max(0, daysLeft));
-    const progress = done ? 100 : over ? 100 : Math.max(7, Math.min(100, Math.round((elapsed / totalSpan) * 100)));
+    const barStartDate = startDate || (over ? dueDate : today);
+    const barEndDate = done ? dueDate : over ? today : dueDate;
+    const barStartPct = percentForDate(barStartDate);
+    const barEndPct = percentForDate(barEndDate);
+    const barLeft = Math.min(barStartPct, barEndPct);
+    const barWidth = Math.max(1.2, Math.abs(barEndPct - barStartPct));
 
     const tone = done ? 'done' : over ? 'over' : daysLeft <= 2 ? 'hot' : daysLeft <= 7 ? 'warn' : '';
     const badgeText = done ? '完了'
@@ -1677,7 +1739,7 @@ function renderGantt(tasks) {
       : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const row = el('div', 'gantt-row2');
+    const row = el('div', 'gantt-row2' + (done ? ' done' : ''));
 
     const task = el('div', 'gantt-task');
     const cb = el('div', 'cb' + (done ? ' done' : ''));
@@ -1698,8 +1760,17 @@ function renderGantt(tasks) {
     task.appendChild(text);
 
     const rail = el('div', 'gantt-rail');
+    ticks.forEach(tick => {
+      const grid = el('div', 'gantt-grid-line');
+      grid.style.left = `${tick.pct}%`;
+      rail.appendChild(grid);
+    });
+    const todayLine = el('div', 'gantt-today-line');
+    todayLine.style.left = `${todayPct}%`;
+    rail.appendChild(todayLine);
     const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
-    fill.style.width = `${progress}%`;
+    fill.style.left = `${barLeft}%`;
+    fill.style.width = `${barWidth}%`;
     rail.appendChild(fill);
 
     const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : ''));
