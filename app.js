@@ -1667,6 +1667,7 @@ function renderGantt(tasks) {
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   const fmtShort = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric', weekday:'short'});
   const fmtTick = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
+  const cellWidth = window.matchMedia('(max-width: 600px)').matches ? 48 : 56;
   const maxPastDays = Math.min(10, Math.max(2, ...withDue.map(t => {
     const done = !!state.tasksDone[t.id || t.title + t.due];
     if (done) return 0;
@@ -1680,12 +1681,16 @@ function renderGantt(tasks) {
   const windowStart = addDays(today, -maxPastDays);
   const windowEnd = addDays(today, Math.min(30, Math.max(14, maxFutureDays + 2)));
   const windowTotal = Math.max(1, daysBetween(windowEnd, windowStart));
-  const percentForDate = date => clamp((daysBetween(date, windowStart) / windowTotal) * 100, 0, 100);
-  const todayPct = percentForDate(today);
-  const tickCount = 8;
-  const ticks = Array.from({length: tickCount + 1}, (_, i) => {
-    const date = addDays(windowStart, Math.round((windowTotal / tickCount) * i));
-    return {date, pct: percentForDate(date), today: getLocalDateStr(date) === getLocalDateStr(today)};
+  list.style.setProperty('--gantt-timeline-width', `${(windowTotal + 1) * cellWidth}px`);
+  const leftForDate = date => clamp(daysBetween(date, windowStart), 0, windowTotal) * cellWidth + cellWidth / 2;
+  const leftForBoundary = date => clamp(daysBetween(date, windowStart), 0, windowTotal + 1) * cellWidth;
+  const todayLeft = leftForBoundary(today);
+  const ticks = Array.from({length: windowTotal + 1}, (_, i) => {
+    const date = addDays(windowStart, i);
+    const isToday = getLocalDateStr(date) === getLocalDateStr(today);
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    const isMonth = date.getDate() === 1;
+    return {date, left: i * cellWidth, center: i * cellWidth + cellWidth / 2, today: isToday, weekend: isWeekend, month: isMonth};
   });
 
   const scale = el('div', 'gantt-scale');
@@ -1693,21 +1698,24 @@ function renderGantt(tasks) {
   scaleTitle.textContent = 'TASK';
   const tickRail = el('div', 'gantt-ticks');
   ticks.forEach(tick => {
-    const line = el('div', 'gantt-tick' + (tick.today ? ' today' : ''));
-    line.style.left = `${tick.pct}%`;
+    const line = el('div', 'gantt-tick' + (tick.today ? ' today' : '') + (tick.weekend ? ' weekend' : '') + (tick.month ? ' month' : ''));
+    line.style.left = `${tick.left}px`;
     const label = el('div', 'gantt-tick-label' + (tick.today ? ' today' : ''));
-    label.style.left = `${tick.pct}%`;
-    label.textContent = tick.today ? '今日' : fmtTick(tick.date);
+    label.style.left = `${tick.center}px`;
+    label.textContent = tick.today ? '今日' : tick.date.getDate() === 1 || tick.date.getDay() === 1 ? fmtTick(tick.date) : String(tick.date.getDate());
     tickRail.appendChild(line);
     tickRail.appendChild(label);
+    if (tick.month) {
+      const month = el('div', 'gantt-month-label');
+      month.style.left = `${tick.left}px`;
+      month.textContent = tick.date.toLocaleDateString('ja-JP', {year:'numeric', month:'numeric'});
+      tickRail.appendChild(month);
+    }
   });
   if (!ticks.some(tick => tick.today)) {
-    const line = el('div', 'gantt-tick today');
-    line.style.left = `${todayPct}%`;
     const label = el('div', 'gantt-tick-label today');
-    label.style.left = `${todayPct}%`;
+    label.style.left = `${leftForDate(today)}px`;
     label.textContent = '今日';
-    tickRail.appendChild(line);
     tickRail.appendChild(label);
   }
   const scaleEnd = el('div', 'gantt-scale-title');
@@ -1726,11 +1734,11 @@ function renderGantt(tasks) {
     const isRange = t.dateType === 'range' && t.start;
     const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
     const barStartDate = startDate || (over ? dueDate : today);
-    const barEndDate = done ? dueDate : over ? today : dueDate;
-    const barStartPct = percentForDate(barStartDate);
-    const barEndPct = percentForDate(barEndDate);
-    const barLeft = Math.min(barStartPct, barEndPct);
-    const barWidth = Math.max(1.2, Math.abs(barEndPct - barStartPct));
+    const barEndDate = over && !isRange ? today : dueDate;
+    const barStartLeft = leftForDate(barStartDate);
+    const barEndLeft = leftForDate(barEndDate);
+    const barLeft = Math.min(barStartLeft, barEndLeft);
+    const barWidth = Math.max(10, Math.abs(barEndLeft - barStartLeft));
 
     const tone = done ? 'done' : over ? 'over' : daysLeft <= 2 ? 'hot' : daysLeft <= 7 ? 'warn' : '';
     const badgeText = done ? '完了'
@@ -1761,14 +1769,31 @@ function renderGantt(tasks) {
 
     const rail = el('div', 'gantt-rail');
     ticks.forEach(tick => {
-      const grid = el('div', 'gantt-grid-line');
-      grid.style.left = `${tick.pct}%`;
+      if (tick.weekend) {
+        const weekend = el('div', 'gantt-grid-line weekend');
+        weekend.style.left = `${tick.left}px`;
+        rail.appendChild(weekend);
+      }
+      const grid = el('div', 'gantt-grid-line' + (tick.month ? ' month' : ''));
+      grid.style.left = `${tick.left}px`;
       rail.appendChild(grid);
     });
-    const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
-    fill.style.left = `${barLeft}%`;
-    fill.style.width = `${barWidth}%`;
-    rail.appendChild(fill);
+    const todayBand = el('div', 'gantt-today-band');
+    todayBand.style.left = `${todayLeft}px`;
+    rail.appendChild(todayBand);
+    if (isRange && startDate) {
+      const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
+      fill.style.left = `${barLeft}px`;
+      fill.style.width = `${barWidth}px`;
+      rail.appendChild(fill);
+      const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : ''));
+      dot.style.left = `${barEndLeft}px`;
+      rail.appendChild(dot);
+    } else {
+      const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : ''));
+      dot.style.left = `${barEndLeft}px`;
+      rail.appendChild(dot);
+    }
 
     const badge = el('div', 'gantt-badge' + (tone ? ' ' + tone : ''));
     badge.textContent = badgeText;
