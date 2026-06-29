@@ -76,7 +76,7 @@ const LS = {
 };
 
 window.PTR_BACKUP_KEYS = new Set([
-  'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','script_url',
+  'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','external_tasks_completed','script_url',
   'clips','clips_deleted','timer_log_today','todo_done_log','notif','notif_leads'
 ]);
 
@@ -1245,6 +1245,67 @@ function repeatLabel(repeat) {
   return '';
 }
 
+function getTaskKey(t) {
+  if (!t) return '';
+  return t.id || `${t.title || ''}${t.due || ''}`;
+}
+
+function getExternalCompletedTaskIds() {
+  return LS.get('external_tasks_completed') || [];
+}
+
+function setExternalCompletedTaskIds(ids) {
+  const unique = [...new Set((ids || []).filter(Boolean))].slice(-500);
+  LS.set('external_tasks_completed', unique);
+  SB.setSetting('external_tasks_completed', unique);
+}
+
+function recordExternalCompletedTaskId(id) {
+  if (!id) return;
+  const completed = getExternalCompletedTaskIds();
+  if (!completed.includes(id)) setExternalCompletedTaskIds([...completed, id]);
+}
+
+function removeExternalCompletedTaskId(id) {
+  if (!id) return;
+  const completed = getExternalCompletedTaskIds();
+  if (completed.includes(id)) setExternalCompletedTaskIds(completed.filter(x => x !== id));
+}
+
+function sourceMarksTaskDone(t) {
+  const values = [
+    t?.completed,
+    t?.done,
+    t?.isDone,
+    t?.isCompleted,
+    t?.turnedIn,
+    t?.submitted,
+    t?.status,
+    t?.state,
+    t?.courseWorkState,
+    t?.submissionState,
+    t?.assignmentState,
+  ].map(v => String(v ?? '').toLowerCase());
+  return values.some(v =>
+    v === 'true'
+    || v === 'done'
+    || v === 'completed'
+    || v === 'complete'
+    || v === 'turned_in'
+    || v === 'turnedin'
+    || v === 'submitted'
+    || v === 'returned'
+  );
+}
+
+function filterVisibleExternalTasks(tasks) {
+  const completedIds = getExternalCompletedTaskIds();
+  return (Array.isArray(tasks) ? tasks : []).filter(t => {
+    const key = getTaskKey(t);
+    return !completedIds.includes(key) && !sourceMarksTaskDone(t);
+  });
+}
+
 function expandRecurringTask(t) {
   if (!t.repeat || t.repeat === 'none' || !t.due) return [t];
   const deletedIds = LS.get('manual_tasks_deleted') || [];
@@ -1287,7 +1348,7 @@ function expandRecurringTask(t) {
 function getAllTasks() {
   const manual = LS.get('manual_tasks') || [];
   const expandedManual = manual.flatMap(t => expandRecurringTask(t));
-  return [...state.tasks, ...expandedManual];
+  return [...filterVisibleExternalTasks(state.tasks), ...expandedManual];
 }
 
 // 削除済み手動タスクのIDを記録（同期時にリモートから復活しないようにするため）
@@ -1332,12 +1393,21 @@ function toggleTaskDone(k, t) {
     // 完了にした → 5分後に自動削除スケジュール
     const timerId = setTimeout(() => {
       delete state.doneTimers[k];
-      // GASタスクは tasksDone から削除するだけ（再SYNCで戻る）
+      // GAS/Classroomタスクは完了済みIDを保持して、再SYNCしても復活させない
       // 手動タスクは配列からも削除
       if (t && t._manual) {
         const manual = LS.get('manual_tasks') || [];
         recordDeletedTaskId(k);
         saveManualTasks(manual.filter(x => (x.id||x.title+x.due) !== k));
+      } else if (t) {
+        recordExternalCompletedTaskId(k);
+        state.tasks = state.tasks.filter(x => getTaskKey(x) !== k);
+        const cache = LS.get('tasks_cache');
+        if (cache && Array.isArray(cache.tasks)) {
+          const nextCache = {...cache, tasks: filterVisibleExternalTasks(cache.tasks), hiddenCompletedAt: new Date().toISOString()};
+          LS.set('tasks_cache', nextCache);
+          SB.setSetting('gas_tasks_cache', nextCache);
+        }
       }
       delete state.tasksDone[k];
       LS.set('tasks_done', state.tasksDone);
@@ -1350,6 +1420,7 @@ function toggleTaskDone(k, t) {
       clearTimeout(state.doneTimers[k]);
       delete state.doneTimers[k];
     }
+    if (t && !t._manual) removeExternalCompletedTaskId(k);
   }
   renderTodo();
 }
@@ -1926,7 +1997,7 @@ async function syncTodoTasks(url) {
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('JSON応答ではありません'); }
-    state.tasks = Array.isArray(data) ? data : (data.tasks || []);
+    state.tasks = filterVisibleExternalTasks(Array.isArray(data) ? data : (data.tasks || []));
     const cachePayload = {tasks: state.tasks, fetchedAt: new Date().toISOString()};
     LS.set('tasks_cache', cachePayload);
     // ★ GAS由来のタスクもSupabaseにキャッシュ保存（他端末がSYNCしなくても見えるように）
@@ -2723,6 +2794,7 @@ function createFullBackupPayload(reason = 'manual') {
     tasksDone: LS.get('tasks_done') || {},
     manualTasks: LS.get('manual_tasks') || [],
     manualTasksDeleted: LS.get('manual_tasks_deleted') || [],
+    externalTasksCompleted: LS.get('external_tasks_completed') || [],
     scriptUrl: LS.get('script_url') || '',
     clips: LS.get('clips') || [],
     clipsDeleted: LS.get('clips_deleted') || [],
@@ -2742,6 +2814,7 @@ function applyFullBackupPayload(data) {
   if (data.tasksDone) LS.set('tasks_done', data.tasksDone);
   if (data.manualTasks) LS.set('manual_tasks', data.manualTasks);
   if (data.manualTasksDeleted) LS.set('manual_tasks_deleted', data.manualTasksDeleted);
+  if (data.externalTasksCompleted) LS.set('external_tasks_completed', data.externalTasksCompleted);
   if (data.scriptUrl !== undefined) LS.set('script_url', data.scriptUrl);
   if (data.clips) LS.set('clips', data.clips);
   if (data.clipsDeleted) LS.set('clips_deleted', data.clipsDeleted);
@@ -3588,6 +3661,18 @@ async function syncTodayPhotosFromSupabase() {
 async function syncSettingsFromSupabase() {
   await syncClipsFromSupabase();
 
+  const remoteExternalCompleted = await SB.getSetting('external_tasks_completed');
+  if (Array.isArray(remoteExternalCompleted)) {
+    const mergedCompleted = [...new Set([...getExternalCompletedTaskIds(), ...remoteExternalCompleted])].slice(-500);
+    LS.set('external_tasks_completed', mergedCompleted);
+    if (JSON.stringify(remoteExternalCompleted) !== JSON.stringify(mergedCompleted)) {
+      SB.setSetting('external_tasks_completed', mergedCompleted);
+    }
+  } else {
+    const localCompleted = getExternalCompletedTaskIds();
+    if (localCompleted.length) SB.setSetting('external_tasks_completed', localCompleted);
+  }
+
   // GAS連携URL: リモートにあればローカルより優先（リモートが正の場合のみ上書き）
   const remoteUrl = await SB.getSetting('script_url');
   if (typeof remoteUrl === 'string' && remoteUrl) {
@@ -3650,8 +3735,8 @@ async function syncSettingsFromSupabase() {
     const remoteIsNewer = !localCache || !localCache.fetchedAt
       || new Date(remoteGasCache.fetchedAt) > new Date(localCache.fetchedAt);
     if (remoteIsNewer) {
-      state.tasks = remoteGasCache.tasks;
-      LS.set('tasks_cache', remoteGasCache);
+      state.tasks = filterVisibleExternalTasks(remoteGasCache.tasks);
+      LS.set('tasks_cache', {...remoteGasCache, tasks: state.tasks});
       if (state.tab === 'todo') renderTodo();
     }
   }
@@ -3661,7 +3746,7 @@ async function syncSettingsFromSupabase() {
 // ── 初期化 ────────────────────────────────────
 (function() {
   const cache = LS.get('tasks_cache');
-  if (cache && cache.tasks) { state.tasks = cache.tasks; }
+  if (cache && cache.tasks) { state.tasks = filterVisibleExternalTasks(cache.tasks); }
 })();
 
 // ★ 日付変更を1分ごとに監視して、日付が変わったら今日タブをリセット
