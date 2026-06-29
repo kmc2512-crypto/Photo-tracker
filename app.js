@@ -1765,9 +1765,6 @@ function renderGantt(tasks) {
       grid.style.left = `${tick.pct}%`;
       rail.appendChild(grid);
     });
-    const todayLine = el('div', 'gantt-today-line');
-    todayLine.style.left = `${todayPct}%`;
-    rail.appendChild(todayLine);
     const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
     fill.style.left = `${barLeft}%`;
     fill.style.width = `${barWidth}%`;
