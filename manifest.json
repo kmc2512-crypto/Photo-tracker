@@ -8,6 +8,47 @@
   "background_color": "#080808",
   "theme_color": "#080808",
   "orientation": "portrait",
+  "shortcuts": [
+    {
+      "name": "今日を確認",
+      "short_name": "今日",
+      "description": "今日の写真ログと予定を開く",
+      "url": "./index.html?tab=today",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Todoを確認",
+      "short_name": "Todo",
+      "description": "Todoとガントを開く",
+      "url": "./index.html?tab=todo",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "ログを確認",
+      "short_name": "ログ",
+      "description": "写真ログ一覧を開く",
+      "url": "./index.html?tab=log",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "icon.svg",

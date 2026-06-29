@@ -464,6 +464,19 @@ function switchTab(tab) {
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
 
+function getInitialTabFromUrl() {
+  const allowed = ['today','learn','plan','log','todo','timer','clip','settings','data'];
+  const params = new URLSearchParams(location.search);
+  const fromQuery = params.get('tab');
+  const fromHash = location.hash ? location.hash.replace('#', '') : '';
+  if (allowed.includes(fromQuery)) return fromQuery;
+  if (allowed.includes(fromHash)) return fromHash;
+  return '';
+}
+
+const initialTab = getInitialTabFromUrl();
+if (initialTab && initialTab !== 'today') switchTab(initialTab);
+
 // ── 日付表示＋ストリーク ──────────────────────
 (function() {
   const d = new Date();
