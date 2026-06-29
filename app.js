@@ -1744,7 +1744,7 @@ function renderGantt(tasks) {
     const dueDate = new Date(t.due + 'T00:00:00');
     const daysLeft = daysBetween(dueDate, today);
     const over = daysLeft < 0 && !done;
-    const isRange = t.dateType === 'range' && t.start;
+    const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
     const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
     const barStartDate = startDate || (over ? dueDate : today);
     const barEndDate = over && !isRange ? today : dueDate;
@@ -1803,6 +1803,9 @@ function renderGantt(tasks) {
       dot.style.left = `${barEndLeft}px`;
       rail.appendChild(dot);
     } else {
+      const stem = el('div', 'gantt-deadline-stem' + (tone ? ' ' + tone : ''));
+      stem.style.left = `${barEndLeft}px`;
+      rail.appendChild(stem);
       const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : ''));
       dot.style.left = `${barEndLeft}px`;
       rail.appendChild(dot);
