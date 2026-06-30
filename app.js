@@ -145,9 +145,17 @@ function getSyncScopeId() {
   return getSyncKeyInfo()?.id || '';
 }
 
+function getAuthScopeId() {
+  const session = getAuthSession();
+  const id = session?.user?.id || '';
+  return id ? hashSyncKey(id) : '';
+}
+
 function scopedSettingKey(key) {
-  const scope = getSyncScopeId();
-  return scope ? `sync_${scope}_${key}` : key;
+  const authScope = getAuthScopeId();
+  if (authScope) return `auth_${authScope}_${key}`;
+  const syncScope = getSyncScopeId();
+  return syncScope ? `sync_${syncScope}_${key}` : key;
 }
 
 function getAuthSession() {
@@ -234,6 +242,129 @@ async function fetchAuthUser(accessToken) {
   }
 }
 
+function buildAuthSessionFromResponse(data) {
+  if (!data) return null;
+  const accessToken = data.access_token || data.accessToken || '';
+  const user = data.user || null;
+  if (!accessToken || !user) return null;
+  return {
+    accessToken,
+    refreshToken: data.refresh_token || '',
+    expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
+    user,
+    signedInAt: new Date().toISOString(),
+    method: 'email',
+  };
+}
+
+async function authRequest(path, body) {
+  const res = await fetch(SB_URL + path, {
+    method: 'POST',
+    headers: SB_HEADERS,
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.msg || data.error_description || data.error || `認証に失敗しました (${res.status})`);
+  }
+  return data;
+}
+
+function getEmailLoginValues() {
+  const email = (qs('#email-login-input')?.value || '').trim();
+  const password = qs('#email-password-input')?.value || '';
+  return { email, password };
+}
+
+function clearEmailPasswordField() {
+  const pass = qs('#email-password-input');
+  if (pass) pass.value = '';
+}
+
+async function signInWithEmail() {
+  const { email, password } = getEmailLoginValues();
+  if (!email || !password) {
+    setAccountMessage('メールアドレスとパスワードを入力してください。', true);
+    return;
+  }
+  setAccountMessage('メールアカウントでログインしています...');
+  try {
+    const data = await authRequest('/auth/v1/token?grant_type=password', { email, password });
+    const session = buildAuthSessionFromResponse(data);
+    if (!session) throw new Error('ログイン応答を保存できませんでした');
+    setAuthSession(session);
+    clearEmailPasswordField();
+    updateAccountStatus();
+    setAccountMessage('ログインしました。現在のデータをこのアカウントへ保存する場合は「保存」を押してください。');
+  } catch(err) {
+    setAccountMessage('ログインエラー: ' + err.message, true);
+  }
+}
+
+async function signUpWithEmail() {
+  const { email, password } = getEmailLoginValues();
+  if (!email || password.length < 6) {
+    setAccountMessage('登録にはメールアドレスと6文字以上のパスワードが必要です。', true);
+    return;
+  }
+  setAccountMessage('メールアカウントを登録しています...');
+  try {
+    const data = await authRequest('/auth/v1/signup', { email, password });
+    const session = buildAuthSessionFromResponse(data);
+    if (session) {
+      setAuthSession(session);
+      clearEmailPasswordField();
+      updateAccountStatus();
+      setAccountMessage('登録してログインしました。現在のデータをこのアカウントへ保存する場合は「保存」を押してください。');
+    } else {
+      clearEmailPasswordField();
+      setAccountMessage('登録しました。確認メールが必要な設定の場合は、メール確認後にログインしてください。');
+    }
+  } catch(err) {
+    setAccountMessage('登録エラー: ' + err.message, true);
+  }
+}
+
+async function saveCurrentDataToEmailAccount() {
+  if (!getAuthScopeId()) {
+    setAccountMessage('先にメールアカウントでログインしてください。', true);
+    return;
+  }
+  setAccountMessage('現在のデータをメールアカウントへ保存しています...');
+  const ok = await writeFullBackupToCloud('email-account-save');
+  setAccountMessage(ok ? 'メールアカウントへ保存しました。別端末では同じメールでログインして「復元」を押してください。' : 'メールアカウントへの保存に失敗しました。', !ok);
+}
+
+async function restoreFromEmailAccount() {
+  if (!getAuthScopeId()) {
+    setAccountMessage('復元するには、先にメールアカウントでログインしてください。', true);
+    return;
+  }
+  setAccountMessage('メールアカウントのバックアップを確認しています...');
+  const data = await SB.getSetting('full_backup');
+  try {
+    if (!data) throw new Error('このメールアカウントのバックアップがまだありません');
+    applyFullBackupPayload(data);
+    setAccountMessage('メールアカウントから復元しました。ページを再読み込みします...');
+    setTimeout(() => location.reload(), 1200);
+  } catch(err) {
+    setAccountMessage('エラー: ' + err.message, true);
+  }
+}
+
+async function logoutEmailAccount() {
+  const session = getAuthSession();
+  if (session?.accessToken) {
+    fetch(SB_URL + '/auth/v1/logout', {
+      method: 'POST',
+      headers: {...SB_HEADERS, Authorization: 'Bearer ' + session.accessToken}
+    }).catch(() => {});
+  }
+  setAuthSession(null);
+  updateAccountStatus();
+  setAccountMessage('ログアウトしました。同期キー方式は引き続き使えます。');
+}
+
 async function captureAuthFromUrl() {
   const hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
   const accessToken = hash.get('access_token');
@@ -259,17 +390,44 @@ function getAuthUserLabel(session = getAuthSession()) {
 function updateAccountStatus() {
   const status = qs('#account-status');
   if (!status) return;
+  const session = getAuthSession();
   const sync = getSyncKeyInfo();
   const input = qs('#sync-key-input');
   const clearBtn = qs('#sync-key-clear-btn');
-  if (sync?.id) {
+  const authActions = {
+    login: qs('#email-login-btn'),
+    signup: qs('#email-signup-btn'),
+    save: qs('#email-account-save-btn'),
+    restore: qs('#email-account-restore-btn'),
+    logout: qs('#email-logout-btn')
+  };
+  if (session?.user?.id) {
+    const label = getAuthUserLabel(session) || 'メールアカウント';
+    status.innerHTML = `<strong>${label}</strong><br>メールログイン中。保存先はこのメールアカウントです。同期キーはログアウト後も使えます。`;
+    authActions.login?.classList.add('hidden');
+    authActions.signup?.classList.add('hidden');
+    authActions.save?.classList.remove('hidden');
+    authActions.restore?.classList.remove('hidden');
+    authActions.logout?.classList.remove('hidden');
+    clearBtn?.classList.toggle('hidden', !sync?.id);
+  } else if (sync?.id) {
     status.innerHTML = `<strong>同期キー設定済み</strong><br>保存先ID: ${sync.id} / PCとiPhoneで同じキーを入れると同じデータを使えます。`;
     if (input && !input.value) input.placeholder = '設定済み';
     clearBtn?.classList.remove('hidden');
+    authActions.login?.classList.remove('hidden');
+    authActions.signup?.classList.remove('hidden');
+    authActions.save?.classList.add('hidden');
+    authActions.restore?.classList.add('hidden');
+    authActions.logout?.classList.add('hidden');
   } else {
     status.textContent = '同期キー未設定。この端末だけのデータとして保存しています。';
     if (input && !input.value) input.placeholder = '同期キー';
     clearBtn?.classList.add('hidden');
+    authActions.login?.classList.remove('hidden');
+    authActions.signup?.classList.remove('hidden');
+    authActions.save?.classList.add('hidden');
+    authActions.restore?.classList.add('hidden');
+    authActions.logout?.classList.add('hidden');
   }
 }
 
@@ -700,6 +858,14 @@ qs('#sync-key-restore-btn')?.addEventListener('click', restoreFromSyncKey);
 qs('#sync-key-clear-btn')?.addEventListener('click', clearSyncKey);
 qs('#sync-key-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') saveSyncKeyFromInput();
+});
+qs('#email-login-btn')?.addEventListener('click', signInWithEmail);
+qs('#email-signup-btn')?.addEventListener('click', signUpWithEmail);
+qs('#email-account-save-btn')?.addEventListener('click', saveCurrentDataToEmailAccount);
+qs('#email-account-restore-btn')?.addEventListener('click', restoreFromEmailAccount);
+qs('#email-logout-btn')?.addEventListener('click', logoutEmailAccount);
+qs('#email-password-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') signInWithEmail();
 });
 qs('#account-logout-btn')?.addEventListener('click', () => {
   setAuthSession(null);
@@ -3161,6 +3327,11 @@ function createFullBackupPayload(reason = 'manual') {
     notif: LS.get('notif') || '',
     notifLeads: LS.get('notif_leads') || getNotifLeads(),
     accountLink: LS.get('account_link') || null,
+    authSession: getAuthSession() ? {
+      user: getAuthSession().user,
+      signedInAt: getAuthSession().signedInAt,
+      method: getAuthSession().method || 'unknown'
+    } : null,
     syncKey: getSyncKeyInfo() ? { id: getSyncKeyInfo().id, savedAt: getSyncKeyInfo().savedAt } : null,
     syncHealth: LS.get('sync_health') || {},
     learnData: collectLearnData(),
@@ -3213,8 +3384,9 @@ function renderAutoBackupStatus(mode = '') {
     : mode === 'failed' ? '保存失敗'
     : mode === 'ok' ? '保存済み'
     : '待機中';
+  const auth = getAuthSession();
   const sync = getSyncKeyInfo();
-  const scope = sync?.id ? `同期キー ${sync.id}` : '共通保存先';
+  const scope = auth?.user?.email ? `メール ${auth.user.email}` : sync?.id ? `同期キー ${sync.id}` : '共通保存先';
   el2.textContent = `自動バックアップ: ${suffix} / 最終保存 ${time} / 保存先 ${scope} + Storage`;
 }
 

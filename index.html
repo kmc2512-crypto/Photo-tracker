@@ -337,6 +337,13 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .sync-key-form input{height:40px;border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);padding:0 12px;font-family:'DM Mono',monospace;font-size:11px;outline:none}
 .sync-key-form input:focus{border-color:var(--fg5)}
 .sync-key-help{font-size:9px;color:var(--fg6);line-height:1.7;margin-top:8px;letter-spacing:.04em}
+.email-login-box{border:1px solid var(--border);padding:14px;margin-top:12px;width:100%}
+.email-login-title{font-size:10px;color:var(--fg4);letter-spacing:.12em;margin-bottom:10px}
+.email-login-form{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,1fr);gap:8px}
+.email-login-form input{height:40px;border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);padding:0 12px;font-family:'DM Mono',monospace;font-size:11px;outline:none}
+.email-login-form input:focus{border-color:var(--fg5)}
+.email-login-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.email-login-actions .save-btn,.email-login-actions .ghost-btn{height:38px;justify-content:center}
 .install-steps{display:grid;gap:8px;margin-top:14px}
 .install-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;border-top:1px solid var(--border);padding-top:10px}
 .install-step-no{font-family:'DM Mono',monospace;font-size:10px;color:var(--fg);font-variant-numeric:tabular-nums}
@@ -613,6 +620,8 @@ input[type=time]{display:none}
   .account-panel{min-height:0}
   .account-actions{justify-content:stretch;margin-left:0}
   .sync-key-form{grid-template-columns:1fr}
+  .email-login-form{grid-template-columns:1fr}
+  .email-login-actions .save-btn,.email-login-actions .ghost-btn{width:100%}
   .account-actions,.install-links{flex-direction:column}
   .account-actions .ghost-btn,.account-actions .save-btn,.install-links .ghost-link{width:100%;justify-content:center}
   .repeat-row{align-items:stretch}
@@ -923,6 +932,20 @@ input[type=time]{display:none}
                 </div>
                 <button type="button" class="ghost-btn" id="sync-key-restore-btn" aria-describedby="account-status account-msg-text">復元</button>
                 <button type="button" class="ghost-btn hidden" id="sync-key-clear-btn" aria-describedby="account-status">解除</button>
+              </div>
+              <div class="email-login-box">
+                <div class="email-login-title">EMAIL LOGIN</div>
+                <div class="email-login-form">
+                  <input id="email-login-input" type="email" autocomplete="email" placeholder="メールアドレス" aria-label="メールアドレス" aria-describedby="account-msg-text">
+                  <input id="email-password-input" type="password" autocomplete="current-password" placeholder="パスワード" aria-label="パスワード" aria-describedby="account-msg-text">
+                </div>
+                <div class="email-login-actions">
+                  <button type="button" class="save-btn" id="email-login-btn" aria-describedby="account-status account-msg-text">ログイン</button>
+                  <button type="button" class="ghost-btn" id="email-signup-btn" aria-describedby="account-status account-msg-text">登録</button>
+                  <button type="button" class="ghost-btn hidden" id="email-account-save-btn" aria-describedby="account-status account-msg-text">保存</button>
+                  <button type="button" class="ghost-btn hidden" id="email-account-restore-btn" aria-describedby="account-status account-msg-text">復元</button>
+                  <button type="button" class="ghost-btn hidden" id="email-logout-btn" aria-describedby="account-status">ログアウト</button>
+                </div>
               </div>
             </div>
             <div class="notice hidden" id="account-msg" role="status" aria-live="polite"><p id="account-msg-text"></p></div>
