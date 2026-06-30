@@ -117,6 +117,38 @@ const SB_URL = 'https://eskeovyymgferdbqotti.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVza2Vvdnl5bWdmZXJkYnFvdHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODE1MzksImV4cCI6MjA5NTg1NzUzOX0.y22KuSGf7nKzYlGxDU-K4ryoB7xLAXGoJALHji_t0Eg';
 const SB_HEADERS = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 const AUTH_STORAGE_KEY = 'auth_session';
+const SYNC_KEY_STORAGE_KEY = 'sync_key';
+
+function normalizeSyncKey(value) {
+  return String(value || '').trim().replace(/\s+/g, '-').slice(0, 80);
+}
+
+function hashSyncKey(value) {
+  const text = normalizeSyncKey(value);
+  let h1 = 0xdeadbeef ^ text.length;
+  let h2 = 0x41c6ce57 ^ text.length;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return ((h2 >>> 0).toString(36) + (h1 >>> 0).toString(36)).slice(0, 14);
+}
+
+function getSyncKeyInfo() {
+  return LS.get(SYNC_KEY_STORAGE_KEY) || null;
+}
+
+function getSyncScopeId() {
+  return getSyncKeyInfo()?.id || '';
+}
+
+function scopedSettingKey(key) {
+  const scope = getSyncScopeId();
+  return scope ? `sync_${scope}_${key}` : key;
+}
 
 function getAuthSession() {
   return LS.get(AUTH_STORAGE_KEY);
@@ -225,38 +257,72 @@ function getAuthUserLabel(session = getAuthSession()) {
 }
 
 function updateAccountStatus() {
-  prepareGoogleLoginLink();
   const status = qs('#account-status');
   if (!status) return;
-  const session = getAuthSession();
-  const loginLink = qs('#google-login-btn');
-  const logoutBtn = qs('#account-logout-btn');
-  const linkBtn = qs('#account-link-data-btn');
-  const userLabel = getAuthUserLabel(session);
-  const linked = LS.get('account_link') || null;
-
-  if (session && userLabel) {
-    setAccountMessage('');
-    status.innerHTML = `<strong>${userLabel}</strong><br>ログイン済み。既存データはまだ消さずに、この端末のデータとして保持しています。`;
-    loginLink?.classList.add('hidden');
-    loginLink?.removeAttribute('aria-busy');
-    loginLink?.removeAttribute('aria-disabled');
-    logoutBtn?.classList.remove('hidden');
-    linkBtn?.classList.remove('hidden');
-    if (linked?.userId === session.user?.id) {
-      status.innerHTML = `<strong>${userLabel}</strong><br>この端末の既存データをこのGoogleアカウントに紐づけ済みです。`;
-    }
+  const sync = getSyncKeyInfo();
+  const input = qs('#sync-key-input');
+  const clearBtn = qs('#sync-key-clear-btn');
+  if (sync?.id) {
+    status.innerHTML = `<strong>同期キー設定済み</strong><br>保存先ID: ${sync.id} / PCとiPhoneで同じキーを入れると同じデータを使えます。`;
+    if (input && !input.value) input.placeholder = '設定済み';
+    clearBtn?.classList.remove('hidden');
   } else {
-    status.textContent = '未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。';
-    loginLink?.classList.remove('hidden');
-    if (loginLink) {
-      loginLink.removeAttribute('aria-busy');
-      loginLink.removeAttribute('aria-disabled');
-      loginLink.textContent = 'Googleでログイン';
-    }
-    logoutBtn?.classList.add('hidden');
-    linkBtn?.classList.add('hidden');
+    status.textContent = '同期キー未設定。この端末だけのデータとして保存しています。';
+    if (input && !input.value) input.placeholder = '同期キー';
+    clearBtn?.classList.add('hidden');
   }
+}
+
+async function saveSyncKeyFromInput() {
+  const input = qs('#sync-key-input');
+  const raw = normalizeSyncKey(input?.value || '');
+  if (raw.length < 4) {
+    setAccountMessage('同期キーは4文字以上で入力してください。短すぎるキーは他人に推測されやすいです。', true);
+    input?.focus();
+    return;
+  }
+  const info = {
+    id: hashSyncKey(raw),
+    savedAt: new Date().toISOString()
+  };
+  LS.set(SYNC_KEY_STORAGE_KEY, info);
+  if (input) input.value = '';
+  updateAccountStatus();
+  setAccountMessage('同期キーを設定しました。現在の端末データをこのキーに保存しています...');
+  const ok = await writeFullBackupToCloud('sync-key-save');
+  setAccountMessage(ok ? '同期キーに現在のデータを保存しました。別端末では同じキーを入れて「復元」を押してください。' : '同期キーは設定しましたが、クラウド保存に失敗しました。ネットワークやSupabase設定を確認してください。', !ok);
+}
+
+async function restoreFromSyncKey() {
+  const input = qs('#sync-key-input');
+  const raw = normalizeSyncKey(input?.value || '');
+  if (raw) {
+    LS.set(SYNC_KEY_STORAGE_KEY, { id: hashSyncKey(raw), savedAt: new Date().toISOString() });
+    if (input) input.value = '';
+  }
+  const sync = getSyncKeyInfo();
+  if (!sync?.id) {
+    setAccountMessage('復元するには、先に同期キーを入力してください。', true);
+    input?.focus();
+    return;
+  }
+  updateAccountStatus();
+  setAccountMessage('同期キーのバックアップを確認しています...');
+  const data = await SB.getSetting('full_backup');
+  try {
+    if (!data) throw new Error('この同期キーのバックアップがまだありません');
+    applyFullBackupPayload(data);
+    setAccountMessage('同期キーから復元しました。ページを再読み込みします...');
+    setTimeout(() => location.reload(), 1200);
+  } catch(err) {
+    setAccountMessage('エラー: ' + err.message, true);
+  }
+}
+
+function clearSyncKey() {
+  localStorage.removeItem('ptr_' + SYNC_KEY_STORAGE_KEY);
+  updateAccountStatus();
+  setAccountMessage('同期キーをこの端末から解除しました。端末内のデータは消していません。');
 }
 
 async function linkExistingDataToAccount() {
@@ -463,10 +529,11 @@ const SB = {
   // 設定値（GAS URL・手動タスクなど）をkey-valueで保存
   async setSetting(key, value) {
     try {
+      const cloudKey = scopedSettingKey(key);
       const res = await fetch(SB_URL + '/rest/v1/settings?on_conflict=key', {
         method: 'POST',
         headers: {...SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
-        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+        body: JSON.stringify({ key: cloudKey, value, updated_at: new Date().toISOString() })
       });
       return res.ok;
     } catch(e) { return false; }
@@ -475,7 +542,8 @@ const SB = {
   // 設定値を取得
   async getSetting(key) {
     try {
-      const res = await fetch(SB_URL + `/rest/v1/settings?key=eq.${encodeURIComponent(key)}&select=value`, {
+      const cloudKey = scopedSettingKey(key);
+      const res = await fetch(SB_URL + `/rest/v1/settings?key=eq.${encodeURIComponent(cloudKey)}&select=value`, {
         headers: SB_HEADERS
       });
       if (!res.ok) return null;
@@ -627,6 +695,12 @@ document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', (
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
 prepareGoogleLoginLink();
 qs('#google-login-btn')?.addEventListener('click', startGoogleLogin);
+qs('#sync-key-save-btn')?.addEventListener('click', saveSyncKeyFromInput);
+qs('#sync-key-restore-btn')?.addEventListener('click', restoreFromSyncKey);
+qs('#sync-key-clear-btn')?.addEventListener('click', clearSyncKey);
+qs('#sync-key-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveSyncKeyFromInput();
+});
 qs('#account-logout-btn')?.addEventListener('click', () => {
   setAuthSession(null);
   updateAccountStatus();
@@ -3087,6 +3161,7 @@ function createFullBackupPayload(reason = 'manual') {
     notif: LS.get('notif') || '',
     notifLeads: LS.get('notif_leads') || getNotifLeads(),
     accountLink: LS.get('account_link') || null,
+    syncKey: getSyncKeyInfo() ? { id: getSyncKeyInfo().id, savedAt: getSyncKeyInfo().savedAt } : null,
     syncHealth: LS.get('sync_health') || {},
     learnData: collectLearnData(),
   };
@@ -3108,6 +3183,7 @@ function applyFullBackupPayload(data) {
   if (data.notif) LS.set('notif', data.notif);
   if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
   if (data.accountLink) LS.set('account_link', data.accountLink);
+  if (data.syncKey?.id) LS.set(SYNC_KEY_STORAGE_KEY, data.syncKey);
   if (data.syncHealth) LS.set('sync_health', data.syncHealth);
   if (data.learnData) Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
 }
@@ -3137,7 +3213,9 @@ function renderAutoBackupStatus(mode = '') {
     : mode === 'failed' ? '保存失敗'
     : mode === 'ok' ? '保存済み'
     : '待機中';
-  el2.textContent = `自動バックアップ: ${suffix} / 最終保存 ${time} / 保存先 Supabase settings + Storage`;
+  const sync = getSyncKeyInfo();
+  const scope = sync?.id ? `同期キー ${sync.id}` : '共通保存先';
+  el2.textContent = `自動バックアップ: ${suffix} / 最終保存 ${time} / 保存先 ${scope} + Storage`;
 }
 
 renderAutoBackupStatus();

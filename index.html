@@ -333,6 +333,10 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .account-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-left:auto}
 .account-actions .save-btn,.account-actions .ghost-btn{height:40px;align-items:center;justify-content:center;white-space:nowrap}
 .account-actions .ghost-btn{min-width:112px}
+.sync-key-form{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:8px;width:100%;margin-top:4px}
+.sync-key-form input{height:40px;border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);padding:0 12px;font-family:'DM Mono',monospace;font-size:11px;outline:none}
+.sync-key-form input:focus{border-color:var(--fg5)}
+.sync-key-help{font-size:9px;color:var(--fg6);line-height:1.7;margin-top:8px;letter-spacing:.04em}
 .install-steps{display:grid;gap:8px;margin-top:14px}
 .install-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;border-top:1px solid var(--border);padding-top:10px}
 .install-step-no{font-family:'DM Mono',monospace;font-size:10px;color:var(--fg);font-variant-numeric:tabular-nums}
@@ -608,6 +612,7 @@ input[type=time]{display:none}
   .sync-health{grid-template-columns:1fr}
   .account-panel{min-height:0}
   .account-actions{justify-content:stretch;margin-left:0}
+  .sync-key-form{grid-template-columns:1fr}
   .account-actions,.install-links{flex-direction:column}
   .account-actions .ghost-btn,.account-actions .save-btn,.install-links .ghost-link{width:100%;justify-content:center}
   .repeat-row{align-items:stretch}
@@ -902,16 +907,22 @@ input[type=time]{display:none}
       <section class="settings-card">
         <div class="settings-card-head">
           <div>
-            <div class="settings-card-title">アカウント</div>
-            <div class="settings-card-sub">Googleログインで、PCとiPhoneから同じデータを見る準備をします。既存データは消さずに引き継ぎます。</div>
+            <div class="settings-card-title">同期キー</div>
+            <div class="settings-card-sub">Googleログインを使わず、同じキーを入れた端末だけでTodo・クリップ・設定を共有します。</div>
           </div>
           <div>
             <div class="account-panel">
-              <div class="account-status" id="account-status" role="status" aria-live="polite">未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。</div>
-              <div class="account-actions">
-                <a class="save-btn" id="google-login-btn" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=settings" aria-describedby="account-status account-msg-text">Googleでログイン</a>
-                <button type="button" class="ghost-btn hidden" id="account-link-data-btn" aria-describedby="account-status account-msg-text">既存データを紐づけ</button>
-                <button type="button" class="ghost-btn hidden" id="account-logout-btn" aria-describedby="account-status">ログアウト</button>
+              <div>
+                <div class="account-status" id="account-status" role="status" aria-live="polite">同期キー未設定。この端末だけのデータとして保存しています。</div>
+                <div class="sync-key-help" id="sync-key-help">PCとiPhoneに同じ同期キーを入れると、同じクラウド保存先を使います。他人に見せない文字列にしてください。</div>
+              </div>
+              <div class="account-actions" aria-describedby="sync-key-help">
+                <div class="sync-key-form">
+                  <input id="sync-key-input" type="password" autocomplete="off" placeholder="同期キー" aria-label="同期キー" aria-describedby="sync-key-help account-msg-text">
+                  <button type="button" class="save-btn" id="sync-key-save-btn" aria-describedby="account-status account-msg-text">設定</button>
+                </div>
+                <button type="button" class="ghost-btn" id="sync-key-restore-btn" aria-describedby="account-status account-msg-text">復元</button>
+                <button type="button" class="ghost-btn hidden" id="sync-key-clear-btn" aria-describedby="account-status">解除</button>
               </div>
             </div>
             <div class="notice hidden" id="account-msg" role="status" aria-live="polite"><p id="account-msg-text"></p></div>
