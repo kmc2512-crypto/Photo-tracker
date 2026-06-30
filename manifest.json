@@ -36,6 +36,19 @@
       ]
     },
     {
+      "name": "Widget表示",
+      "short_name": "Widget",
+      "description": "iPhone向けのコンパクトTodoを開く",
+      "url": "./index.html?tab=widget",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
       "name": "ログを確認",
       "short_name": "ログ",
       "description": "写真ログ一覧を開く",

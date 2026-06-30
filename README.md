@@ -10,6 +10,16 @@
 4. 設定タブで通知を許可
 5. 設定タブでPCとiPhoneに同じ同期キーを入れる
 
+## iPhoneのTodo確認
+
+PWA単体ではiOSの本物のホーム画面ウィジェットは作れません。ホーム画面ウィジェットにするには、将来的にiOSネイティブアプリとWidgetKit拡張が必要です。
+
+今すぐ使う現実ルートとして、iPhone向けのコンパクトTodo画面を用意しています。
+
+- `https://kmc2512-crypto.github.io/Photo-tracker/?tab=widget`
+- 一覧表示とミニガント表示を切り替え可能
+- ホーム画面に追加したPWAやショートカットから開く
+
 ## 同期キー方式
 
 Google Cloud Consoleを使えない場合は、同期キー方式でPCとiPhoneのデータをそろえます。
