@@ -494,13 +494,14 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .milestone-form input{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:0 10px;height:40px}
 .milestone-note{font-size:10px;color:var(--fg6);line-height:1.7;margin-top:10px}
 .subtask-quick-form textarea{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:11px;min-height:40px;resize:vertical}
-.subtask-picker-field{min-width:0}
+.subtask-field,.subtask-picker-field{min-width:0;display:grid;gap:5px}
+.subtask-field-label{font-size:8px;color:var(--fg6);letter-spacing:.12em;line-height:1;text-transform:uppercase}
 .subtask-picker-field .custom-date-input,.subtask-picker-field .custom-time-input{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:0 10px;height:40px}
 .subtask-extra-fields,.subtask-edit-form{display:grid;grid-template-columns:minmax(0,1fr) 140px 112px;gap:8px;margin-top:8px}
 .subtask-extra-fields.hidden,.subtask-edit-form.hidden{display:none}
 .subtask-extra-fields input,.subtask-extra-fields textarea,.subtask-edit-form input,.subtask-edit-form textarea{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:11px;min-height:40px}
 .subtask-edit-form{grid-template-columns:minmax(0,1fr) 140px 112px;align-items:start;background:var(--bg2);border:1px solid var(--border);padding:10px}
-.subtask-edit-form textarea{grid-column:1 / -1}
+.subtask-edit-form .subtask-field.full{grid-column:1 / -1}
 .subtask-edit-form .save-btn{grid-column:1 / -1;justify-content:center}
 .priority-tag{font-size:9px;letter-spacing:.1em;border:1px solid var(--border2);padding:2px 6px;color:var(--fg5)}
 .priority-high{border-color:rgba(204,102,102,.55);color:var(--overdue)}

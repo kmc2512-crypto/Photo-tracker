@@ -2153,9 +2153,20 @@ function subtaskDateObject(subtask) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function createSubtaskField(labelText, control, options = {}) {
+  const wrap = el('label', 'subtask-field' + (options.full ? ' full' : ''));
+  const label = el('span', 'subtask-field-label');
+  label.textContent = labelText;
+  wrap.appendChild(label);
+  wrap.appendChild(control);
+  return wrap;
+}
+
 function createSubtaskDatePicker(value = '', label = 'サブタスクの期限日') {
   const id = createMilestoneId();
   const wrap = el('div', 'subtask-picker-field');
+  const fieldLabel = el('span', 'subtask-field-label');
+  fieldLabel.textContent = '期限日';
   const trigger = el('div', 'custom-date-input subtask-date-picker');
   trigger.id = 'subtask-date-' + id;
   trigger.dataset.target = 'subtask-date-hidden-' + id;
@@ -2179,6 +2190,7 @@ function createSubtaskDatePicker(value = '', label = 'サブタスクの期限�
     e.preventDefault();
     open();
   });
+  wrap.appendChild(fieldLabel);
   wrap.appendChild(trigger);
   wrap.appendChild(hidden);
   return { wrap, hidden };
@@ -2187,6 +2199,8 @@ function createSubtaskDatePicker(value = '', label = 'サブタスクの期限�
 function createSubtaskTimePicker(value = '', label = 'サブタスクの期限時刻') {
   const id = createMilestoneId();
   const wrap = el('div', 'subtask-picker-field');
+  const fieldLabel = el('span', 'subtask-field-label');
+  fieldLabel.textContent = '期限時刻';
   const trigger = el('div', 'custom-time-input subtask-time-picker');
   trigger.id = 'subtask-time-' + id;
   trigger.dataset.target = 'subtask-time-hidden-' + id;
@@ -2210,6 +2224,7 @@ function createSubtaskTimePicker(value = '', label = 'サブタスクの期限�
     e.preventDefault();
     open();
   });
+  wrap.appendChild(fieldLabel);
   wrap.appendChild(trigger);
   wrap.appendChild(hidden);
   return { wrap, hidden };
@@ -2393,10 +2408,10 @@ function renderTodoDetail(taskArg) {
         editForm.classList.toggle('hidden');
         if (!editForm.classList.contains('hidden')) editTitle.focus();
       });
-      editForm.appendChild(editTitle);
+      editForm.appendChild(createSubtaskField('サブタスク名', editTitle));
       editForm.appendChild(editDatePicker.wrap);
       editForm.appendChild(editTimePicker.wrap);
-      editForm.appendChild(editNote);
+      editForm.appendChild(createSubtaskField('メモ', editNote, { full: true }));
       editForm.appendChild(saveEdit);
       list.appendChild(editForm);
     });
@@ -2451,10 +2466,10 @@ function renderTodoDetail(taskArg) {
       e.preventDefault();
       addSubtask();
     });
-    form.appendChild(titleInput);
+    form.appendChild(createSubtaskField('サブタスク名', titleInput));
     form.appendChild(datePicker.wrap);
     form.appendChild(timePicker.wrap);
-    form.appendChild(noteInput);
+    form.appendChild(createSubtaskField('メモ', noteInput));
     form.appendChild(add);
     milestoneSection.appendChild(form);
   } else {
