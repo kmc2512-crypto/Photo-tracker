@@ -675,6 +675,7 @@ const state = {
   logLensFilter: 'all',
   logDeviceFilter: 'all',
   logCommentOnly: false,
+  widgetView: LS.get('widget_view') || 'list',
   toastTimer: null,
   titleTimer: null,
   fullBackupTimer: null,
@@ -725,7 +726,7 @@ function switchTab(tab) {
     b.classList.toggle('active', isActive);
     b.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
-  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
+  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-widget,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
   panel.classList.remove('hidden');
   if (tab === 'log') {
@@ -735,6 +736,10 @@ function switchTab(tab) {
   if (tab === 'todo') {
     renderTodo();
     // Todoタブを開くたびに他端末で追加されたタスクを取り込む
+    if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
+  }
+  if (tab === 'widget') {
+    renderTodoWidget();
     if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
   }
   if (tab === 'clip') {
@@ -768,8 +773,18 @@ qs('#email-logout-btn')?.addEventListener('click', logoutEmailAccount);
 qs('#email-password-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') signInWithEmail();
 });
+qs('#widget-list-btn')?.addEventListener('click', () => {
+  state.widgetView = 'list';
+  LS.set('widget_view', 'list');
+  renderTodoWidget();
+});
+qs('#widget-gantt-btn')?.addEventListener('click', () => {
+  state.widgetView = 'gantt';
+  LS.set('widget_view', 'gantt');
+  renderTodoWidget();
+});
 function getInitialTabFromUrl() {
-  const allowed = ['today','learn','plan','log','todo','timer','clip','settings','data'];
+  const allowed = ['today','learn','plan','log','todo','widget','timer','clip','settings','data'];
   const params = new URLSearchParams(location.search);
   const fromQuery = params.get('tab');
   const fromHash = location.hash ? location.hash.replace('#', '') : '';
@@ -1722,7 +1737,8 @@ function toggleTaskDone(k, t) {
     }
     if (t && !t._manual) removeExternalCompletedTaskId(k);
   }
-  renderTodo();
+  if (state.tab === 'widget') renderTodoWidget();
+  else renderTodo();
 }
 
 async function dismissTodoTask(k, t) {
@@ -1751,7 +1767,8 @@ async function dismissTodoTask(k, t) {
   delete state.tasksDone[k];
   LS.set('tasks_done', state.tasksDone);
   scheduleTaskNotifications();
-  renderTodo();
+  if (state.tab === 'widget') renderTodoWidget();
+  else renderTodo();
 }
 
 state.todoFilter = 'all';
@@ -1944,6 +1961,101 @@ function renderTodoDoneLog() {
     row.appendChild(right);
     wrap.appendChild(row);
   });
+}
+
+function getWidgetTasks() {
+  return getAllTasks()
+    .filter(t => t.due && !state.tasksDone[t.id || t.title + t.due])
+    .sort((a,b) => {
+      const pa = priorityRank(a.priority);
+      const pb = priorityRank(b.priority);
+      if (pa !== pb) return pb - pa;
+      return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+    })
+    .slice(0, 6);
+}
+
+function bindWidgetTaskToggle(row, key, task) {
+  row.setAttribute('role', 'button');
+  row.setAttribute('tabindex', '0');
+  row.setAttribute('aria-label', `${task.title || 'タスク'}を完了にする`);
+  row.addEventListener('click', () => toggleTaskDone(key, task));
+  row.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    toggleTaskDone(key, task);
+  });
+}
+
+function renderTodoWidget() {
+  const wrap = qs('#widget-content');
+  const count = qs('#widget-count');
+  if (!wrap) return;
+  const tasks = getWidgetTasks();
+  if (count) count.textContent = `${tasks.length} ACTIVE`;
+  qs('#widget-list-btn')?.classList.toggle('active', state.widgetView !== 'gantt');
+  qs('#widget-gantt-btn')?.classList.toggle('active', state.widgetView === 'gantt');
+  wrap.innerHTML = '';
+  if (!tasks.length) {
+    wrap.innerHTML = '<div class="widget-empty">表示する締め切りタスクがありません</div>';
+    return;
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const daysBetween = (a, b) => Math.round((a - b) / 86400000);
+  const toneForDays = days => days < 0 ? 'over' : days <= 2 ? 'hot' : days <= 7 ? 'warn' : '';
+  const dueLabel = days => days < 0 ? `${Math.abs(days)}日超過` : days === 0 ? '今日' : days === 1 ? '明日' : `${days}日`;
+
+  if (state.widgetView === 'gantt') {
+    const maxDays = Math.max(1, ...tasks.map(t => Math.max(0, daysBetween(new Date(t.due + 'T00:00:00'), today))));
+    const list = el('div', 'widget-gantt');
+    tasks.forEach(t => {
+      const k = t.id || t.title + t.due;
+      const due = new Date(t.due + 'T00:00:00');
+      const days = daysBetween(due, today);
+      const tone = toneForDays(days);
+      const row = el('div', 'widget-gantt-row');
+      const title = el('div', 'widget-gantt-title');
+      title.textContent = t.title || 'Untitled';
+      const rail = el('div', 'widget-gantt-rail');
+      const fill = el('div', 'widget-gantt-fill' + (tone ? ' ' + tone : ''));
+      fill.style.width = days < 0 ? '100%' : `${Math.max(8, Math.round(((maxDays - days + 1) / (maxDays + 1)) * 100))}%`;
+      rail.appendChild(fill);
+      const badge = el('div', 'widget-due' + (tone ? ' ' + tone : ''));
+      badge.textContent = dueLabel(days);
+      bindWidgetTaskToggle(row, k, t);
+      row.appendChild(title);
+      row.appendChild(rail);
+      row.appendChild(badge);
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+    return;
+  }
+
+  const list = el('div', 'widget-list');
+  tasks.forEach(t => {
+    const k = t.id || t.title + t.due;
+    const due = new Date(t.due + 'T00:00:00');
+    const days = daysBetween(due, today);
+    const tone = toneForDays(days);
+    const row = el('div', 'widget-task');
+    const cb = el('div', 'widget-check');
+    const main = el('div', 'widget-task-main');
+    const title = el('div', 'widget-task-title');
+    title.textContent = t.title || 'Untitled';
+    const meta = el('div', 'widget-task-meta');
+    meta.textContent = [t.subject, priorityLabel(t.priority), fmtFull(t.due)].filter(Boolean).join(' / ');
+    const badge = el('div', 'widget-due' + (tone ? ' ' + tone : ''));
+    badge.textContent = dueLabel(days);
+    bindWidgetTaskToggle(row, k, t);
+    main.appendChild(title);
+    main.appendChild(meta);
+    row.appendChild(cb);
+    row.appendChild(main);
+    row.appendChild(badge);
+    list.appendChild(row);
+  });
+  wrap.appendChild(list);
 }
 
 function renderGantt(tasks) {
@@ -4144,6 +4256,7 @@ async function syncSettingsFromSupabase() {
     if (localStr !== mergedStr) {
       LS.set('manual_tasks', merged);
       if (state.tab === 'todo') renderTodo();
+      if (state.tab === 'widget') renderTodoWidget();
     }
     // リモート側の内容（削除済みタスクが残っている等）が古ければ書き戻す
     const remoteStr = JSON.stringify(remoteTasks);
@@ -4166,6 +4279,7 @@ async function syncSettingsFromSupabase() {
       state.tasks = filterVisibleExternalTasks(remoteGasCache.tasks);
       LS.set('tasks_cache', {...remoteGasCache, tasks: state.tasks});
       if (state.tab === 'todo') renderTodo();
+      if (state.tab === 'widget') renderTodoWidget();
     }
   }
   scheduleTaskNotifications();

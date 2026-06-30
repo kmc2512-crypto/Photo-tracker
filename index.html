@@ -371,6 +371,33 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .app-toast.show{opacity:1;transform:translateY(0)}
 .app-toast-title{font-size:12px;font-weight:700;letter-spacing:.08em;margin-bottom:5px}
 .app-toast-body{font-size:12px;line-height:1.65;color:var(--bg2);white-space:pre-line}
+.widget-shell{max-width:460px;margin:0 auto}
+.widget-header{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:14px}
+.widget-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.widget-sub{font-size:9px;color:var(--fg6);letter-spacing:.15em;margin-top:4px;font-variant-numeric:tabular-nums}
+.widget-toggle{display:flex;border:1px solid var(--border2)}
+.widget-toggle button{height:32px;background:transparent;border:none;color:var(--fg5);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;padding:0 12px}
+.widget-toggle button.active{background:var(--fg);color:var(--bg)}
+.widget-list{display:grid;gap:8px}
+.widget-task{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;border-bottom:1px solid var(--border);padding:9px 0;min-height:44px}
+.widget-task,.widget-gantt-row{cursor:pointer}
+.widget-task:focus-visible,.widget-gantt-row:focus-visible{outline:1px solid var(--fg5);outline-offset:2px}
+.widget-check{width:18px;height:18px;border:1px solid var(--border3);display:flex;align-items:center;justify-content:center;color:var(--bg);background:transparent}
+.widget-check.done{background:var(--fg);border-color:var(--fg)}
+.widget-check.done::after{content:'✓';font-size:10px;font-weight:700}
+.widget-task-main{min-width:0}
+.widget-task-title{font-size:12px;color:var(--fg);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.widget-task-meta{font-size:9px;color:var(--fg5);letter-spacing:.06em;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.widget-due{font-size:10px;color:var(--fg4);font-variant-numeric:tabular-nums;white-space:nowrap}
+.widget-due.hot,.widget-due.over{color:var(--overdue)}
+.widget-gantt{display:grid;gap:9px}
+.widget-gantt-row{display:grid;grid-template-columns:minmax(112px,1fr) minmax(96px,42%) 54px;gap:8px;align-items:center;min-height:44px;border-bottom:1px solid var(--border)}
+.widget-gantt-title{font-size:11px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.widget-gantt-rail{position:relative;height:8px;background:var(--bg3);overflow:hidden}
+.widget-gantt-fill{position:absolute;left:0;top:0;bottom:0;background:#8c96a3;min-width:8px}
+.widget-gantt-fill.hot,.widget-gantt-fill.over{background:#cc3f4a}
+.widget-gantt-fill.warn{background:#c9a81a}
+.widget-empty{border:1px solid var(--border);padding:18px;text-align:center;color:var(--fg5);font-size:11px;line-height:1.8}
 .todo-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
 .todo-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:28px}
 .todo-add-form .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
@@ -612,6 +639,12 @@ input[type=time]{display:none}
   .notif-settings-head{flex-direction:column}
   .notif-actions{width:100%}
   .notif-actions .ghost-btn,.notif-actions .ghost-link{flex:1;justify-content:center}
+  .app-toast{top:calc(env(safe-area-inset-top,0px) + 6px);right:8px;left:auto;max-width:min(280px,calc(100vw - 16px));padding:9px 10px;box-shadow:0 8px 22px rgba(0,0,0,.28)}
+  .app-toast-title{font-size:10px;margin-bottom:2px;letter-spacing:.06em}
+  .app-toast-body{font-size:10px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .notif-banner{padding:9px 10px;gap:8px;margin-bottom:12px}
+  .notif-banner p{font-size:10px;line-height:1.45}
+  .notif-banner-btns .save-btn,.notif-banner-btns .ghost-btn{height:30px;min-width:60px;padding:0 10px;font-size:9px}
   .todo-header{flex-direction:column;gap:12px}
   .settings-grid{gap:28px}
   .settings-card-head{grid-template-columns:1fr;gap:14px}
@@ -630,6 +663,10 @@ input[type=time]{display:none}
   #tab-settings .notif-banner{flex-direction:column;align-items:stretch}
   #tab-settings .notif-banner-btns{width:100%}
   #tab-settings .notif-banner-btns .save-btn,#tab-settings .notif-banner-btns .ghost-btn{flex:1;justify-content:center}
+  .widget-shell{max-width:none}
+  .widget-header{align-items:flex-start;gap:10px}
+  .widget-title{font-size:20px}
+  .widget-gantt-row{grid-template-columns:minmax(112px,1fr) minmax(82px,38%) 48px}
   .week-card{padding:14px}
   .todo-filters{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .todo-filters::-webkit-scrollbar{display:none}
@@ -906,6 +943,23 @@ input[type=time]{display:none}
     </div>
   </div>
 
+  <!-- WIDGET -->
+  <div id="tab-widget" class="hidden" role="tabpanel" aria-labelledby="tab-btn-todo" tabindex="0">
+    <div class="widget-shell">
+      <div class="widget-header">
+        <div>
+          <div class="widget-title">Todo</div>
+          <div class="widget-sub" id="widget-count">0 ACTIVE</div>
+        </div>
+        <div class="widget-toggle" role="group" aria-label="ウィジェット表示">
+          <button type="button" id="widget-list-btn" class="active">LIST</button>
+          <button type="button" id="widget-gantt-btn">GANTT</button>
+        </div>
+      </div>
+      <div id="widget-content"></div>
+    </div>
+  </div>
+
   <!-- SETTINGS -->
   <div id="tab-settings" class="hidden" role="tabpanel" aria-labelledby="tab-btn-settings" tabindex="0">
     <div class="log-header">
@@ -968,6 +1022,7 @@ input[type=time]{display:none}
             <div class="install-links">
               <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=today">今日</a>
               <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=todo">Todo</a>
+              <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=widget">Widget</a>
               <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=log">ログ</a>
             </div>
           </div>
