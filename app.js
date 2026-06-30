@@ -149,6 +149,7 @@ function setAccountMessage(message, isError = false) {
 }
 
 function startGoogleLogin() {
+  const status = qs('#account-status');
   if (location.protocol === 'file:') {
     setAccountMessage('Googleログインは file 表示では開始できません。localhost か GitHub Pages で開いてから押してください。', true);
     return;
@@ -156,8 +157,10 @@ function startGoogleLogin() {
   const loginBtn = qs('#google-login-btn');
   if (loginBtn) {
     loginBtn.disabled = true;
+    loginBtn.setAttribute('aria-busy', 'true');
     loginBtn.textContent = '接続中...';
   }
+  if (status) status.textContent = 'Googleログイン画面を開いています。';
   setAccountMessage('Googleログイン画面へ移動します。もしSupabase側でGoogle Providerが未有効の場合は、管理画面でProviderを有効化してください。');
   const redirectTo = getAuthRedirectUrl();
   const url = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
@@ -216,6 +219,7 @@ function updateAccountStatus() {
     setAccountMessage('');
     status.innerHTML = `<strong>${userLabel}</strong><br>ログイン済み。既存データはまだ消さずに、この端末のデータとして保持しています。`;
     loginBtn?.classList.add('hidden');
+    loginBtn?.removeAttribute('aria-busy');
     logoutBtn?.classList.remove('hidden');
     linkBtn?.classList.remove('hidden');
     if (linked?.userId === session.user?.id) {
@@ -226,6 +230,7 @@ function updateAccountStatus() {
     loginBtn?.classList.remove('hidden');
     if (loginBtn) {
       loginBtn.disabled = false;
+      loginBtn.removeAttribute('aria-busy');
       loginBtn.textContent = 'Googleでログイン';
     }
     logoutBtn?.classList.add('hidden');

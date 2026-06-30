@@ -907,14 +907,14 @@ input[type=time]{display:none}
           </div>
           <div>
             <div class="account-panel">
-              <div class="account-status" id="account-status">未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。</div>
+              <div class="account-status" id="account-status" role="status" aria-live="polite">未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。</div>
               <div class="account-actions">
-                <button class="save-btn" id="google-login-btn">Googleでログイン</button>
-                <button class="ghost-btn hidden" id="account-link-data-btn">既存データを紐づけ</button>
-                <button class="ghost-btn hidden" id="account-logout-btn">ログアウト</button>
+                <button type="button" class="save-btn" id="google-login-btn" aria-describedby="account-status account-msg-text">Googleでログイン</button>
+                <button type="button" class="ghost-btn hidden" id="account-link-data-btn" aria-describedby="account-status account-msg-text">既存データを紐づけ</button>
+                <button type="button" class="ghost-btn hidden" id="account-logout-btn" aria-describedby="account-status">ログアウト</button>
               </div>
             </div>
-            <div class="notice hidden" id="account-msg"><p></p></div>
+            <div class="notice hidden" id="account-msg" role="status" aria-live="polite"><p id="account-msg-text"></p></div>
           </div>
         </div>
       </section>
