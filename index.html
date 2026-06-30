@@ -327,6 +327,15 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .sync-health-item{border:1px solid var(--border);padding:10px 12px}
 .sync-health-label{font-size:8px;letter-spacing:.18em;color:var(--fg6);margin-bottom:6px}
 .sync-health-value{font-size:10px;line-height:1.6;color:var(--fg4);letter-spacing:.04em}
+.account-panel{border:1px solid var(--border);padding:14px 16px;margin-top:14px}
+.account-status{font-size:11px;color:var(--fg4);line-height:1.8;text-wrap:pretty}
+.account-status strong{color:var(--fg)}
+.account-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.install-steps{display:grid;gap:8px;margin-top:14px}
+.install-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;border-top:1px solid var(--border);padding-top:10px}
+.install-step-no{font-family:'DM Mono',monospace;font-size:10px;color:var(--fg);font-variant-numeric:tabular-nums}
+.install-step-text{font-size:11px;color:var(--fg4);line-height:1.75;text-wrap:pretty}
+.install-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .repeat-row{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin:14px 0 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .repeat-row select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:150px}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -595,6 +604,8 @@ input[type=time]{display:none}
   .settings-card-head{grid-template-columns:1fr;gap:14px}
   .settings-actions{grid-template-columns:1fr}
   .sync-health{grid-template-columns:1fr}
+  .account-actions,.install-links{flex-direction:column}
+  .account-actions .ghost-btn,.account-actions .save-btn,.install-links .ghost-link{width:100%;justify-content:center}
   .repeat-row{align-items:stretch}
   .repeat-row select{width:100%}
   #tab-settings .notif-settings-head{grid-template-columns:1fr}
@@ -884,6 +895,47 @@ input[type=time]{display:none}
       <p>SYNC / NOTIFICATION</p>
     </div>
     <div class="settings-grid">
+      <section class="settings-card">
+        <div class="settings-card-head">
+          <div>
+            <div class="settings-card-title">アカウント</div>
+            <div class="settings-card-sub">Googleログインで、PCとiPhoneから同じデータを見る準備をします。既存データは消さずに引き継ぎます。</div>
+          </div>
+          <div>
+            <div class="account-panel">
+              <div class="account-status" id="account-status">ログイン状態を確認中...</div>
+              <div class="account-actions">
+                <button class="save-btn" id="google-login-btn">Googleでログイン</button>
+                <button class="ghost-btn hidden" id="account-link-data-btn">既存データを紐づけ</button>
+                <button class="ghost-btn hidden" id="account-logout-btn">ログアウト</button>
+              </div>
+            </div>
+            <div class="notice hidden" id="account-msg"><p></p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-head">
+          <div>
+            <div class="settings-card-title">iPhoneで使う</div>
+            <div class="settings-card-sub">無料で実用化するなら、App Storeではなくホーム画面追加のPWA運用が現実的です。</div>
+          </div>
+          <div>
+            <div class="install-steps">
+              <div class="install-step"><div class="install-step-no">01</div><div class="install-step-text">GitHub Pagesで開きます。file表示では通知・PWAが不安定です。</div></div>
+              <div class="install-step"><div class="install-step-no">02</div><div class="install-step-text">iPhoneの共有ボタンから「ホーム画面に追加」を選びます。</div></div>
+              <div class="install-step"><div class="install-step-no">03</div><div class="install-step-text">ホーム画面のPhoto Trackerから開き、通知を許可します。</div></div>
+            </div>
+            <div class="install-links">
+              <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=today">今日</a>
+              <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=todo">Todo</a>
+              <a class="ghost-link" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=log">ログ</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="settings-card">
         <div class="settings-card-head">
           <div>

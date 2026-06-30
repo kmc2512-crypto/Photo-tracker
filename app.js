@@ -77,7 +77,7 @@ const LS = {
 
 window.PTR_BACKUP_KEYS = new Set([
   'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','external_tasks_completed','script_url',
-  'clips','clips_deleted','timer_log_today','todo_done_log','notif','notif_leads'
+  'clips','clips_deleted','timer_log_today','todo_done_log','notif','notif_leads','auth_session','account_link'
 ]);
 
 function setSyncHealth(patch) {
@@ -116,6 +116,112 @@ function updateSyncHealth() {
 const SB_URL = 'https://eskeovyymgferdbqotti.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVza2Vvdnl5bWdmZXJkYnFvdHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODE1MzksImV4cCI6MjA5NTg1NzUzOX0.y22KuSGf7nKzYlGxDU-K4ryoB7xLAXGoJALHji_t0Eg';
 const SB_HEADERS = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+const AUTH_STORAGE_KEY = 'auth_session';
+
+function getAuthSession() {
+  return LS.get(AUTH_STORAGE_KEY);
+}
+
+function setAuthSession(session) {
+  if (session) LS.set(AUTH_STORAGE_KEY, session);
+  else localStorage.removeItem('ptr_' + AUTH_STORAGE_KEY);
+}
+
+function getAuthRedirectUrl() {
+  const url = new URL(location.href);
+  url.search = '?tab=settings';
+  url.hash = '';
+  return url.toString();
+}
+
+function startGoogleLogin() {
+  const redirectTo = getAuthRedirectUrl();
+  const url = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  location.href = url;
+}
+
+async function fetchAuthUser(accessToken) {
+  if (!accessToken) return null;
+  try {
+    const res = await fetch(SB_URL + '/auth/v1/user', {
+      headers: {
+        apikey: SB_KEY,
+        Authorization: 'Bearer ' + accessToken,
+      }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch(e) {
+    return null;
+  }
+}
+
+async function captureAuthFromUrl() {
+  const hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const accessToken = hash.get('access_token');
+  if (!accessToken) return;
+  const expiresIn = Number(hash.get('expires_in') || 3600);
+  const user = await fetchAuthUser(accessToken);
+  setAuthSession({
+    accessToken,
+    refreshToken: hash.get('refresh_token') || '',
+    expiresAt: Date.now() + expiresIn * 1000,
+    user,
+    signedInAt: new Date().toISOString(),
+  });
+  history.replaceState(null, '', getAuthRedirectUrl());
+  showToast('ログインしました', 'Googleアカウントを確認しました。既存データの紐づけ準備ができます。');
+}
+
+function getAuthUserLabel(session = getAuthSession()) {
+  const user = session?.user;
+  return user?.email || user?.user_metadata?.email || user?.user_metadata?.full_name || user?.id || '';
+}
+
+function updateAccountStatus() {
+  const status = qs('#account-status');
+  if (!status) return;
+  const session = getAuthSession();
+  const loginBtn = qs('#google-login-btn');
+  const logoutBtn = qs('#account-logout-btn');
+  const linkBtn = qs('#account-link-data-btn');
+  const userLabel = getAuthUserLabel(session);
+  const linked = LS.get('account_link') || null;
+
+  if (session && userLabel) {
+    status.innerHTML = `<strong>${userLabel}</strong><br>ログイン済み。既存データはまだ消さずに、この端末のデータとして保持しています。`;
+    loginBtn?.classList.add('hidden');
+    logoutBtn?.classList.remove('hidden');
+    linkBtn?.classList.remove('hidden');
+    if (linked?.userId === session.user?.id) {
+      status.innerHTML = `<strong>${userLabel}</strong><br>この端末の既存データをこのGoogleアカウントに紐づけ済みです。`;
+    }
+  } else {
+    status.textContent = '未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。';
+    loginBtn?.classList.remove('hidden');
+    logoutBtn?.classList.add('hidden');
+    linkBtn?.classList.add('hidden');
+  }
+}
+
+async function linkExistingDataToAccount() {
+  const session = getAuthSession();
+  if (!session?.user?.id) {
+    showToast('ログインが必要です', '先にGoogleでログインしてください。');
+    return;
+  }
+  const link = {
+    userId: session.user.id,
+    email: getAuthUserLabel(session),
+    linkedAt: new Date().toISOString(),
+    migration: 'local-data-preserved',
+  };
+  LS.set('account_link', link);
+  await SB.setSetting('account_link', link);
+  await writeFullBackupToCloud('account-link');
+  updateAccountStatus();
+  showToast('紐づけました', '既存データを残したまま、このGoogleアカウントへの移行準備を保存しました。');
+}
 
 const SB = {
   // メタデータをupsert（SAVE時）
@@ -454,6 +560,7 @@ function switchTab(tab) {
   if (tab === 'settings') {
     if (typeof updateNotificationStatus === 'function') updateNotificationStatus();
     if (typeof updateSyncHealth === 'function') updateSyncHealth();
+    if (typeof updateAccountStatus === 'function') updateAccountStatus();
     if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
   }
   if (tab === 'data') {
@@ -463,6 +570,13 @@ function switchTab(tab) {
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
+qs('#google-login-btn')?.addEventListener('click', startGoogleLogin);
+qs('#account-logout-btn')?.addEventListener('click', () => {
+  setAuthSession(null);
+  updateAccountStatus();
+  showToast('ログアウトしました', 'この端末の保存データは残っています。');
+});
+qs('#account-link-data-btn')?.addEventListener('click', linkExistingDataToAccount);
 
 function getInitialTabFromUrl() {
   const allowed = ['today','learn','plan','log','todo','timer','clip','settings','data'];
@@ -476,6 +590,7 @@ function getInitialTabFromUrl() {
 
 const initialTab = getInitialTabFromUrl();
 if (initialTab && initialTab !== 'today') switchTab(initialTab);
+captureAuthFromUrl().then(updateAccountStatus);
 
 // ── 日付表示＋ストリーク ──────────────────────
 (function() {
@@ -2915,6 +3030,7 @@ function createFullBackupPayload(reason = 'manual') {
     todoDoneLog: LS.get('todo_done_log') || [],
     notif: LS.get('notif') || '',
     notifLeads: LS.get('notif_leads') || getNotifLeads(),
+    accountLink: LS.get('account_link') || null,
     syncHealth: LS.get('sync_health') || {},
     learnData: collectLearnData(),
   };
@@ -2935,6 +3051,7 @@ function applyFullBackupPayload(data) {
   if (data.todoDoneLog) LS.set('todo_done_log', data.todoDoneLog);
   if (data.notif) LS.set('notif', data.notif);
   if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
+  if (data.accountLink) LS.set('account_link', data.accountLink);
   if (data.syncHealth) LS.set('sync_health', data.syncHealth);
   if (data.learnData) Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
 }
