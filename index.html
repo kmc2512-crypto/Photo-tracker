@@ -399,9 +399,12 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .widget-gantt-fill.warn{background:#c9a81a}
 .widget-empty{border:1px solid var(--border);padding:18px;text-align:center;color:var(--fg5);font-size:11px;line-height:1.8}
 .todo-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.todo-subtitle{font-size:10px;color:var(--fg5);letter-spacing:.05em;line-height:1.8;margin-top:10px;max-width:620px;text-wrap:pretty}
 .todo-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:28px}
 .todo-add-form .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .todo-add-form input[type=text]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;flex:1;min-width:140px}
+.todo-form-msg{border:1px solid var(--border);color:var(--fg4);font-size:10px;letter-spacing:.04em;line-height:1.7;padding:9px 10px;margin:0 0 14px;background:var(--bg)}
+.todo-form-msg.warn{border-color:rgba(255,96,96,.45);color:var(--overdue)}
 .todo-add-form input[type=date]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;width:140px;color:var(--fg);background:transparent;font-variant-numeric:tabular-nums}
 .todo-add-form input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.6)}
 .todo-add-form select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:120px}
@@ -415,6 +418,11 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-filter-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:0 14px;height:32px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
 .todo-filter-btn.active{background:var(--fg);color:var(--bg)}
 .todo-filter-btn:active{opacity:.8}
+.todo-empty-state{border:1px solid var(--border);background:var(--bg2);padding:18px;margin-bottom:18px}
+.todo-empty-title{font-size:13px;color:var(--fg);font-weight:700;margin-bottom:8px}
+.todo-empty-copy{font-size:10px;color:var(--fg5);line-height:1.8;letter-spacing:.04em;max-width:620px}
+.todo-empty-steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.todo-empty-step{border:1px solid var(--border2);color:var(--fg4);font-size:9px;letter-spacing:.08em;padding:7px 10px}
 .priority-tag{font-size:9px;letter-spacing:.1em;border:1px solid var(--border2);padding:2px 6px;color:var(--fg5)}
 .priority-high{border-color:rgba(204,102,102,.55);color:var(--overdue)}
 .priority-low{color:var(--fg6)}
@@ -823,14 +831,16 @@ input[type=time]{display:none}
       <div>
         <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">Todo</div>
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px" id="todo-count" aria-live="polite">0 TASKS</div>
+        <div class="todo-subtitle">課題・予定の締切、期間、完了状態をまとめて確認します。追加したタスクはリストとDeadline Timelineに反映されます。</div>
       </div>
     </div>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">
       <div class="lbl" style="margin-bottom:12px" id="todo-form-heading">タスクを追加</div>
+      <div class="todo-form-msg hidden" id="todo-form-msg" role="status" aria-live="polite"></div>
       <!-- タスク名・カテゴリ -->
       <div class="form-row" style="margin-bottom:14px">
-        <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名">
+        <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名" aria-describedby="todo-form-msg">
         <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:180px" aria-label="科目・カテゴリ">
         <div class="priority-select">
           <select id="todo-priority-input" class="priority-native" aria-label="優先度">

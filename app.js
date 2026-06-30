@@ -915,6 +915,7 @@ function confirmAction({ title = '確認', body = '', okText = '実行' }) {
     const modal = qs('#confirm-modal');
     const ok = qs('#confirm-ok-btn');
     const cancel = qs('#confirm-cancel-btn');
+    const previousFocus = document.activeElement;
     qs('#confirm-title').textContent = title;
     qs('#confirm-body').textContent = body;
     ok.textContent = okText;
@@ -924,14 +925,21 @@ function confirmAction({ title = '確認', body = '', okText = '実行' }) {
       ok.removeEventListener('click', onOk);
       cancel.removeEventListener('click', onCancel);
       modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeydown);
+      if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
       resolve(result);
     };
     const onOk = () => close(true);
     const onCancel = () => close(false);
     const onBackdrop = e => { if (e.target === modal) close(false); };
+    const onKeydown = e => {
+      if (e.key === 'Escape') close(false);
+    };
     ok.addEventListener('click', onOk);
     cancel.addEventListener('click', onCancel);
     modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeydown);
+    setTimeout(() => cancel.focus(), 0);
   });
 }
 
@@ -1771,6 +1779,20 @@ async function dismissTodoTask(k, t) {
   else renderTodo();
 }
 
+async function confirmDismissTodoTask(k, t) {
+  const isExternal = t && !t._manual;
+  const ok = await confirmAction({
+    title: isExternal ? '同期タスクを非表示にしますか？' : 'タスクを削除しますか？',
+    body: isExternal
+      ? 'Classroom/GASから同期したタスクをこのアプリ上で非表示にします。再同期しても戻らないように記録します。'
+      : 'このタスクを一覧から削除します。同期済みの場合も、あとで復活しないように削除済みとして記録します。',
+    okText: isExternal ? '非表示にする' : '削除する'
+  });
+  if (!ok) return;
+  await dismissTodoTask(k, t);
+  setTodoFormMessage(isExternal ? '同期タスクを非表示にしました。' : 'タスクを削除しました。');
+}
+
 state.todoFilter = 'all';
 state.todoView = 'list';
 state.todoPeriod = 'all';
@@ -1789,6 +1811,27 @@ function getDeadlineLimit(period) {
     const end = new Date(today); end.setDate(end.getDate() + 30); return end;
   }
   return null;
+}
+
+function renderTodoEmptyState(list, allTasks) {
+  const isFirstTask = allTasks.length === 0;
+  const box = el('div', 'todo-empty-state');
+  const title = el('div', 'todo-empty-title');
+  title.textContent = isFirstTask ? '最初のタスクを追加しましょう' : '条件に合うタスクがありません';
+  const copy = el('div', 'todo-empty-copy');
+  copy.textContent = isFirstTask
+    ? 'タスク名と締め切り日を入れて「追加」を押すと、リストとDeadline Timelineに表示されます。時刻やカテゴリはあとからでも大丈夫です。'
+    : 'フィルタや期間を変えると、隠れているタスクが表示される場合があります。新しい予定は上のフォームから追加できます。';
+  const steps = el('div', 'todo-empty-steps');
+  (isFirstTask ? ['タスク名', '締め切り日', '追加'] : ['すべて', '全期間', '未完了']).forEach(text => {
+    const item = el('span', 'todo-empty-step');
+    item.textContent = text;
+    steps.appendChild(item);
+  });
+  box.appendChild(title);
+  box.appendChild(copy);
+  box.appendChild(steps);
+  list.appendChild(box);
 }
 
 function renderTodo() {
@@ -1823,7 +1866,7 @@ function renderTodo() {
     const list = qs('#todo-list');
     list.innerHTML = '';
     if (filtered.length === 0) {
-      list.innerHTML = '<div class="log-empty">タスクがありません</div>';
+      renderTodoEmptyState(list, allTasks);
       renderTodoDoneLog();
       return;
     }
@@ -1897,10 +1940,10 @@ function renderTodo() {
         meta.appendChild(edit);
       }
       const del = el('button', 'clip-del-btn');
-      del.textContent = done ? '消す' : '削除';
+      del.textContent = done ? '消す' : t._manual ? '削除' : '非表示';
       if (!t._manual) del.title = 'Classroom/GAS同期後も戻らないように非表示にします';
       if (!t._manual && !t._repeatInstance && !t._sourceTask) del.style.marginLeft = 'auto';
-      del.addEventListener('click', () => dismissTodoTask(k, t));
+      del.addEventListener('click', () => confirmDismissTodoTask(k, t));
       meta.appendChild(del);
       info.appendChild(title); info.appendChild(meta);
       row.appendChild(cb); row.appendChild(info);
@@ -1928,6 +1971,20 @@ function setPriorityValue(priority) {
   const value = ['high', 'normal', 'low'].includes(priority) ? priority : 'normal';
   const input = qs('#todo-priority-input');
   if (input) input.value = value;
+}
+
+function setTodoFormMessage(message, isError = false) {
+  const msg = qs('#todo-form-msg');
+  if (!msg) return;
+  if (!message) {
+    msg.textContent = '';
+    msg.classList.add('hidden');
+    msg.classList.remove('warn');
+    return;
+  }
+  msg.textContent = message;
+  msg.classList.remove('hidden');
+  msg.classList.toggle('warn', isError);
 }
 
 function recordCompletedTask(t) {
@@ -2307,6 +2364,10 @@ qs('#todo-view-gantt-btn').addEventListener('click', () => {
 });
 
 setPriorityValue(qs('#todo-priority-input')?.value || 'normal');
+qs('#todo-title-input')?.addEventListener('input', () => {
+  qs('#todo-title-input').removeAttribute('aria-invalid');
+  qs('#todo-form-msg')?.classList.contains('warn') && setTodoFormMessage('');
+});
 
 // 日付タイプ切り替え
 state.todoDateType = 'deadline';
@@ -2324,7 +2385,14 @@ document.querySelectorAll('[data-datetype]').forEach(b => {
 // 手動タスク追加・編集（state.editingTaskIdがあれば編集モード）
 qs('#todo-add-btn').addEventListener('click', () => {
   const title = qs('#todo-title-input').value.trim();
-  if (!title) { qs('#todo-title-input').focus(); return; }
+  if (!title) {
+    const input = qs('#todo-title-input');
+    input.setAttribute('aria-invalid', 'true');
+    setTodoFormMessage('タスク名を入力してください。締め切りやカテゴリはあとからでも編集できます。', true);
+    input.focus();
+    return;
+  }
+  qs('#todo-title-input').removeAttribute('aria-invalid');
 
   const manual = LS.get('manual_tasks') || [];
   const isEditing = !!state.editingTaskId;
@@ -2374,6 +2442,7 @@ qs('#todo-add-btn').addEventListener('click', () => {
 
   exitEditMode();
   renderTodo();
+  setTodoFormMessage(isEditing ? `更新しました: ${task.title}` : `追加しました: ${task.title}`);
 });
 
 // 編集モード開始
