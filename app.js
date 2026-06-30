@@ -77,7 +77,7 @@ const LS = {
 
 window.PTR_BACKUP_KEYS = new Set([
   'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','external_tasks_completed','script_url',
-  'clips','clips_deleted','timer_log_today','todo_done_log','notif','notif_leads','auth_session','account_link'
+  'clips','clips_deleted','timer_log_today','todo_done_log','notif','notif_leads','auth_session'
 ]);
 
 function setSyncHealth(patch) {
@@ -167,31 +167,6 @@ function setAuthSession(session) {
   else localStorage.removeItem('ptr_' + AUTH_STORAGE_KEY);
 }
 
-function getAuthRedirectUrl() {
-  const url = new URL(location.href);
-  url.search = '?tab=settings';
-  url.hash = '';
-  return url.toString();
-}
-
-function getPublicSettingsUrl() {
-  return 'https://kmc2512-crypto.github.io/Photo-tracker/?tab=settings';
-}
-
-function getGoogleAuthUrl(redirectTo = getAuthRedirectUrl()) {
-  return `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
-}
-
-function prepareGoogleLoginLink() {
-  const loginLink = qs('#google-login-btn');
-  if (!loginLink) return;
-  const targetUrl = location.protocol === 'file:'
-    ? getPublicSettingsUrl()
-    : getGoogleAuthUrl();
-  loginLink.setAttribute('href', targetUrl);
-  loginLink.setAttribute('rel', 'noopener');
-}
-
 function setAccountMessage(message, isError = false) {
   const wrap = qs('#account-msg');
   const text = wrap?.querySelector('p');
@@ -204,42 +179,6 @@ function setAccountMessage(message, isError = false) {
   text.textContent = message;
   wrap.classList.remove('hidden');
   wrap.classList.toggle('warn', isError);
-}
-
-function startGoogleLogin(event) {
-  event?.preventDefault();
-  const status = qs('#account-status');
-  const loginLink = qs('#google-login-btn');
-  if (location.protocol === 'file:') {
-    if (status) status.textContent = 'GitHub Pagesでログイン画面を開きます。';
-    setAccountMessage('Googleログインは file 表示では開始できないため、GitHub Pagesの設定画面へ移動します。', true);
-    setTimeout(() => location.assign(getPublicSettingsUrl()), 120);
-    return;
-  }
-  if (loginLink) {
-    loginLink.setAttribute('aria-disabled', 'true');
-    loginLink.setAttribute('aria-busy', 'true');
-    loginLink.textContent = '接続中...';
-  }
-  if (status) status.textContent = 'Googleログイン画面を開いています。';
-  setAccountMessage('Googleログイン画面へ移動します。もしSupabase側でGoogle Providerが未有効の場合は、管理画面でProviderを有効化してください。');
-  setTimeout(() => location.assign(getGoogleAuthUrl()), 120);
-}
-
-async function fetchAuthUser(accessToken) {
-  if (!accessToken) return null;
-  try {
-    const res = await fetch(SB_URL + '/auth/v1/user', {
-      headers: {
-        apikey: SB_KEY,
-        Authorization: 'Bearer ' + accessToken,
-      }
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch(e) {
-    return null;
-  }
 }
 
 function buildAuthSessionFromResponse(data) {
@@ -365,23 +304,6 @@ async function logoutEmailAccount() {
   setAccountMessage('ログアウトしました。同期キー方式は引き続き使えます。');
 }
 
-async function captureAuthFromUrl() {
-  const hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
-  const accessToken = hash.get('access_token');
-  if (!accessToken) return;
-  const expiresIn = Number(hash.get('expires_in') || 3600);
-  const user = await fetchAuthUser(accessToken);
-  setAuthSession({
-    accessToken,
-    refreshToken: hash.get('refresh_token') || '',
-    expiresAt: Date.now() + expiresIn * 1000,
-    user,
-    signedInAt: new Date().toISOString(),
-  });
-  history.replaceState(null, '', getAuthRedirectUrl());
-  showToast('ログインしました', 'Googleアカウントを確認しました。既存データの紐づけ準備ができます。');
-}
-
 function getAuthUserLabel(session = getAuthSession()) {
   const user = session?.user;
   return user?.email || user?.user_metadata?.email || user?.user_metadata?.full_name || user?.id || '';
@@ -481,25 +403,6 @@ function clearSyncKey() {
   localStorage.removeItem('ptr_' + SYNC_KEY_STORAGE_KEY);
   updateAccountStatus();
   setAccountMessage('同期キーをこの端末から解除しました。端末内のデータは消していません。');
-}
-
-async function linkExistingDataToAccount() {
-  const session = getAuthSession();
-  if (!session?.user?.id) {
-    showToast('ログインが必要です', '先にGoogleでログインしてください。');
-    return;
-  }
-  const link = {
-    userId: session.user.id,
-    email: getAuthUserLabel(session),
-    linkedAt: new Date().toISOString(),
-    migration: 'local-data-preserved',
-  };
-  LS.set('account_link', link);
-  await SB.setSetting('account_link', link);
-  await writeFullBackupToCloud('account-link');
-  updateAccountStatus();
-  showToast('紐づけました', '既存データを残したまま、このGoogleアカウントへの移行準備を保存しました。');
 }
 
 const SB = {
@@ -851,8 +754,6 @@ function switchTab(tab) {
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
-prepareGoogleLoginLink();
-qs('#google-login-btn')?.addEventListener('click', startGoogleLogin);
 qs('#sync-key-save-btn')?.addEventListener('click', saveSyncKeyFromInput);
 qs('#sync-key-restore-btn')?.addEventListener('click', restoreFromSyncKey);
 qs('#sync-key-clear-btn')?.addEventListener('click', clearSyncKey);
@@ -867,13 +768,6 @@ qs('#email-logout-btn')?.addEventListener('click', logoutEmailAccount);
 qs('#email-password-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') signInWithEmail();
 });
-qs('#account-logout-btn')?.addEventListener('click', () => {
-  setAuthSession(null);
-  updateAccountStatus();
-  showToast('ログアウトしました', 'この端末の保存データは残っています。');
-});
-qs('#account-link-data-btn')?.addEventListener('click', linkExistingDataToAccount);
-
 function getInitialTabFromUrl() {
   const allowed = ['today','learn','plan','log','todo','timer','clip','settings','data'];
   const params = new URLSearchParams(location.search);
@@ -886,7 +780,7 @@ function getInitialTabFromUrl() {
 
 const initialTab = getInitialTabFromUrl();
 if (initialTab && initialTab !== 'today') switchTab(initialTab);
-captureAuthFromUrl().then(updateAccountStatus);
+updateAccountStatus();
 
 // ── 日付表示＋ストリーク ──────────────────────
 (function() {
@@ -3326,7 +3220,6 @@ function createFullBackupPayload(reason = 'manual') {
     todoDoneLog: LS.get('todo_done_log') || [],
     notif: LS.get('notif') || '',
     notifLeads: LS.get('notif_leads') || getNotifLeads(),
-    accountLink: LS.get('account_link') || null,
     authSession: getAuthSession() ? {
       user: getAuthSession().user,
       signedInAt: getAuthSession().signedInAt,
@@ -3353,7 +3246,6 @@ function applyFullBackupPayload(data) {
   if (data.todoDoneLog) LS.set('todo_done_log', data.todoDoneLog);
   if (data.notif) LS.set('notif', data.notif);
   if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
-  if (data.accountLink) LS.set('account_link', data.accountLink);
   if (data.syncKey?.id) LS.set(SYNC_KEY_STORAGE_KEY, data.syncKey);
   if (data.syncHealth) LS.set('sync_health', data.syncHealth);
   if (data.learnData) Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
