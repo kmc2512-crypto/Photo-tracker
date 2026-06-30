@@ -112,7 +112,7 @@ button{cursor:pointer}
 .pb-fill{height:2px;background:var(--fg);transition:width .4s cubic-bezier(.4,0,.2,1)}
 .pb-label{font-size:9px;color:var(--fg6);letter-spacing:.1em;margin-top:5px;font-variant-numeric:tabular-nums}
 .pb-arrow{font-size:11px;color:var(--fg6);letter-spacing:.08em;flex-shrink:0}
-.save-btn{background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:0 20px;height:40px;display:inline-flex;align-items:center;transition:opacity .15s,transform .1s}
+.save-btn{background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:0 20px;height:40px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;transition:opacity .15s,transform .1s}
 .save-btn:hover{opacity:.85}
 .save-btn:active{transform:scale(0.96)}
 .saved-msg{font-size:10px;color:var(--fg5);letter-spacing:.1em}
@@ -909,7 +909,7 @@ input[type=time]{display:none}
             <div class="account-panel">
               <div class="account-status" id="account-status" role="status" aria-live="polite">未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。</div>
               <div class="account-actions">
-                <button type="button" class="save-btn" id="google-login-btn" aria-describedby="account-status account-msg-text">Googleでログイン</button>
+                <a class="save-btn" id="google-login-btn" href="https://kmc2512-crypto.github.io/Photo-tracker/?tab=settings" aria-describedby="account-status account-msg-text">Googleでログイン</a>
                 <button type="button" class="ghost-btn hidden" id="account-link-data-btn" aria-describedby="account-status account-msg-text">既存データを紐づけ</button>
                 <button type="button" class="ghost-btn hidden" id="account-logout-btn" aria-describedby="account-status">ログアウト</button>
               </div>

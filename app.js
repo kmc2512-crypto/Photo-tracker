@@ -134,6 +134,24 @@ function getAuthRedirectUrl() {
   return url.toString();
 }
 
+function getPublicSettingsUrl() {
+  return 'https://kmc2512-crypto.github.io/Photo-tracker/?tab=settings';
+}
+
+function getGoogleAuthUrl(redirectTo = getAuthRedirectUrl()) {
+  return `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+}
+
+function prepareGoogleLoginLink() {
+  const loginLink = qs('#google-login-btn');
+  if (!loginLink) return;
+  const targetUrl = location.protocol === 'file:'
+    ? getPublicSettingsUrl()
+    : getGoogleAuthUrl();
+  loginLink.setAttribute('href', targetUrl);
+  loginLink.setAttribute('rel', 'noopener');
+}
+
 function setAccountMessage(message, isError = false) {
   const wrap = qs('#account-msg');
   const text = wrap?.querySelector('p');
@@ -148,23 +166,24 @@ function setAccountMessage(message, isError = false) {
   wrap.classList.toggle('warn', isError);
 }
 
-function startGoogleLogin() {
+function startGoogleLogin(event) {
+  event?.preventDefault();
   const status = qs('#account-status');
+  const loginLink = qs('#google-login-btn');
   if (location.protocol === 'file:') {
-    setAccountMessage('Googleログインは file 表示では開始できません。localhost か GitHub Pages で開いてから押してください。', true);
+    if (status) status.textContent = 'GitHub Pagesでログイン画面を開きます。';
+    setAccountMessage('Googleログインは file 表示では開始できないため、GitHub Pagesの設定画面へ移動します。', true);
+    setTimeout(() => location.assign(getPublicSettingsUrl()), 120);
     return;
   }
-  const loginBtn = qs('#google-login-btn');
-  if (loginBtn) {
-    loginBtn.disabled = true;
-    loginBtn.setAttribute('aria-busy', 'true');
-    loginBtn.textContent = '接続中...';
+  if (loginLink) {
+    loginLink.setAttribute('aria-disabled', 'true');
+    loginLink.setAttribute('aria-busy', 'true');
+    loginLink.textContent = '接続中...';
   }
   if (status) status.textContent = 'Googleログイン画面を開いています。';
   setAccountMessage('Googleログイン画面へ移動します。もしSupabase側でGoogle Providerが未有効の場合は、管理画面でProviderを有効化してください。');
-  const redirectTo = getAuthRedirectUrl();
-  const url = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
-  setTimeout(() => location.assign(url), 120);
+  setTimeout(() => location.assign(getGoogleAuthUrl()), 120);
 }
 
 async function fetchAuthUser(accessToken) {
@@ -206,10 +225,11 @@ function getAuthUserLabel(session = getAuthSession()) {
 }
 
 function updateAccountStatus() {
+  prepareGoogleLoginLink();
   const status = qs('#account-status');
   if (!status) return;
   const session = getAuthSession();
-  const loginBtn = qs('#google-login-btn');
+  const loginLink = qs('#google-login-btn');
   const logoutBtn = qs('#account-logout-btn');
   const linkBtn = qs('#account-link-data-btn');
   const userLabel = getAuthUserLabel(session);
@@ -218,8 +238,9 @@ function updateAccountStatus() {
   if (session && userLabel) {
     setAccountMessage('');
     status.innerHTML = `<strong>${userLabel}</strong><br>ログイン済み。既存データはまだ消さずに、この端末のデータとして保持しています。`;
-    loginBtn?.classList.add('hidden');
-    loginBtn?.removeAttribute('aria-busy');
+    loginLink?.classList.add('hidden');
+    loginLink?.removeAttribute('aria-busy');
+    loginLink?.removeAttribute('aria-disabled');
     logoutBtn?.classList.remove('hidden');
     linkBtn?.classList.remove('hidden');
     if (linked?.userId === session.user?.id) {
@@ -227,11 +248,11 @@ function updateAccountStatus() {
     }
   } else {
     status.textContent = '未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。';
-    loginBtn?.classList.remove('hidden');
-    if (loginBtn) {
-      loginBtn.disabled = false;
-      loginBtn.removeAttribute('aria-busy');
-      loginBtn.textContent = 'Googleでログイン';
+    loginLink?.classList.remove('hidden');
+    if (loginLink) {
+      loginLink.removeAttribute('aria-busy');
+      loginLink.removeAttribute('aria-disabled');
+      loginLink.textContent = 'Googleでログイン';
     }
     logoutBtn?.classList.add('hidden');
     linkBtn?.classList.add('hidden');
@@ -604,6 +625,7 @@ function switchTab(tab) {
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
+prepareGoogleLoginLink();
 qs('#google-login-btn')?.addEventListener('click', startGoogleLogin);
 qs('#account-logout-btn')?.addEventListener('click', () => {
   setAuthSession(null);
