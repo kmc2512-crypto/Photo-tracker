@@ -134,10 +134,34 @@ function getAuthRedirectUrl() {
   return url.toString();
 }
 
+function setAccountMessage(message, isError = false) {
+  const wrap = qs('#account-msg');
+  const text = wrap?.querySelector('p');
+  if (!wrap || !text) return;
+  if (!message) {
+    wrap.classList.add('hidden');
+    text.textContent = '';
+    return;
+  }
+  text.textContent = message;
+  wrap.classList.remove('hidden');
+  wrap.classList.toggle('warn', isError);
+}
+
 function startGoogleLogin() {
+  if (location.protocol === 'file:') {
+    setAccountMessage('Googleログインは file 表示では開始できません。localhost か GitHub Pages で開いてから押してください。', true);
+    return;
+  }
+  const loginBtn = qs('#google-login-btn');
+  if (loginBtn) {
+    loginBtn.disabled = true;
+    loginBtn.textContent = '接続中...';
+  }
+  setAccountMessage('Googleログイン画面へ移動します。もしSupabase側でGoogle Providerが未有効の場合は、管理画面でProviderを有効化してください。');
   const redirectTo = getAuthRedirectUrl();
   const url = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
-  location.href = url;
+  setTimeout(() => location.assign(url), 120);
 }
 
 async function fetchAuthUser(accessToken) {
@@ -189,6 +213,7 @@ function updateAccountStatus() {
   const linked = LS.get('account_link') || null;
 
   if (session && userLabel) {
+    setAccountMessage('');
     status.innerHTML = `<strong>${userLabel}</strong><br>ログイン済み。既存データはまだ消さずに、この端末のデータとして保持しています。`;
     loginBtn?.classList.add('hidden');
     logoutBtn?.classList.remove('hidden');
@@ -199,6 +224,10 @@ function updateAccountStatus() {
   } else {
     status.textContent = '未ログイン。Googleログインを有効にすると、PCとiPhoneで同じアカウントを使う準備ができます。';
     loginBtn?.classList.remove('hidden');
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Googleでログイン';
+    }
     logoutBtn?.classList.add('hidden');
     linkBtn?.classList.add('hidden');
   }
