@@ -2091,6 +2091,15 @@ function renderGantt(tasks) {
   summary.appendChild(right);
   wrap.appendChild(summary);
 
+  const legend = el('div', 'gantt-legend');
+  legend.innerHTML = `
+    <span class="gantt-legend-item"><span class="gantt-legend-bar"></span>期間</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-line"></span><span class="gantt-legend-dot"></span>締切</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-hot"></span>3日以内</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-warn"></span>7日以内</span>
+  `;
+  wrap.appendChild(legend);
+
   const list = el('div', 'gantt-list');
   const daysBetween = (a, b) => Math.round((a - b) / 86400000);
   const addDays = (base, days) => {
@@ -2128,6 +2137,14 @@ function renderGantt(tasks) {
       width: Math.max(1.4, Math.abs(endPct - startPct))
     };
   };
+  const widthPercentFromToday = due => {
+    const todayPct = percentForDate(today);
+    const duePct = percentForDate(due);
+    return {
+      left: Math.min(todayPct, duePct),
+      width: Math.max(1.2, Math.abs(duePct - todayPct))
+    };
+  };
   const todayLeft = percentForDate(today);
   const ticks = Array.from({length: windowTotal + 1}, (_, i) => {
     const date = addDays(windowStart, i);
@@ -2145,11 +2162,14 @@ function renderGantt(tasks) {
   ticks.forEach(tick => {
     const line = el('div', 'gantt-tick' + (tick.today ? ' today' : '') + (tick.weekend ? ' weekend' : '') + (tick.month ? ' month' : ''));
     line.style.left = `${tick.left}%`;
-    const label = el('div', 'gantt-tick-label' + (tick.today ? ' today' : ''));
-    label.style.left = `${tick.center}%`;
-    label.textContent = tick.today ? '今日' : tick.date.getDate() === 1 || tick.date.getDay() === 1 ? fmtTick(tick.date) : String(tick.date.getDate());
     tickRail.appendChild(line);
-    tickRail.appendChild(label);
+    const showLabel = tick.today || tick.month || tick.date.getDay() === 1 || tick.date.getTime() === windowStart.getTime() || tick.date.getTime() === windowEnd.getTime();
+    if (showLabel) {
+      const label = el('div', 'gantt-tick-label' + (tick.today ? ' today' : ''));
+      label.style.left = `${tick.center}%`;
+      label.textContent = tick.today ? '今日' : fmtTick(tick.date);
+      tickRail.appendChild(label);
+    }
     if (tick.month) {
       const month = el('div', 'gantt-month-label');
       month.style.left = `${tick.left}%`;
@@ -2179,6 +2199,7 @@ function renderGantt(tasks) {
     const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
     const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
     const range = isRange && startDate ? widthPercentForRange(startDate, dueDate) : null;
+    const deadlineLine = range ? null : widthPercentFromToday(dueDate);
     const dueLeft = percentForDate(dueDate);
 
     const tone = done ? 'done' : daysLeft <= 3 ? 'hot' : daysLeft <= 7 ? 'warn' : '';
@@ -2231,6 +2252,10 @@ function renderGantt(tasks) {
       dot.style.left = `${dueLeft}%`;
       rail.appendChild(dot);
     } else {
+      const line = el('div', 'gantt-deadline-line' + (tone ? ' ' + tone : ''));
+      line.style.left = `${deadlineLine.left}%`;
+      line.style.width = `${deadlineLine.width}%`;
+      rail.appendChild(line);
       const stem = el('div', 'gantt-deadline-stem' + (tone ? ' ' + tone : ''));
       stem.style.left = `${dueLeft}%`;
       rail.appendChild(stem);
