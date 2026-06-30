@@ -42,6 +42,15 @@
   --constraint-border: #441a1a;
   --constraint-fg: #884444;
   --nav-bg: #080808;
+  --gantt-rail-bg: #0f0f0f;
+  --gantt-grid: rgba(255,255,255,.07);
+  --gantt-grid-weekend: rgba(255,255,255,.1);
+  --gantt-grid-month: rgba(255,255,255,.22);
+  --gantt-today: rgba(232,232,232,.42);
+  --gantt-today-soft: rgba(232,232,232,.08);
+  --gantt-dot-border: #050505;
+  --gantt-row-border: rgba(255,255,255,.07);
+  --gantt-row-hover: rgba(255,255,255,.035);
 }
 html.light {
   --bg: #f5f5f3;
@@ -71,6 +80,15 @@ html.light {
   --constraint-border: #c08888;
   --constraint-fg: #884444;
   --nav-bg: #f5f5f3;
+  --gantt-rail-bg: #f0f0ee;
+  --gantt-grid: rgba(0,0,0,.045);
+  --gantt-grid-weekend: rgba(0,0,0,.065);
+  --gantt-grid-month: rgba(0,0,0,.14);
+  --gantt-today: rgba(17,17,17,.32);
+  --gantt-today-soft: rgba(17,17,17,.06);
+  --gantt-dot-border: #f5f5f3;
+  --gantt-row-border: rgba(0,0,0,.08);
+  --gantt-row-hover: rgba(0,0,0,.035);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%;background:var(--bg);color:var(--fg);font-family:'DM Mono',monospace;transition:background .2s,color .2s;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
@@ -99,6 +117,7 @@ button{cursor:pointer}
 .theme-btn:hover{border-color:var(--fg5);color:var(--fg)}
 .theme-btn:active{transform:scale(0.96)}
 .main{max-width:640px;margin:0 auto;padding:40px 32px 80px}
+.main.todo-gantt-main{max-width:min(1360px,calc(100vw - 64px))}
 .day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
 .day-date{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1;text-wrap:balance}
 .day-weekday{font-size:10px;color:var(--fg5);letter-spacing:.18em;margin-top:8px}
@@ -141,7 +160,10 @@ button{cursor:pointer}
 .task-title{font-size:13px;letter-spacing:.02em;line-height:1.6;text-wrap:pretty}
 .task-title.done{color:var(--fg7);text-decoration:line-through}
 .task-title.overdue{color:var(--overdue)}
+.task-meta-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:5px}
 .task-meta{display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;align-items:center}
+.task-meta-row .task-meta{margin-top:0;min-width:0}
+.task-actions{display:flex;gap:10px;align-items:center;flex-shrink:0;min-height:32px}
 .tag{display:inline-block;border:1px solid var(--border2);color:var(--fg5);font-size:10px;letter-spacing:.04em;padding:3px 8px}
 .task-due{font-size:11px;color:var(--fg5);letter-spacing:.05em;font-variant-numeric:tabular-nums}
 .task-due.overdue{color:var(--overdue)}
@@ -351,6 +373,8 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .install-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .repeat-row{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin:14px 0 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .repeat-row select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:150px}
+.todo-range-fields{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start}
+.todo-range-arrow{font-size:16px;color:var(--fg6);padding-top:28px;text-align:center}
 .notif-banner{background:var(--bg2);border:1px solid var(--border);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .notif-banner p{font-size:11px;color:var(--fg4);letter-spacing:.03em;line-height:1.6;text-wrap:pretty}
 .notif-banner-btns{display:flex;gap:8px;flex-shrink:0}
@@ -403,11 +427,17 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:28px}
 .todo-add-form .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .todo-add-form input[type=text]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;flex:1;min-width:140px}
+.todo-description-input{border:1px solid var(--border2);background:var(--input-bg);padding:10px 12px;font-size:12px;line-height:1.7;min-height:76px;margin:0 0 14px;resize:vertical}
+.todo-description-input:focus{border-color:var(--fg5);border-bottom-color:var(--fg5)}
 .todo-form-msg{border:1px solid var(--border);color:var(--fg4);font-size:10px;letter-spacing:.04em;line-height:1.7;padding:9px 10px;margin:0 0 14px;background:var(--bg)}
 .todo-form-msg.warn{border-color:rgba(255,96,96,.45);color:var(--overdue)}
 .todo-add-form input[type=date]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;width:140px;color:var(--fg);background:transparent;font-variant-numeric:tabular-nums}
 .todo-add-form input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.6)}
 .todo-add-form select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:120px}
+.todo-date-type-block{margin-bottom:16px}
+.todo-date-type-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border2);width:100%;max-width:360px}
+.todo-date-type-group .todo-filter-btn{height:36px;justify-content:center;padding:0 12px}
+.todo-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
 .priority-select{position:relative;width:124px;flex:0 0 124px}
 .priority-select::after{content:'⌄';position:absolute;right:11px;top:8px;color:var(--fg5);font-size:12px;line-height:1;pointer-events:none}
 .priority-native{appearance:none;width:100%;height:34px;border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;padding:0 30px 0 12px;outline:none;cursor:pointer}
@@ -418,11 +448,60 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-filter-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--fg5);padding:0 14px;height:32px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
 .todo-filter-btn.active{background:var(--fg);color:var(--bg)}
 .todo-filter-btn:active{opacity:.8}
+.todo-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.todo-filter-groups{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0}
+.todo-view-toggle{margin-bottom:0;width:auto}
+.todo-view-toggle .log-view-btn{padding:0 14px;min-width:64px}
 .todo-empty-state{border:1px solid var(--border);background:var(--bg2);padding:18px;margin-bottom:18px}
 .todo-empty-title{font-size:13px;color:var(--fg);font-weight:700;margin-bottom:8px}
 .todo-empty-copy{font-size:10px;color:var(--fg5);line-height:1.8;letter-spacing:.04em;max-width:620px}
 .todo-empty-steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .todo-empty-step{border:1px solid var(--border2);color:var(--fg4);font-size:9px;letter-spacing:.08em;padding:7px 10px}
+.subtask-progress-chip,.gantt-subtask-progress{display:inline-flex;align-items:center;border:1px solid var(--border2);color:var(--fg5);font-size:10px;letter-spacing:.04em;padding:3px 8px;white-space:nowrap}
+.subtask-progress-chip.complete,.gantt-subtask-progress.complete{color:var(--fg4);border-color:var(--border3)}
+.gantt-subtask-progress{margin-left:8px;font-size:9px;padding:2px 6px}
+.todo-detail-modal{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.46);display:flex;justify-content:flex-end}
+.todo-detail-modal.hidden{display:none}
+.todo-detail-sheet{width:min(520px,100%);height:100%;background:var(--bg);border-left:1px solid var(--border2);padding:24px;overflow:auto;box-shadow:-18px 0 42px rgba(0,0,0,.32)}
+.todo-detail-close{width:40px;height:40px;border:1px solid var(--border2);background:transparent;color:var(--fg4);font-family:'DM Mono',monospace;font-size:18px;display:flex;align-items:center;justify-content:center;margin-left:auto;margin-bottom:18px}
+.todo-detail-close:hover{color:var(--fg);border-color:var(--fg5)}
+.todo-detail-title{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;line-height:1.25;margin-bottom:10px;text-wrap:balance}
+.todo-detail-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.todo-detail-chip{border:1px solid var(--border2);color:var(--fg4);font-size:10px;letter-spacing:.08em;padding:6px 8px;font-variant-numeric:tabular-nums}
+.todo-detail-section{border-top:1px solid var(--border);padding-top:18px;margin-top:18px}
+.todo-detail-label{font-size:9px;color:var(--fg5);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px}
+.todo-detail-copy{font-size:12px;color:var(--fg3);line-height:1.9;white-space:pre-wrap;text-wrap:pretty}
+.todo-detail-empty{font-size:11px;color:var(--fg6);line-height:1.8}
+.subtask-summary{display:inline-flex;border:1px solid var(--border2);color:var(--fg4);font-size:10px;letter-spacing:.06em;padding:6px 8px;margin:0 0 12px;font-variant-numeric:tabular-nums}
+.milestone-list{display:flex;flex-direction:column;gap:8px}
+.milestone-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--border);background:var(--bg2);padding:10px}
+.milestone-row.done{opacity:.55}
+.milestone-check{width:32px;height:32px;border:1px solid var(--border3);background:transparent;color:var(--bg);display:flex;align-items:center;justify-content:center}
+.milestone-check.done{background:var(--fg);border-color:var(--fg)}
+.milestone-check.done::after{content:'✓';color:var(--bg);font-size:12px;font-weight:700}
+.milestone-main{min-width:0}
+.milestone-title{font-size:12px;color:var(--fg);line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.milestone-row.done .milestone-title{text-decoration:line-through;color:var(--fg6)}
+.milestone-due{font-size:10px;color:var(--fg5);font-variant-numeric:tabular-nums;margin-top:4px}
+.milestone-due.warn{color:var(--overdue)}
+.milestone-note-text{font-size:10px;color:var(--fg5);line-height:1.7;margin-top:5px;white-space:pre-wrap;text-wrap:pretty}
+.milestone-controls{display:flex;align-items:center;gap:8px}
+.milestone-edit,
+.milestone-delete{background:none;border:none;color:var(--fg6);font-family:'DM Mono',monospace;font-size:10px;min-width:44px;min-height:32px;text-align:right}
+.milestone-edit:hover{color:var(--fg)}
+.milestone-delete:hover{color:var(--overdue)}
+.milestone-form{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(118px,.6fr) minmax(96px,.5fr) minmax(0,1fr) auto;gap:8px;margin-top:12px;align-items:start}
+.milestone-form input{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:0 10px;height:40px}
+.milestone-note{font-size:10px;color:var(--fg6);line-height:1.7;margin-top:10px}
+.subtask-quick-form textarea{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:11px;min-height:40px;resize:vertical}
+.subtask-picker-field{min-width:0}
+.subtask-picker-field .custom-date-input,.subtask-picker-field .custom-time-input{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:0 10px;height:40px}
+.subtask-extra-fields,.subtask-edit-form{display:grid;grid-template-columns:minmax(0,1fr) 140px 112px;gap:8px;margin-top:8px}
+.subtask-extra-fields.hidden,.subtask-edit-form.hidden{display:none}
+.subtask-extra-fields input,.subtask-extra-fields textarea,.subtask-edit-form input,.subtask-edit-form textarea{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:11px;min-height:40px}
+.subtask-edit-form{grid-template-columns:minmax(0,1fr) 140px 112px;align-items:start;background:var(--bg2);border:1px solid var(--border);padding:10px}
+.subtask-edit-form textarea{grid-column:1 / -1}
+.subtask-edit-form .save-btn{grid-column:1 / -1;justify-content:center}
 .priority-tag{font-size:9px;letter-spacing:.1em;border:1px solid var(--border2);padding:2px 6px;color:var(--fg5)}
 .priority-high{border-color:rgba(204,102,102,.55);color:var(--overdue)}
 .priority-low{color:var(--fg6)}
@@ -459,58 +538,95 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .gantt-legend{display:flex;flex-wrap:wrap;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:9px;color:var(--fg5);letter-spacing:.06em}
 .gantt-legend-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .gantt-legend-line{width:18px;height:2px;background:#7a7f86;display:inline-block}
+.gantt-legend-deadline{height:6px;background:repeating-linear-gradient(90deg,#7a7f86 0 6px,transparent 6px 10px)}
 .gantt-legend-bar{width:22px;height:8px;background:#7a7f86;display:inline-block}
-.gantt-legend-dot{width:10px;height:10px;background:#7a7f86;border:2px solid #050505;display:inline-block}
+.gantt-legend-dot{width:10px;height:10px;background:#7a7f86;border:2px solid var(--gantt-dot-border);display:inline-block}
+.gantt-legend-subtask{position:relative;display:inline-flex;align-items:center;width:34px;height:14px;padding-left:7px;background:var(--bg);border:1px solid var(--border3);box-sizing:border-box}
+.gantt-legend-subtask::before{content:'';position:absolute;left:6px;top:50%;width:1px;height:18px;background:var(--fg5);transform:translateY(-50%);opacity:.8}
+.gantt-legend-subtask span{display:block;width:6px;height:6px;background:var(--fg5);transform:rotate(45deg);box-shadow:0 0 0 2px var(--bg)}
 .gantt-legend-hot{background:#d05828}
 .gantt-legend-warn{background:#b89818}
 .gantt-list{display:flex;flex-direction:column;min-width:calc(310px + var(--gantt-timeline-width, 840px) + 96px)}
-.gantt-scale{display:grid;grid-template-columns:310px var(--gantt-timeline-width, 840px) 78px;gap:18px;align-items:end;padding:12px 0;border-bottom:1px solid var(--border)}
-.gantt-scale-title{position:sticky;left:0;z-index:5;background:var(--bg);height:34px;display:flex;align-items:flex-end;font-size:9px;color:var(--fg5);letter-spacing:.14em;text-transform:uppercase}
-.gantt-ticks{position:relative;height:34px;background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);overflow:hidden}
+.gantt-scale{display:grid;grid-template-columns:310px var(--gantt-timeline-width, 840px) 78px;gap:18px;align-items:end;padding:14px 0 12px;border-bottom:1px solid var(--border)}
+.gantt-scale-title{position:sticky;left:0;z-index:5;background:var(--bg);height:42px;display:flex;align-items:flex-end;font-size:9px;color:var(--fg5);letter-spacing:.14em;text-transform:uppercase}
+.gantt-ticks{position:relative;height:42px;background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);overflow:hidden}
 .gantt-tick{position:absolute;top:0;bottom:0;width:1px;background:var(--bg3)}
-.gantt-tick.weekend{background:rgba(255,255,255,.08)}
-.gantt-tick.month{background:rgba(255,255,255,.18)}
-.gantt-tick.today{background:transparent}
-.gantt-tick-label{position:absolute;top:2px;transform:translateX(-50%);font-size:9px;color:var(--fg6);font-variant-numeric:tabular-nums;white-space:nowrap}
-.gantt-tick-label.today{color:var(--fg);font-weight:700;border-bottom:2px solid var(--fg);padding-bottom:3px}
+.gantt-tick.weekend{background:var(--gantt-grid-weekend)}
+.gantt-tick.month{background:var(--gantt-grid-month)}
+.gantt-tick.today{background:var(--gantt-today);width:2px;z-index:2}
+.gantt-tick.today::before{content:'';position:absolute;top:0;bottom:0;left:-9px;width:20px;background:var(--gantt-today-soft);z-index:-1}
+.gantt-tick-label{position:absolute;top:5px;transform:translateX(-50%);font-size:9px;color:var(--fg6);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gantt-tick-label.today{top:4px;color:var(--bg);background:var(--fg);font-weight:700;padding:3px 7px}
 .gantt-month-label{position:absolute;bottom:0;transform:translateX(8px);font-size:9px;color:var(--fg5);font-variant-numeric:tabular-nums;white-space:nowrap}
-.gantt-row2{display:grid;grid-template-columns:310px var(--gantt-timeline-width, 840px) 78px;gap:18px;align-items:center;min-height:56px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.gantt-row2{display:grid;grid-template-columns:310px var(--gantt-timeline-width, 840px) 78px;gap:18px;align-items:center;min-height:56px;padding:8px 0;border-bottom:1px solid var(--gantt-row-border);position:relative;transition:background .12s}
+.gantt-row2:hover{background:var(--gantt-row-hover)}
 .gantt-row2.done{opacity:.42}
 .gantt-row2:last-child{border-bottom:none}
-.gantt-task{position:sticky;left:0;z-index:4;background:var(--bg);display:flex;align-items:center;gap:10px;min-width:0;min-height:44px;padding-right:12px}
+.gantt-task{position:sticky;left:0;z-index:4;background:linear-gradient(90deg,var(--bg) 0%,var(--bg) calc(100% - 18px),transparent 100%);display:flex;align-items:center;gap:10px;min-width:0;min-height:44px;padding-right:12px}
 .gantt-title{font-size:12px;color:var(--fg);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-title.done{text-decoration:line-through;color:var(--fg7)}
 .gantt-meta{font-size:9px;color:var(--fg5);letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;font-variant-numeric:tabular-nums}
-.gantt-rail{height:44px;background:#0f0f0f;position:relative;overflow:hidden;border-left:1px solid rgba(255,255,255,.09);border-right:1px solid rgba(255,255,255,.09)}
-.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.07);z-index:0}
-.gantt-grid-line.weekend{background:rgba(255,255,255,.1)}
-.gantt-grid-line.month{background:rgba(255,255,255,.22);z-index:1}
-.gantt-today-band{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.3);z-index:1}
+.gantt-rail{height:44px;background:var(--gantt-rail-bg);position:relative;overflow:hidden;border-left:1px solid var(--gantt-grid);border-right:1px solid var(--gantt-grid);transition:outline-color .12s}
+.gantt-row2:hover .gantt-rail{outline:1px solid var(--gantt-row-border);outline-offset:-1px}
+.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:var(--gantt-grid);z-index:0}
+.gantt-grid-line.weekend{background:var(--gantt-grid-weekend)}
+.gantt-grid-line.month{background:var(--gantt-grid-month);z-index:1}
+.gantt-today-band{position:absolute;top:0;bottom:0;width:2px;background:var(--gantt-today);z-index:1}
+.gantt-today-band::before{content:'';position:absolute;top:0;bottom:0;left:-9px;width:20px;background:var(--gantt-today-soft)}
 .gantt-fill{height:10px;background:#7a7f86;min-width:10px;position:absolute;top:17px;z-index:2}
 .gantt-fill.hot{background:#d05828}
 .gantt-fill.warn{background:#b89818}
 .gantt-fill.over{background:#d05828}
 .gantt-fill.done{background:var(--border3)}
-.gantt-deadline-line{height:2px;background:#7a7f86;min-width:8px;position:absolute;top:21px;z-index:2;opacity:.8}
-.gantt-deadline-line.hot{background:#d05828;opacity:.95}
-.gantt-deadline-line.warn{background:#b89818;opacity:.9}
-.gantt-deadline-line.over{background:#d05828;opacity:.65}
-.gantt-deadline-line.done{background:var(--border3);opacity:.45}
-.gantt-dot{position:absolute;top:15px;width:14px;height:14px;background:#7a7f86;border:2px solid #050505;z-index:3;transform:translateX(-50%)}
+.gantt-range-start{position:absolute;top:13px;width:2px;height:18px;background:#7a7f86;z-index:3;transform:translateX(-50%);opacity:.9}
+.gantt-range-start.hot{background:#d05828}
+.gantt-range-start.warn{background:#b89818}
+.gantt-range-start.over{background:#d05828}
+.gantt-range-start.done{background:var(--border3);opacity:.55}
+.gantt-deadline-line{height:6px;background:repeating-linear-gradient(90deg,#7a7f86 0 8px,transparent 8px 13px);min-width:10px;position:absolute;top:19px;z-index:2;opacity:.72}
+.gantt-deadline-line.hot{background:repeating-linear-gradient(90deg,#d05828 0 8px,transparent 8px 13px);opacity:.95}
+.gantt-deadline-line.warn{background:repeating-linear-gradient(90deg,#b89818 0 8px,transparent 8px 13px);opacity:.9}
+.gantt-deadline-line.over{background:repeating-linear-gradient(90deg,#d05828 0 8px,transparent 8px 13px);opacity:.62}
+.gantt-deadline-line.done{background:repeating-linear-gradient(90deg,var(--border3) 0 8px,transparent 8px 13px);opacity:.45}
+.gantt-dot{position:absolute;top:15px;width:14px;height:14px;background:#7a7f86;border:2px solid var(--gantt-dot-border);z-index:3;transform:translateX(-50%)}
 .gantt-dot.hot{background:#d05828}
 .gantt-dot.warn{background:#b89818}
 .gantt-dot.over{background:#d05828}
 .gantt-dot.done{background:var(--border3)}
+.gantt-dot.is-overdue{transform:translateX(-50%) rotate(45deg)}
+.gantt-dot.is-today{top:13px;width:18px;height:18px;border-width:3px}
+.gantt-dot.is-future{opacity:.95}
 .gantt-dot::after{content:'';position:absolute;inset:-16px}
+.gantt-marker-label{position:absolute;top:3px;transform:translateX(-50%);font-size:8px;color:var(--fg5);letter-spacing:.08em;white-space:nowrap;z-index:4;font-variant-numeric:tabular-nums;pointer-events:none}
+.gantt-marker-label.hot,.gantt-marker-label.is-overdue{color:#ff7040}
+.gantt-marker-label.warn{color:#d4a820}
+.gantt-marker-label.is-today{color:var(--fg);font-weight:700}
+.gantt-marker-label.done{color:var(--fg6)}
 .gantt-deadline-stem{position:absolute;top:9px;width:2px;height:26px;background:rgba(122,127,134,.8);z-index:2;transform:translateX(-50%)}
 .gantt-deadline-stem.hot{background:rgba(208,88,40,.9)}
 .gantt-deadline-stem.warn{background:rgba(184,152,24,.85)}
 .gantt-deadline-stem.over{background:rgba(208,88,40,.9)}
+.gantt-deadline-stem.is-overdue{height:22px;top:11px;opacity:.75}
+.gantt-deadline-stem.is-today{height:30px;top:7px;width:3px}
+.gantt-subtask-marker{position:absolute;max-width:154px;min-height:22px;padding:3px 7px 3px 13px;background:var(--bg);border:1px solid var(--border3);color:var(--fg3);z-index:5;transform:translateY(-50%);opacity:.96;display:flex;align-items:center;gap:5px;font-size:8px;letter-spacing:.03em;white-space:nowrap;box-shadow:0 0 0 1px var(--bg)}
+.gantt-subtask-marker::before{content:'';position:absolute;left:0;top:50%;width:1px;height:30px;background:currentColor;transform:translateY(-50%);opacity:.65}
+.gantt-subtask-marker.over{border-color:rgba(208,88,40,.6);color:#ff7040;opacity:.9}
+.gantt-subtask-marker.late-parent{outline:1px solid var(--overdue);outline-offset:1px}
+.gantt-subtask-marker.done{color:var(--fg6);border-color:var(--border2);opacity:.48;text-decoration:line-through}
+.gantt-subtask-marker.left{transform:translate(calc(-100% + 1px),-50%);padding:3px 13px 3px 7px}
+.gantt-subtask-marker.left::before{left:auto;right:0}
+.gantt-subtask-dot{position:absolute;left:-4px;top:50%;width:8px;height:8px;background:currentColor;flex:0 0 8px;transform:translateY(-50%) rotate(45deg);box-shadow:0 0 0 2px var(--bg)}
+.gantt-subtask-marker.left .gantt-subtask-dot{left:auto;right:-4px}
+.gantt-subtask-body{min-width:0;display:grid;gap:1px}
+.gantt-subtask-title{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.gantt-subtask-due{color:var(--fg6);font-variant-numeric:tabular-nums;line-height:1}
+.gantt-subtask-more{position:absolute;right:7px;bottom:4px;font-size:8px;color:var(--fg6);letter-spacing:.05em;z-index:5;font-variant-numeric:tabular-nums;background:var(--bg);border:1px solid var(--border2);padding:1px 4px}
 .gantt-badge{font-size:10px;color:var(--fg4);letter-spacing:.06em;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
 .gantt-badge.hot{color:#ff7040}
 .gantt-badge.warn{color:#d4a820}
 .gantt-badge.over{color:#ff6060}
 .gantt-badge.done{color:var(--fg6)}
+.mobile-deadline{display:none}
 .timer-wrap{display:flex;flex-direction:column;align-items:center;padding:40px 0}
 .timer-mode-tabs{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:40px}
 .timer-mode-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--fg5);padding:0 20px;height:36px;min-width:40px;display:flex;align-items:center;transition:background .12s,color .12s}
@@ -620,6 +736,7 @@ input[type=time]{display:none}
   .sync-pill{height:28px;padding:0 8px;font-size:8px}
   .theme-btn{width:28px;height:28px;font-size:11px}
   .main{padding:20px 16px 60px}
+  .main.todo-gantt-main{max-width:640px}
   .runtime-guard.show{flex-direction:column;align-items:stretch}
   .runtime-guard .notif-actions{width:100%}
   .confirm-actions{flex-direction:column}
@@ -642,18 +759,62 @@ input[type=time]{display:none}
   .todo-add-form .form-row{flex-direction:column}
   .todo-add-form input[type=date]{width:100%}
   .priority-select{width:100%;flex-basis:auto}
-  .gantt-wrap{margin:0 -16px;border-left:none;border-right:none}
-  .gantt-summary{padding-left:16px;padding-right:16px}
-  .gantt-legend{padding-left:16px;padding-right:16px;gap:8px 10px;font-size:8px}
-  .gantt-legend-line{width:14px}
-  .gantt-legend-bar{width:18px;height:7px}
-  .gantt-legend-dot{width:9px;height:9px}
-  .gantt-list{min-width:calc(210px + var(--gantt-timeline-width, 720px) + 72px)}
-  .gantt-scale,.gantt-row2{grid-template-columns:210px var(--gantt-timeline-width, 720px) 60px;gap:12px;padding-left:0;padding-right:16px}
-  .gantt-scale-title,.gantt-task{padding-left:16px}
-  .gantt-row2{min-height:60px}
-  .gantt-rail{height:44px}
-  .gantt-badge{text-align:left}
+  .todo-date-type-group{max-width:none}
+  .todo-date-type-group .todo-filter-btn{min-height:44px}
+  .todo-form-actions{flex-direction:column}
+  .todo-form-actions .ghost-btn,.todo-form-actions .save-btn{width:100%;justify-content:center}
+  .todo-detail-modal{align-items:flex-end;justify-content:center;background:rgba(0,0,0,.52)}
+  .todo-detail-sheet{width:100%;height:auto;max-height:92dvh;border-left:none;border-top:1px solid var(--border2);padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -18px 40px rgba(0,0,0,.34)}
+  .todo-detail-title{font-size:21px}
+  .milestone-form{grid-template-columns:1fr}
+  .milestone-form .save-btn{width:100%;justify-content:center}
+  .subtask-extra-fields,.subtask-edit-form{grid-template-columns:1fr}
+  .milestone-row{grid-template-columns:44px minmax(0,1fr);padding:12px}
+  .milestone-controls{grid-column:2;justify-content:flex-start;margin-top:4px}
+  .milestone-check{width:44px;height:44px}
+  .todo-range-fields{grid-template-columns:1fr;gap:10px}
+  .todo-range-arrow{padding:0;text-align:left;font-size:10px;letter-spacing:.12em;color:var(--fg6)}
+  .todo-range-arrow::after{content:' 終了';font-size:9px}
+  .gantt-wrap{margin:0;border-left:none;border-right:none;overflow:visible}
+  .mobile-deadline{display:block}
+  .mobile-deadline-head{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin-bottom:16px;font-size:11px;color:var(--fg5);letter-spacing:.08em}
+  .mobile-deadline-head strong{color:var(--fg);font-size:12px;font-weight:700;letter-spacing:.04em}
+  .mobile-deadline-section{margin-bottom:24px}
+  .mobile-deadline-section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:10px;color:var(--fg4);letter-spacing:.14em;text-transform:uppercase}
+  .mobile-deadline-section-title em{font-style:normal;color:var(--fg6);font-variant-numeric:tabular-nums}
+  .mobile-task-card{border:1px solid var(--border);background:var(--bg2);padding:14px 14px 13px;margin-bottom:10px}
+  html.light .mobile-task-card{background:#f8f8f6;border-color:#d6d6d3}
+  .mobile-task-card.over{border-color:rgba(208,88,40,.34)}
+  .mobile-task-card.hot{border-color:rgba(208,88,40,.28)}
+  .mobile-task-card.warn{border-color:rgba(184,152,24,.3)}
+  .mobile-task-card.done{opacity:.5}
+  .mobile-task-top{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:start}
+  .mobile-task-check{width:44px;height:44px;border:1px solid var(--border3);background:transparent;color:var(--bg);font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center}
+  .mobile-task-check.done{background:var(--fg);border-color:var(--fg)}
+  .mobile-task-check.done::after{content:'✓';color:var(--bg);font-size:14px;font-weight:700}
+  .mobile-task-main{min-width:0;padding-top:1px}
+  .mobile-task-title{font-size:15px;line-height:1.45;color:var(--fg);letter-spacing:0;word-break:break-word}
+  .mobile-task-card.done .mobile-task-title{text-decoration:line-through;color:var(--fg6)}
+  .mobile-task-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+  .mobile-task-meta span{border:1px solid var(--border2);color:var(--fg4);font-size:12px;line-height:1;padding:5px 7px;letter-spacing:0}
+  .mobile-task-status{min-height:32px;display:flex;align-items:center;justify-content:center;padding:0 8px;font-size:12px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--fg4)}
+  .mobile-task-status.over,.mobile-task-status.hot{color:#ff7040}
+  .mobile-task-status.warn{color:#d4a820}
+  .mobile-task-status.done{color:var(--fg6)}
+  .mobile-task-due{margin:10px 0 9px;padding-left:54px;font-size:12px;line-height:1.5;color:var(--fg4);font-variant-numeric:tabular-nums}
+  .mobile-mini-timeline{position:relative;height:18px;margin-left:54px;background:var(--gantt-rail-bg);border:1px solid var(--gantt-grid);overflow:hidden}
+  .mobile-mini-today{position:absolute;left:33.333%;top:0;bottom:0;width:2px;background:var(--gantt-today);z-index:2}
+  .mobile-mini-line,.mobile-mini-span{position:absolute;top:6px;height:6px;background:#7a7f86;min-width:8px}
+  .mobile-mini-line{background:repeating-linear-gradient(90deg,#7a7f86 0 8px,transparent 8px 13px)}
+  .mobile-mini-line.over,.mobile-mini-line.hot{background:repeating-linear-gradient(90deg,#d05828 0 8px,transparent 8px 13px)}
+  .mobile-mini-line.warn{background:repeating-linear-gradient(90deg,#b89818 0 8px,transparent 8px 13px)}
+  .mobile-mini-span.over,.mobile-mini-span.hot{background:#d05828}
+  .mobile-mini-span.warn{background:#b89818}
+  .mobile-mini-marker{position:absolute;top:3px;width:12px;height:12px;background:#7a7f86;border:2px solid var(--gantt-dot-border);transform:translateX(-50%);z-index:3}
+  .mobile-mini-marker.over{background:#d05828;transform:translateX(-50%) rotate(45deg)}
+  .mobile-mini-marker.hot{background:#d05828}
+  .mobile-mini-marker.warn{background:#b89818}
+  .mobile-mini-marker.done{background:var(--border3)}
   .log-entry{grid-template-columns:64px 1fr;gap:10px}
   .log-thumb{height:64px}
   .log-tools{grid-template-columns:1fr}
@@ -694,12 +855,23 @@ input[type=time]{display:none}
   .week-card{padding:14px}
   .todo-filters{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .todo-filters::-webkit-scrollbar{display:none}
+  .todo-toolbar{align-items:stretch}
+  .todo-filter-groups{width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .todo-filter-groups::-webkit-scrollbar{display:none}
+  .todo-view-toggle{width:100%}
+  .todo-view-toggle .log-view-btn{min-height:44px}
+  .task-meta-row{flex-direction:column;gap:6px}
+  .task-actions{justify-content:flex-start}
   .backup-btns{flex-direction:column}
   .backup-btns .save-btn,.backup-btns .ghost-btn{width:100%;justify-content:center}
 }
 @media (max-width: 380px) {
   .tab-btn{padding:0 8px;font-size:8px}
   .main{padding:16px 12px 60px}
+  .mobile-task-card{padding:13px 12px}
+  .mobile-task-top{grid-template-columns:44px minmax(0,1fr);gap:9px}
+  .mobile-task-status{grid-column:2;justify-self:start;margin-top:2px}
+  .mobile-task-due,.mobile-mini-timeline{margin-left:53px;padding-left:0}
 }
 #tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings,#tab-data{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
 #tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden,#tab-settings.hidden,#tab-data.hidden{animation:none}
@@ -850,13 +1022,14 @@ input[type=time]{display:none}
           </select>
         </div>
       </div>
+      <textarea id="todo-description-input" class="todo-description-input" rows="3" placeholder="説明・メモ（任意）" aria-label="説明・メモ"></textarea>
       <!-- 日付タイプ選択 -->
-      <div style="margin-bottom:16px">
+      <div class="todo-date-type-block">
         <div class="lbl" style="margin-bottom:8px">種類</div>
-        <div style="display:flex;gap:0;border:1px solid var(--border2);width:fit-content" role="group" aria-label="日付タイプ">
-          <button class="todo-filter-btn active" id="date-type-deadline" data-datetype="deadline" style="height:32px;font-size:10px;padding:0 16px">締め切り</button>
-          <button class="todo-filter-btn" id="date-type-range" data-datetype="range" style="height:32px;font-size:10px;padding:0 16px">期間</button>
-          <button class="todo-filter-btn" id="date-type-none" data-datetype="none" style="height:32px;font-size:10px;padding:0 16px">日時なし</button>
+        <div class="todo-date-type-group" role="group" aria-label="日付タイプ">
+          <button class="todo-filter-btn active" id="date-type-deadline" data-datetype="deadline">締め切り</button>
+          <button class="todo-filter-btn" id="date-type-range" data-datetype="range">期間</button>
+          <button class="todo-filter-btn" id="date-type-none" data-datetype="none">日時なし</button>
         </div>
       </div>
       <div class="repeat-row">
@@ -879,14 +1052,14 @@ input[type=time]{display:none}
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <div style="flex:1;min-width:140px">
             <div class="lbl" style="margin-bottom:6px">締め切り日 <span style="color:var(--overdue)">*</span></div>
-            <div class="custom-date-input" id="pick-due-date" data-target="todo-due-input" aria-label="締め切り日">
+            <div class="custom-date-input" id="pick-due-date" data-target="todo-due-input" role="button" tabindex="0" aria-label="締め切り日">
               <span class="cdi-text">日付を選択</span><span class="cdi-icon">▼</span>
             </div>
             <input type="hidden" id="todo-due-input">
           </div>
           <div style="width:120px">
             <div class="lbl" style="margin-bottom:6px">時刻 <span style="color:var(--fg6);font-size:8px;letter-spacing:.04em">省略可</span></div>
-            <div class="custom-time-input" id="pick-due-time" data-target="todo-due-time-input" aria-label="締め切り時刻">
+            <div class="custom-time-input" id="pick-due-time" data-target="todo-due-time-input" role="button" tabindex="0" aria-label="締め切り時刻">
               <span class="cti-text">--:--</span><span class="cdi-icon">▼</span>
             </div>
             <input type="hidden" id="todo-due-time-input">
@@ -897,28 +1070,28 @@ input[type=time]{display:none}
       <!-- 期間モード -->
       <div id="form-range-row" class="hidden">
         <div style="font-size:10px;color:var(--fg5);margin-bottom:12px;letter-spacing:.04em;line-height:1.6">「いつからいつまで取り組むか」を設定します。時刻は省略できます。</div>
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start">
+        <div class="todo-range-fields">
           <div>
             <div class="lbl" style="margin-bottom:6px">開始日</div>
-            <div class="custom-date-input" id="pick-start-date" data-target="todo-start-input" aria-label="開始日">
+            <div class="custom-date-input" id="pick-start-date" data-target="todo-start-input" role="button" tabindex="0" aria-label="開始日">
               <span class="cdi-text">日付を選択</span><span class="cdi-icon">▼</span>
             </div>
             <input type="hidden" id="todo-start-input">
             <div class="lbl" style="margin-bottom:6px;margin-top:10px">開始時刻 <span style="color:var(--fg6);font-size:8px">省略可</span></div>
-            <div class="custom-time-input" id="pick-start-time" data-target="todo-start-time-input" aria-label="開始時刻">
+            <div class="custom-time-input" id="pick-start-time" data-target="todo-start-time-input" role="button" tabindex="0" aria-label="開始時刻">
               <span class="cti-text">--:--</span><span class="cdi-icon">▼</span>
             </div>
             <input type="hidden" id="todo-start-time-input">
           </div>
-          <div style="font-size:16px;color:var(--fg6);padding-top:28px;text-align:center">→</div>
+          <div class="todo-range-arrow">→</div>
           <div>
             <div class="lbl" style="margin-bottom:6px">終了日</div>
-            <div class="custom-date-input" id="pick-end-date" data-target="todo-end-input" aria-label="終了日">
+            <div class="custom-date-input" id="pick-end-date" data-target="todo-end-input" role="button" tabindex="0" aria-label="終了日">
               <span class="cdi-text">日付を選択</span><span class="cdi-icon">▼</span>
             </div>
             <input type="hidden" id="todo-end-input">
             <div class="lbl" style="margin-bottom:6px;margin-top:10px">終了時刻 <span style="color:var(--fg6);font-size:8px">省略可</span></div>
-            <div class="custom-time-input" id="pick-end-time" data-target="todo-end-time-input" aria-label="終了時刻">
+            <div class="custom-time-input" id="pick-end-time" data-target="todo-end-time-input" role="button" tabindex="0" aria-label="終了時刻">
               <span class="cti-text">--:--</span><span class="cdi-icon">▼</span>
             </div>
             <input type="hidden" id="todo-end-time-input">
@@ -931,14 +1104,14 @@ input[type=time]{display:none}
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.04em;line-height:1.6;padding:12px 0">日付・時刻なしのタスクとして追加します。やりたいことメモなどに。</div>
       </div>
 
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <div class="todo-form-actions">
         <button class="ghost-btn hidden" id="todo-cancel-edit-btn">キャンセル</button>
         <button class="save-btn" id="todo-add-btn">追加</button>
       </div>
     </div>
     <!-- フィルタ -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <div class="todo-toolbar">
+      <div class="todo-filter-groups">
         <div class="todo-filters">
           <button class="todo-filter-btn active" data-filter="all">すべて</button>
           <button class="todo-filter-btn" data-filter="active">未完了</button>
@@ -952,9 +1125,9 @@ input[type=time]{display:none}
           <button class="todo-filter-btn" data-period="month">今月</button>
         </div>
       </div>
-      <div class="log-view-toggle" style="margin-bottom:0;width:auto">
-        <button class="log-view-btn active" id="todo-view-list-btn" style="padding:6px 14px">リスト</button>
-        <button class="log-view-btn" id="todo-view-gantt-btn" style="padding:6px 14px">ガント</button>
+      <div class="log-view-toggle todo-view-toggle">
+        <button class="log-view-btn active" id="todo-view-list-btn">リスト</button>
+        <button class="log-view-btn" id="todo-view-gantt-btn">ガント</button>
       </div>
     </div>
     <!-- リストビュー -->
@@ -1234,6 +1407,12 @@ input[type=time]{display:none}
       <button class="ghost-btn" id="confirm-cancel-btn">キャンセル</button>
       <button class="save-btn" id="confirm-ok-btn">実行</button>
     </div>
+  </div>
+</div>
+<div class="todo-detail-modal hidden" id="todo-detail-modal" role="dialog" aria-modal="true" aria-labelledby="todo-detail-title">
+  <div class="todo-detail-sheet">
+    <button class="todo-detail-close" id="todo-detail-close" type="button" aria-label="タスク詳細を閉じる">×</button>
+    <div id="todo-detail-content"></div>
   </div>
 </div>
 

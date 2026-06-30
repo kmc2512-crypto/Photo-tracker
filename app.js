@@ -719,6 +719,12 @@ qs('#theme-btn').addEventListener('click', () => {
 });
 
 // ── タブ切り替え ──────────────────────────────
+function updateMainLayoutMode() {
+  const main = qs('#main-content');
+  if (!main) return;
+  main.classList.toggle('todo-gantt-main', state.tab === 'todo');
+}
+
 function switchTab(tab) {
   state.tab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => {
@@ -756,6 +762,7 @@ function switchTab(tab) {
     if (typeof updateSyncHealth === 'function') updateSyncHealth();
     if (typeof renderAutoBackupStatus === 'function') renderAutoBackupStatus();
   }
+  updateMainLayoutMode();
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
@@ -1534,13 +1541,30 @@ function initPickers() {
     if (!el2) return;
     // placeholder初期化
     el2.querySelector('.cdi-text').classList.add('placeholder');
-    el2.addEventListener('click', () => Picker.openDate(el2, hidden));
+    const open = () => Picker.openDate(el2, hidden, () => {
+      el2.removeAttribute('aria-invalid');
+      qs('#todo-form-msg')?.classList.contains('warn') && setTodoFormMessage('');
+    });
+    el2.addEventListener('click', open);
+    el2.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    });
   });
   timePickers.forEach(({ trigger, hidden }) => {
     const el2 = qs('#' + trigger);
     if (!el2) return;
     el2.querySelector('.cti-text').classList.add('placeholder');
-    el2.addEventListener('click', () => Picker.openTime(el2, hidden));
+    const open = () => Picker.openTime(el2, hidden);
+    el2.addEventListener('click', open);
+    el2.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    });
   });
 }
 
@@ -1686,10 +1710,49 @@ function expandRecurringTask(t) {
 }
 
 // GASからのタスクはstate.tasks、手動タスクはLS('manual_tasks')に分離
+function createMilestoneId() {
+  return 'ms_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+function normalizeMilestone(m, index = 0) {
+  const rawTitle = String(m?.title || '').trim();
+  const dueDate = String(m?.dueDate || m?.due || '').trim();
+  const title = rawTitle || (dueDate ? 'サブタスク' : '');
+  return {
+    id: m?.id || `ms_existing_${index}`,
+    title,
+    dueDate,
+    dueTime: String(m?.dueTime || '').trim(),
+    note: String(m?.note || '').trim(),
+    completed: !!m?.completed,
+  };
+}
+
+function normalizeTask(t) {
+  const task = t && typeof t === 'object' ? t : {};
+  const rawMilestones = Array.isArray(task.milestones) ? task.milestones : (Array.isArray(task.subtasks) ? task.subtasks : []);
+  const milestones = rawMilestones
+    .map(normalizeMilestone)
+    .filter(m => m.title);
+  return {
+    ...task,
+    description: String(task.description || ''),
+    milestones,
+    subtasks: milestones,
+  };
+}
+
+function normalizeManualTasks(tasks) {
+  return Array.isArray(tasks) ? tasks.map(normalizeTask) : [];
+}
+
 function getAllTasks() {
-  const manual = LS.get('manual_tasks') || [];
+  const manual = normalizeManualTasks(LS.get('manual_tasks'));
   const expandedManual = manual.flatMap(t => expandRecurringTask(t));
-  return [...filterVisibleExternalTasks(state.tasks), ...expandedManual];
+  return [
+    ...filterVisibleExternalTasks(state.tasks).map(normalizeTask),
+    ...expandedManual.map(normalizeTask)
+  ];
 }
 
 // 削除済み手動タスクのIDを記録（同期時にリモートから復活しないようにするため）
@@ -1704,9 +1767,10 @@ function recordDeletedTaskId(id) {
 
 // 手動タスクを保存（ローカル＋Supabase両方に反映）
 async function saveManualTasks(manual) {
-  LS.set('manual_tasks', manual);
+  const normalized = normalizeManualTasks(manual);
+  LS.set('manual_tasks', normalized);
   scheduleTaskNotifications();
-  const ok = await SB.setSetting('manual_tasks', manual);
+  const ok = await SB.setSetting('manual_tasks', normalized);
   if (!ok) {
     console.warn('Supabaseへのタスク同期に失敗しました（ローカルには保存済み）');
   }
@@ -1797,6 +1861,7 @@ state.todoFilter = 'all';
 state.todoView = 'list';
 state.todoPeriod = 'all';
 state.editingTaskId = null; // 編集中の手動タスクID（nullなら新規追加モード）
+state.todoDetailKey = null;
 
 function getDeadlineLimit(period) {
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1883,12 +1948,18 @@ function renderTodo() {
       const done = !!state.tasksDone[k];
       const over = isOverdue(t.due) && !done;
       const row = el('div', 'task-row');
+      bindTodoDetailOpen(row, t);
       const cb = el('div', 'cb' + (done ? ' done' : ''));
-      cb.addEventListener('click', () => toggleTaskDone(k, t));
+      cb.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleTaskDone(k, t);
+      });
       const info = el('div'); info.style.flex = '1';
       const title = el('div', 'task-title' + (done ? ' done' : over ? ' overdue' : ''));
       title.textContent = t.title;
+      const metaRow = el('div', 'task-meta-row');
       const meta = el('div', 'task-meta');
+      const actions = el('div', 'task-actions');
       const pr = el('span', 'priority-tag priority-' + (t.priority || 'normal'));
       pr.textContent = priorityLabel(t.priority);
       meta.appendChild(pr);
@@ -1908,6 +1979,7 @@ function renderTodo() {
         dateLabel.textContent = fmtFull(t.due) + timeStr + (over ? ' · 期限切れ' : ' 締切');
         meta.appendChild(dateLabel);
       }
+      appendSubtaskProgress(meta, t);
 
       // 完了済み → カウントダウン表示
       if (done && state.doneTimers[k]) {
@@ -1935,17 +2007,23 @@ function renderTodo() {
       // 手動タスクは編集可能。削除は同期元を問わず常に表示。
       if (t._manual) {
         const edit = el('button', 'clip-del-btn'); edit.textContent = '編集';
-        edit.style.marginLeft = 'auto';
-        edit.addEventListener('click', () => startEditTask(t._sourceTask || t));
-        meta.appendChild(edit);
+        edit.addEventListener('click', e => {
+          e.stopPropagation();
+          startEditTask(t._sourceTask || t);
+        });
+        actions.appendChild(edit);
       }
       const del = el('button', 'clip-del-btn');
       del.textContent = done ? '消す' : t._manual ? '削除' : '非表示';
       if (!t._manual) del.title = 'Classroom/GAS同期後も戻らないように非表示にします';
-      if (!t._manual && !t._repeatInstance && !t._sourceTask) del.style.marginLeft = 'auto';
-      del.addEventListener('click', () => confirmDismissTodoTask(k, t));
-      meta.appendChild(del);
-      info.appendChild(title); info.appendChild(meta);
+      del.addEventListener('click', e => {
+        e.stopPropagation();
+        confirmDismissTodoTask(k, t);
+      });
+      actions.appendChild(del);
+      metaRow.appendChild(meta);
+      metaRow.appendChild(actions);
+      info.appendChild(title); info.appendChild(metaRow);
       row.appendChild(cb); row.appendChild(info);
       list.appendChild(row);
     });
@@ -2017,6 +2095,402 @@ function renderTodoDoneLog() {
     row.appendChild(left);
     row.appendChild(right);
     wrap.appendChild(row);
+  });
+}
+
+function getTaskDateLabel(t) {
+  if (!t) return '日時なし';
+  if (t.dateType === 'range' && t.start) {
+    const start = fmtFull(t.start) + (t.startTime ? ' ' + t.startTime : '');
+    const end = t.due ? fmtFull(t.due) + (t.dueTime ? ' ' + t.dueTime : '') : '';
+    return end ? `${start} → ${end}` : start;
+  }
+  if (t.due) return fmtFull(t.due) + (t.dueTime ? ' ' + t.dueTime : '') + ' 締切';
+  return '日時なし';
+}
+
+function getSubtasks(t) {
+  return normalizeTask(t).milestones || [];
+}
+
+function getSubtaskProgress(t) {
+  const subtasks = getSubtasks(t);
+  const total = subtasks.length;
+  const done = subtasks.filter(s => s.completed).length;
+  return { subtasks, total, done, text: total ? `サブタスク ${done}/${total}` : '' };
+}
+
+function appendSubtaskProgress(parent, task, cls = 'subtask-progress-chip') {
+  const progress = getSubtaskProgress(task);
+  if (!progress.total) return;
+  const chip = el('span', cls + (progress.done === progress.total ? ' complete' : ''));
+  chip.textContent = progress.done === progress.total ? `${progress.done}/${progress.total} 完了` : progress.text;
+  parent.appendChild(chip);
+}
+
+function isImeComposingEvent(e) {
+  return !!(e.isComposing || e.keyCode === 229 || e.nativeEvent?.isComposing);
+}
+
+function compareTaskAndSubtaskDue(parentTask, subtask) {
+  if (!parentTask?.due || !subtask?.dueDate) return 0;
+  const parentTime = parentTask.dueTime || '23:59';
+  const subtaskTime = subtask.dueTime || '23:59';
+  const parentDue = new Date(`${parentTask.due}T${parentTime}:00`);
+  const subtaskDue = new Date(`${subtask.dueDate}T${subtaskTime}:00`);
+  if (Number.isNaN(parentDue.getTime()) || Number.isNaN(subtaskDue.getTime())) return 0;
+  return subtaskDue.getTime() - parentDue.getTime();
+}
+
+function subtaskDueLabel(subtask) {
+  if (!subtask?.dueDate) return '';
+  return fmtFull(subtask.dueDate) + (subtask.dueTime ? ` ${subtask.dueTime}` : '') + 'まで';
+}
+
+function subtaskDateObject(subtask) {
+  if (!subtask?.dueDate) return null;
+  const d = new Date(`${subtask.dueDate}T${subtask.dueTime || '12:00'}:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function createSubtaskDatePicker(value = '', label = 'サブタスクの期限日') {
+  const id = createMilestoneId();
+  const wrap = el('div', 'subtask-picker-field');
+  const trigger = el('div', 'custom-date-input subtask-date-picker');
+  trigger.id = 'subtask-date-' + id;
+  trigger.dataset.target = 'subtask-date-hidden-' + id;
+  trigger.setAttribute('role', 'button');
+  trigger.setAttribute('tabindex', '0');
+  trigger.setAttribute('aria-label', label);
+  const text = el('span', 'cdi-text' + (value ? '' : ' placeholder'));
+  text.textContent = value ? fmtFull(value) : '日付を選択';
+  const icon = el('span', 'cdi-icon');
+  icon.textContent = '▼';
+  trigger.appendChild(text);
+  trigger.appendChild(icon);
+  const hidden = el('input');
+  hidden.type = 'hidden';
+  hidden.id = trigger.dataset.target;
+  hidden.value = value || '';
+  const open = () => Picker.openDate(trigger, hidden.id);
+  trigger.addEventListener('click', open);
+  trigger.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    open();
+  });
+  wrap.appendChild(trigger);
+  wrap.appendChild(hidden);
+  return { wrap, hidden };
+}
+
+function createSubtaskTimePicker(value = '', label = 'サブタスクの期限時刻') {
+  const id = createMilestoneId();
+  const wrap = el('div', 'subtask-picker-field');
+  const trigger = el('div', 'custom-time-input subtask-time-picker');
+  trigger.id = 'subtask-time-' + id;
+  trigger.dataset.target = 'subtask-time-hidden-' + id;
+  trigger.setAttribute('role', 'button');
+  trigger.setAttribute('tabindex', '0');
+  trigger.setAttribute('aria-label', label);
+  const text = el('span', 'cti-text' + (value ? '' : ' placeholder'));
+  text.textContent = value || '--:--';
+  const icon = el('span', 'cdi-icon');
+  icon.textContent = '▼';
+  trigger.appendChild(text);
+  trigger.appendChild(icon);
+  const hidden = el('input');
+  hidden.type = 'hidden';
+  hidden.id = trigger.dataset.target;
+  hidden.value = value || '';
+  const open = () => Picker.openTime(trigger, hidden.id);
+  trigger.addEventListener('click', open);
+  trigger.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    open();
+  });
+  wrap.appendChild(trigger);
+  wrap.appendChild(hidden);
+  return { wrap, hidden };
+}
+
+function findTaskByKey(key) {
+  return getAllTasks().find(t => getTaskKey(t) === key) || null;
+}
+
+function getEditableManualTaskId(t) {
+  if (!t || !t._manual) return '';
+  return t._sourceId || t.id || '';
+}
+
+function getManualTaskById(id) {
+  return normalizeManualTasks(LS.get('manual_tasks')).find(t => t.id === id) || null;
+}
+
+async function updateManualTaskById(id, updater) {
+  const manual = normalizeManualTasks(LS.get('manual_tasks'));
+  const idx = manual.findIndex(t => t.id === id);
+  if (idx === -1) return null;
+  const nextTask = normalizeTask(updater(manual[idx]));
+  manual[idx] = nextTask;
+  await saveManualTasks(manual);
+  renderTodo();
+  return nextTask;
+}
+
+function renderTodoDetail(taskArg) {
+  const content = qs('#todo-detail-content');
+  if (!content) return;
+  const task = normalizeTask(taskArg || findTaskByKey(state.todoDetailKey));
+  if (!task || !task.title) {
+    content.innerHTML = '<div class="todo-detail-empty">タスクを確認できませんでした。一覧を再読み込みしてください。</div>';
+    return;
+  }
+
+  const key = getTaskKey(task);
+  const editableId = getEditableManualTaskId(task);
+  const editableTask = editableId ? getManualTaskById(editableId) : null;
+  const detailTask = normalizeTask(editableTask || task);
+  const milestones = detailTask.milestones || [];
+  const done = !!state.tasksDone[key];
+
+  content.innerHTML = '';
+  const title = el('div', 'todo-detail-title');
+  title.id = 'todo-detail-title';
+  title.textContent = task.title || 'Untitled';
+  const meta = el('div', 'todo-detail-meta');
+  [
+    getTaskDateLabel(task),
+    task.subject || 'カテゴリなし',
+    priorityLabel(task.priority),
+    done ? '完了' : '未完了',
+  ].forEach(text => {
+    const chip = el('span', 'todo-detail-chip');
+    chip.textContent = text;
+    meta.appendChild(chip);
+  });
+
+  const descSection = el('section', 'todo-detail-section');
+  const descLabel = el('div', 'todo-detail-label');
+  descLabel.textContent = '説明 / メモ';
+  const desc = el('div', detailTask.description ? 'todo-detail-copy' : 'todo-detail-empty');
+  desc.textContent = detailTask.description || '説明なし';
+  descSection.appendChild(descLabel);
+  descSection.appendChild(desc);
+
+  const milestoneSection = el('section', 'todo-detail-section');
+  const milestoneLabel = el('div', 'todo-detail-label');
+  const progress = getSubtaskProgress(detailTask);
+  milestoneLabel.textContent = 'サブタスク';
+  milestoneSection.appendChild(milestoneLabel);
+  if (progress.total) {
+    const summary = el('div', 'subtask-summary');
+    summary.textContent = `${progress.done} / ${progress.total} 完了`;
+    if (progress.done === progress.total) summary.textContent += ' · すべて完了';
+    milestoneSection.appendChild(summary);
+  }
+
+  const list = el('div', 'milestone-list');
+  if (!milestones.length) {
+    const empty = el('div', 'todo-detail-empty');
+    empty.textContent = 'まだサブタスクはありません。作業を小さく分けると進めやすくなります。';
+    list.appendChild(empty);
+  } else {
+    milestones.forEach(ms => {
+      const row = el('div', 'milestone-row' + (ms.completed ? ' done' : ''));
+      const check = el('button', 'milestone-check' + (ms.completed ? ' done' : ''));
+      check.type = 'button';
+      check.setAttribute('aria-label', ms.completed ? `${ms.title}を未完了に戻す` : `${ms.title}を完了にする`);
+      check.disabled = !editableId;
+      check.addEventListener('click', async () => {
+        if (!editableId) return;
+        const updated = await updateManualTaskById(editableId, current => ({
+          ...current,
+          milestones: (current.milestones || []).map(item => item.id === ms.id ? {...item, completed: !item.completed} : item)
+        }));
+        renderTodoDetail(updated);
+      });
+      const main = el('div', 'milestone-main');
+      const msTitle = el('div', 'milestone-title');
+      msTitle.textContent = ms.title || 'サブタスク';
+      main.appendChild(msTitle);
+      if (ms.dueDate) {
+        const due = el('div', 'milestone-due' + (compareTaskAndSubtaskDue(detailTask, ms) > 0 ? ' warn' : ''));
+        due.textContent = subtaskDueLabel(ms);
+        if (compareTaskAndSubtaskDue(detailTask, ms) > 0) due.textContent += ' · 親タスクより後';
+        main.appendChild(due);
+      }
+      if (ms.note) {
+        const noteText = el('div', 'milestone-note-text');
+        noteText.textContent = ms.note;
+        main.appendChild(noteText);
+      }
+      const controls = el('div', 'milestone-controls');
+      const edit = el('button', 'milestone-edit');
+      edit.type = 'button';
+      edit.textContent = '編集';
+      edit.disabled = !editableId;
+      const del = el('button', 'milestone-delete');
+      del.type = 'button';
+      del.textContent = '削除';
+      del.disabled = !editableId;
+      controls.appendChild(edit);
+      controls.appendChild(del);
+      del.addEventListener('click', async () => {
+        if (!editableId) return;
+        const ok = await confirmAction({
+          title: 'サブタスクを削除しますか？',
+          body: 'このサブタスクだけを削除します。親タスクは残ります。',
+          okText: '削除する'
+        });
+        if (!ok) return;
+        const updated = await updateManualTaskById(editableId, current => ({
+          ...current,
+          milestones: (current.milestones || []).filter(item => item.id !== ms.id)
+        }));
+        renderTodoDetail(updated);
+      });
+      row.appendChild(check);
+      row.appendChild(main);
+      row.appendChild(controls);
+      list.appendChild(row);
+
+      const editForm = el('div', 'subtask-edit-form hidden');
+      const editTitle = el('input');
+      editTitle.type = 'text';
+      editTitle.value = ms.title || '';
+      editTitle.setAttribute('aria-label', 'サブタスク名を編集');
+      const editDatePicker = createSubtaskDatePicker(ms.dueDate || '', 'サブタスクの期限日を編集');
+      const editTimePicker = createSubtaskTimePicker(ms.dueTime || '', 'サブタスクの期限時刻を編集');
+      const editNote = el('textarea');
+      editNote.rows = 2;
+      editNote.value = ms.note || '';
+      editNote.placeholder = 'メモ（任意）';
+      editNote.setAttribute('aria-label', 'サブタスクのメモを編集');
+      const saveEdit = el('button', 'save-btn');
+      saveEdit.type = 'button';
+      saveEdit.textContent = '保存';
+      saveEdit.addEventListener('click', async () => {
+        const nextTitle = editTitle.value.trim();
+        if (!nextTitle) {
+          editTitle.focus();
+          return;
+        }
+        const updated = await updateManualTaskById(editableId, current => ({
+          ...current,
+          milestones: (current.milestones || []).map(item => item.id === ms.id ? {
+            ...item,
+            title: nextTitle,
+            dueDate: editDatePicker.hidden.value,
+            dueTime: editTimePicker.hidden.value,
+            note: editNote.value.trim()
+          } : item)
+        }));
+        renderTodoDetail(updated);
+      });
+      edit.addEventListener('click', () => {
+        editForm.classList.toggle('hidden');
+        if (!editForm.classList.contains('hidden')) editTitle.focus();
+      });
+      editForm.appendChild(editTitle);
+      editForm.appendChild(editDatePicker.wrap);
+      editForm.appendChild(editTimePicker.wrap);
+      editForm.appendChild(editNote);
+      editForm.appendChild(saveEdit);
+      list.appendChild(editForm);
+    });
+  }
+  milestoneSection.appendChild(list);
+
+  if (editableId) {
+    const form = el('div', 'milestone-form subtask-quick-form');
+    const titleInput = el('input');
+    titleInput.type = 'text';
+    titleInput.placeholder = 'サブタスクを追加...';
+    titleInput.setAttribute('aria-label', 'サブタスク名');
+    const datePicker = createSubtaskDatePicker('', 'サブタスクの期限日');
+    const timePicker = createSubtaskTimePicker('', 'サブタスクの期限時刻');
+    const noteInput = el('textarea');
+    noteInput.rows = 2;
+    noteInput.placeholder = 'メモ（任意）';
+    noteInput.setAttribute('aria-label', 'サブタスクのメモ');
+    const add = el('button', 'save-btn');
+    add.type = 'button';
+    add.textContent = '追加';
+    const addSubtask = async () => {
+      const titleValue = titleInput.value.trim();
+      const dueValue = datePicker.hidden.value;
+      const dueTimeValue = timePicker.hidden.value;
+      const noteValue = noteInput.value.trim();
+      if (!titleValue) {
+        titleInput.focus();
+        return;
+      }
+      const updated = await updateManualTaskById(editableId, current => ({
+        ...current,
+        milestones: [
+          ...(current.milestones || []),
+          { id: createMilestoneId(), title: titleValue, dueDate: dueValue, dueTime: dueTimeValue, note: noteValue, completed: false }
+        ]
+      }));
+      titleInput.value = '';
+      datePicker.hidden.value = '';
+      datePicker.wrap.querySelector('.cdi-text').textContent = '日付を選択';
+      datePicker.wrap.querySelector('.cdi-text').classList.add('placeholder');
+      timePicker.hidden.value = '';
+      timePicker.wrap.querySelector('.cti-text').textContent = '--:--';
+      timePicker.wrap.querySelector('.cti-text').classList.add('placeholder');
+      noteInput.value = '';
+      renderTodoDetail(updated);
+    };
+    add.addEventListener('click', addSubtask);
+    titleInput.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (isImeComposingEvent(e)) return;
+      e.preventDefault();
+      addSubtask();
+    });
+    form.appendChild(titleInput);
+    form.appendChild(datePicker.wrap);
+    form.appendChild(timePicker.wrap);
+    form.appendChild(noteInput);
+    form.appendChild(add);
+    milestoneSection.appendChild(form);
+  } else {
+    const note = el('div', 'milestone-note');
+    note.textContent = '同期タスクはこの画面ではサブタスクを編集できません。必要なら手動タスクとして追加してください。';
+    milestoneSection.appendChild(note);
+  }
+
+  content.appendChild(title);
+  content.appendChild(meta);
+  content.appendChild(descSection);
+  content.appendChild(milestoneSection);
+}
+
+function openTodoDetail(task) {
+  if (!task) return;
+  state.todoDetailKey = getTaskKey(task);
+  renderTodoDetail(task);
+  qs('#todo-detail-modal')?.classList.remove('hidden');
+  qs('#todo-detail-close')?.focus();
+}
+
+function closeTodoDetail() {
+  state.todoDetailKey = null;
+  qs('#todo-detail-modal')?.classList.add('hidden');
+}
+
+function bindTodoDetailOpen(target, task) {
+  target.setAttribute('role', 'button');
+  target.setAttribute('tabindex', '0');
+  target.setAttribute('aria-label', `${task.title || 'タスク'}の詳細を開く`);
+  target.addEventListener('click', () => openTodoDetail(task));
+  target.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    openTodoDetail(task);
   });
 }
 
@@ -2098,10 +2572,13 @@ function renderTodoWidget() {
     const row = el('div', 'widget-task');
     const cb = el('div', 'widget-check');
     const main = el('div', 'widget-task-main');
-    const title = el('div', 'widget-task-title');
-    title.textContent = t.title || 'Untitled';
-    const meta = el('div', 'widget-task-meta');
-    meta.textContent = [t.subject, priorityLabel(t.priority), fmtFull(t.due)].filter(Boolean).join(' / ');
+      const title = el('div', 'widget-task-title');
+      title.textContent = t.title || 'Untitled';
+      const meta = el('div', 'widget-task-meta');
+      const widgetParts = [t.subject, priorityLabel(t.priority), fmtFull(t.due)].filter(Boolean);
+      const widgetProgress = getSubtaskProgress(t);
+      if (widgetProgress.total) widgetParts.push(`${widgetProgress.done}/${widgetProgress.total} 完了`);
+      meta.textContent = widgetParts.join(' / ');
     const badge = el('div', 'widget-due' + (tone ? ' ' + tone : ''));
     badge.textContent = dueLabel(days);
     bindWidgetTaskToggle(row, k, t);
@@ -2113,6 +2590,125 @@ function renderTodoWidget() {
     list.appendChild(row);
   });
   wrap.appendChild(list);
+}
+
+function renderMobileDeadlineCards(wrap, tasks, today) {
+  const daysBetween = (a, b) => Math.round((a - b) / 86400000);
+  const fmtShort = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric', weekday:'short'});
+  const groups = [
+    { key: 'today', title: '今日見る', test: item => !item.done && item.daysLeft === 0 },
+    { key: 'overdue', title: '期限切れ', test: item => !item.done && item.daysLeft < 0 },
+    { key: 'soon', title: '3日以内', test: item => !item.done && item.daysLeft > 0 && item.daysLeft <= 3 },
+    { key: 'week', title: '7日以内', test: item => !item.done && item.daysLeft > 3 && item.daysLeft <= 7 },
+    { key: 'later', title: 'それ以降', test: item => !item.done && item.daysLeft > 7 },
+    { key: 'done', title: '完了済み', test: item => item.done },
+  ];
+  const items = tasks.map(t => {
+    const k = t.id || t.title + t.due;
+    const done = !!state.tasksDone[k];
+    const dueDate = new Date(t.due + 'T00:00:00');
+    const daysLeft = daysBetween(dueDate, today);
+    const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
+    const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
+    return { t, k, done, dueDate, daysLeft, isRange, startDate };
+  });
+  const activeCount = items.filter(item => !item.done).length;
+  const urgentCount = items.filter(item => !item.done && item.daysLeft <= 3).length;
+  const shell = el('div', 'mobile-deadline');
+  const head = el('div', 'mobile-deadline-head');
+  head.innerHTML = `<span>${activeCount} TASKS</span><strong>${urgentCount ? `要確認 ${urgentCount}` : '直近なし'}</strong>`;
+  shell.appendChild(head);
+
+  const markerLeft = days => Math.max(4, Math.min(96, ((days + 7) / 21) * 100));
+  const rangeLeft = (start, due) => Math.min(markerLeft(daysBetween(start, today)), markerLeft(daysBetween(due, today)));
+  const rangeWidth = (start, due) => Math.max(8, Math.abs(markerLeft(daysBetween(due, today)) - markerLeft(daysBetween(start, today))));
+  const statusText = item => item.done ? '完了'
+    : item.daysLeft < 0 ? `${Math.abs(item.daysLeft)}日超過`
+    : item.daysLeft === 0 ? '今日締切'
+    : item.daysLeft === 1 ? '明日締切'
+    : `あと${item.daysLeft}日`;
+  const toneClass = item => item.done ? 'done'
+    : item.daysLeft < 0 ? 'over'
+    : item.daysLeft <= 3 ? 'hot'
+    : item.daysLeft <= 7 ? 'warn'
+    : 'future';
+
+  groups.forEach(group => {
+    const groupItems = items.filter(group.test);
+    if (!groupItems.length) return;
+    const section = el('section', 'mobile-deadline-section mobile-deadline-' + group.key);
+    const title = el('div', 'mobile-deadline-section-title');
+    title.innerHTML = `<span>${group.title}</span><em>${groupItems.length}</em>`;
+    section.appendChild(title);
+    groupItems.forEach(item => {
+      const { t, k, done, dueDate, daysLeft, isRange, startDate } = item;
+      const tone = toneClass(item);
+      const card = el('div', 'mobile-task-card ' + tone + (done ? ' done' : ''));
+      bindTodoDetailOpen(card, t);
+      const top = el('div', 'mobile-task-top');
+      const cb = el('button', 'mobile-task-check' + (done ? ' done' : ''));
+      cb.type = 'button';
+      cb.setAttribute('aria-label', done ? `${t.title} を未完了に戻す` : `${t.title} を完了にする`);
+      cb.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleTaskDone(k, t);
+      });
+      const main = el('div', 'mobile-task-main');
+      const titleText = el('div', 'mobile-task-title');
+      titleText.textContent = t.title || 'Untitled';
+      const meta = el('div', 'mobile-task-meta');
+      [t.subject, priorityLabel(t.priority)].filter(Boolean).forEach(text => {
+        const chip = el('span');
+        chip.textContent = text;
+        meta.appendChild(chip);
+      });
+      const progress = getSubtaskProgress(t);
+      if (progress.total) {
+        const chip = el('span');
+        chip.textContent = `${progress.done}/${progress.total} 完了`;
+        meta.appendChild(chip);
+      }
+      main.appendChild(titleText);
+      main.appendChild(meta);
+      const status = el('div', 'mobile-task-status ' + tone);
+      status.textContent = statusText(item);
+      top.appendChild(cb);
+      top.appendChild(main);
+      top.appendChild(status);
+
+      const due = el('div', 'mobile-task-due');
+      due.textContent = isRange && startDate
+        ? `${fmtShort(startDate)} から ${fmtShort(dueDate)}`
+        : `${fmtShort(dueDate)} 締切`;
+
+      const timeline = el('div', 'mobile-mini-timeline');
+      const todayMark = el('span', 'mobile-mini-today');
+      timeline.appendChild(todayMark);
+      if (isRange && startDate) {
+        const span = el('span', 'mobile-mini-span ' + tone);
+        span.style.left = `${rangeLeft(startDate, dueDate)}%`;
+        span.style.width = `${rangeWidth(startDate, dueDate)}%`;
+        timeline.appendChild(span);
+      } else {
+        const line = el('span', 'mobile-mini-line ' + tone);
+        const left = Math.min(markerLeft(0), markerLeft(daysLeft));
+        const width = Math.max(8, Math.abs(markerLeft(daysLeft) - markerLeft(0)));
+        line.style.left = `${left}%`;
+        line.style.width = `${width}%`;
+        timeline.appendChild(line);
+      }
+      const marker = el('span', 'mobile-mini-marker ' + tone);
+      marker.style.left = `${markerLeft(daysLeft)}%`;
+      timeline.appendChild(marker);
+
+      card.appendChild(top);
+      card.appendChild(due);
+      card.appendChild(timeline);
+      section.appendChild(card);
+    });
+    shell.appendChild(section);
+  });
+  wrap.appendChild(shell);
 }
 
 function renderGantt(tasks) {
@@ -2131,6 +2727,10 @@ function renderGantt(tasks) {
   }
 
   const today = new Date(); today.setHours(0,0,0,0);
+  if (window.matchMedia('(max-width: 600px)').matches) {
+    renderMobileDeadlineCards(wrap, withDue, today);
+    return;
+  }
   const activeCount = withDue.filter(t => !state.tasksDone[t.id || t.title + t.due]).length;
   const urgentCount = withDue.filter(t => {
     const done = !!state.tasksDone[t.id || t.title + t.due];
@@ -2151,7 +2751,8 @@ function renderGantt(tasks) {
   const legend = el('div', 'gantt-legend');
   legend.innerHTML = `
     <span class="gantt-legend-item"><span class="gantt-legend-bar"></span>期間</span>
-    <span class="gantt-legend-item"><span class="gantt-legend-line"></span><span class="gantt-legend-dot"></span>締切</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-deadline"></span><span class="gantt-legend-dot"></span>今日から締切まで</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-subtask"><span></span></span>サブタスク期限</span>
     <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-hot"></span>3日以内</span>
     <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-warn"></span>7日以内</span>
   `;
@@ -2253,6 +2854,7 @@ function renderGantt(tasks) {
     const dueDate = new Date(t.due + 'T00:00:00');
     const daysLeft = daysBetween(dueDate, today);
     const over = daysLeft < 0 && !done;
+    const relation = done ? 'is-done' : over ? 'is-overdue' : daysLeft === 0 ? 'is-today' : 'is-future';
     const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
     const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
     const range = isRange && startDate ? widthPercentForRange(startDate, dueDate) : null;
@@ -2266,11 +2868,15 @@ function renderGantt(tasks) {
       : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const row = el('div', 'gantt-row2' + (done ? ' done' : ''));
+    const row = el('div', 'gantt-row2' + (done ? ' done' : '') + ' ' + relation);
+    bindTodoDetailOpen(row, t);
 
     const task = el('div', 'gantt-task');
     const cb = el('div', 'cb' + (done ? ' done' : ''));
-    cb.addEventListener('click', () => toggleTaskDone(k, t));
+    cb.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleTaskDone(k, t);
+    });
     const text = el('div');
     text.style.minWidth = '0';
     const nt = el('div', 'gantt-title' + (done ? ' done' : ''));
@@ -2281,12 +2887,18 @@ function renderGantt(tasks) {
     metaParts.push(priorityLabel(t.priority));
     metaParts.push(isRange && startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
     meta.textContent = metaParts.join(' / ');
+    appendSubtaskProgress(meta, t, 'gantt-subtask-progress');
     text.appendChild(nt);
     text.appendChild(meta);
     task.appendChild(cb);
     task.appendChild(text);
 
     const rail = el('div', 'gantt-rail');
+    rail.setAttribute('role', 'img');
+    rail.setAttribute('aria-label', isRange && startDate
+      ? `${t.title} の期間。開始 ${fmtShort(startDate)}、終了 ${fmtShort(dueDate)}。${badgeText}。`
+      : `${t.title} の締切。締切 ${fmtShort(dueDate)}。今日からの状態: ${badgeText}。`
+    );
     ticks.forEach(tick => {
       if (tick.weekend) {
         const weekend = el('div', 'gantt-grid-line weekend');
@@ -2300,24 +2912,84 @@ function renderGantt(tasks) {
     const todayBand = el('div', 'gantt-today-band');
     todayBand.style.left = `${todayLeft}%`;
     rail.appendChild(todayBand);
+
+    const subtaskMarkers = getSubtasks(t)
+      .map(ms => ({ ms, date: subtaskDateObject(ms) }))
+      .filter(item => item.date && item.date >= windowStart && item.date <= windowEnd)
+      .sort((a, b) => a.date - b.date);
+    const visibleSubtaskMarkers = subtaskMarkers.slice(0, 4);
+    visibleSubtaskMarkers.forEach((item, index) => {
+      const { ms, date } = item;
+      const lateParent = compareTaskAndSubtaskDue(t, ms) > 0;
+      const isPast = date < today && !ms.completed;
+      const markerLeft = percentForDate(date);
+      const marker = el('div', 'gantt-subtask-marker'
+        + (ms.completed ? ' done' : '')
+        + (lateParent ? ' late-parent' : '')
+        + (isPast ? ' over' : '')
+        + (markerLeft > 76 ? ' left' : '')
+      );
+      marker.style.left = `${markerLeft}%`;
+      marker.style.top = `${index % 2 === 0 ? 7 : 30}px`;
+      const markerDot = el('span', 'gantt-subtask-dot');
+      const markerBody = el('span', 'gantt-subtask-body');
+      const markerTitle = el('span', 'gantt-subtask-title');
+      markerTitle.textContent = ms.title || 'サブタスク';
+      const markerDue = el('span', 'gantt-subtask-due');
+      markerDue.textContent = `〆 ${date.getMonth() + 1}/${date.getDate()}${ms.dueTime ? ' ' + ms.dueTime : ''}`;
+      marker.appendChild(markerDot);
+      markerBody.appendChild(markerTitle);
+      markerBody.appendChild(markerDue);
+      marker.appendChild(markerBody);
+      marker.title = `${ms.title || 'サブタスク'} ${subtaskDueLabel(ms)}`;
+      marker.setAttribute('aria-label', marker.title);
+      rail.appendChild(marker);
+    });
+    if (subtaskMarkers.length > visibleSubtaskMarkers.length) {
+      const more = el('div', 'gantt-subtask-more');
+      more.textContent = `+${subtaskMarkers.length - visibleSubtaskMarkers.length}`;
+      more.title = 'ほかのサブタスク期限があります';
+      rail.appendChild(more);
+    }
     if (range) {
       const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
       fill.style.left = `${range.left}%`;
       fill.style.width = `${range.width}%`;
+      fill.title = `期間: ${fmtShort(startDate)} から ${fmtShort(dueDate)}`;
       rail.appendChild(fill);
-      const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : ''));
+      const startMark = el('div', 'gantt-range-start' + (tone ? ' ' + tone : ''));
+      startMark.style.left = `${percentForDate(startDate)}%`;
+      startMark.title = `開始: ${fmtShort(startDate)}`;
+      rail.appendChild(startMark);
+      if (!done) {
+        const rangeLabel = el('div', 'gantt-marker-label' + (tone ? ' ' + tone : '') + ' ' + relation);
+        rangeLabel.style.left = `${dueLeft}%`;
+        rangeLabel.textContent = '終了';
+        rail.appendChild(rangeLabel);
+      }
+      const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : '') + ' ' + relation);
       dot.style.left = `${dueLeft}%`;
+      dot.title = `終了/締切: ${fmtShort(dueDate)}`;
       rail.appendChild(dot);
     } else {
-      const line = el('div', 'gantt-deadline-line' + (tone ? ' ' + tone : ''));
+      const line = el('div', 'gantt-deadline-line' + (tone ? ' ' + tone : '') + ' ' + relation);
       line.style.left = `${deadlineLine.left}%`;
       line.style.width = `${deadlineLine.width}%`;
+      line.title = over ? '期限切れ: 期限から今日まで' : daysLeft === 0 ? '今日が締切' : '今日から締切まで';
       rail.appendChild(line);
-      const stem = el('div', 'gantt-deadline-stem' + (tone ? ' ' + tone : ''));
+      const stem = el('div', 'gantt-deadline-stem' + (tone ? ' ' + tone : '') + ' ' + relation);
       stem.style.left = `${dueLeft}%`;
+      stem.title = `締切: ${fmtShort(dueDate)}`;
       rail.appendChild(stem);
-      const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : ''));
+      if (!done && daysLeft === 0) {
+        const markerLabel = el('div', 'gantt-marker-label' + (tone ? ' ' + tone : '') + ' ' + relation);
+        markerLabel.style.left = `${dueLeft}%`;
+        markerLabel.textContent = '今日';
+        rail.appendChild(markerLabel);
+      }
+      const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : '') + ' ' + relation);
       dot.style.left = `${dueLeft}%`;
+      dot.title = `締切: ${fmtShort(dueDate)}`;
       rail.appendChild(dot);
     }
 
@@ -2354,13 +3026,23 @@ qs('#todo-view-list-btn').addEventListener('click', () => {
   state.todoView = 'list';
   qs('#todo-view-list-btn').classList.add('active');
   qs('#todo-view-gantt-btn').classList.remove('active');
+  updateMainLayoutMode();
   renderTodo();
 });
 qs('#todo-view-gantt-btn').addEventListener('click', () => {
   state.todoView = 'gantt';
   qs('#todo-view-gantt-btn').classList.add('active');
   qs('#todo-view-list-btn').classList.remove('active');
+  updateMainLayoutMode();
   renderTodo();
+});
+
+qs('#todo-detail-close')?.addEventListener('click', closeTodoDetail);
+qs('#todo-detail-modal')?.addEventListener('click', e => {
+  if (e.target === qs('#todo-detail-modal')) closeTodoDetail();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !qs('#todo-detail-modal')?.classList.contains('hidden')) closeTodoDetail();
 });
 
 setPriorityValue(qs('#todo-priority-input')?.value || 'normal');
@@ -2394,8 +3076,42 @@ qs('#todo-add-btn').addEventListener('click', () => {
   }
   qs('#todo-title-input').removeAttribute('aria-invalid');
 
-  const manual = LS.get('manual_tasks') || [];
+  if (state.todoDateType === 'deadline' && !qs('#todo-due-input').value) {
+    const picker = qs('#pick-due-date');
+    picker?.setAttribute('aria-invalid', 'true');
+    setTodoFormMessage('締め切り日を選択してください。日付なしで追加する場合は「日時なし」を選んでください。', true);
+    picker?.focus();
+    return;
+  }
+  if (state.todoDateType === 'range') {
+    const start = qs('#todo-start-input').value;
+    const end = qs('#todo-end-input').value;
+    if (!start) {
+      const picker = qs('#pick-start-date');
+      picker?.setAttribute('aria-invalid', 'true');
+      setTodoFormMessage('期間タスクには開始日が必要です。', true);
+      picker?.focus();
+      return;
+    }
+    if (!end) {
+      const picker = qs('#pick-end-date');
+      picker?.setAttribute('aria-invalid', 'true');
+      setTodoFormMessage('期間タスクには終了日が必要です。', true);
+      picker?.focus();
+      return;
+    }
+    if (end < start) {
+      const picker = qs('#pick-end-date');
+      picker?.setAttribute('aria-invalid', 'true');
+      setTodoFormMessage('終了日は開始日以降にしてください。', true);
+      picker?.focus();
+      return;
+    }
+  }
+
+  const manual = normalizeManualTasks(LS.get('manual_tasks'));
   const isEditing = !!state.editingTaskId;
+  const existingTask = isEditing ? manual.find(x => x.id === state.editingTaskId) : null;
 
   const task = {
     id: isEditing ? state.editingTaskId : 'manual_' + Date.now(),
@@ -2403,6 +3119,8 @@ qs('#todo-add-btn').addEventListener('click', () => {
     subject: qs('#todo-subject-input').value.trim(),
     priority: qs('#todo-priority-input').value || 'normal',
     repeat: qs('#todo-repeat-input').value || 'none',
+    description: qs('#todo-description-input')?.value.trim() || '',
+    milestones: existingTask?.milestones || [],
     _manual: true,
     dateType: state.todoDateType,
   };
@@ -2451,6 +3169,7 @@ function startEditTask(t) {
 
   qs('#todo-title-input').value = t.title || '';
   qs('#todo-subject-input').value = t.subject || '';
+  if (qs('#todo-description-input')) qs('#todo-description-input').value = t.description || '';
   setPriorityValue(t.priority || 'normal');
   qs('#todo-repeat-input').value = t.repeat || 'none';
 
@@ -2503,6 +3222,7 @@ function exitEditMode() {
   state.editingTaskId = null;
   qs('#todo-title-input').value = '';
   qs('#todo-subject-input').value = '';
+  if (qs('#todo-description-input')) qs('#todo-description-input').value = '';
   setPriorityValue('normal');
   qs('#todo-repeat-input').value = 'none';
   qs('#todo-due-input').value = '';
@@ -3516,12 +4236,24 @@ qs('#backup-file-input').addEventListener('change', async e => {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
+    const confirmed = await confirmAction({
+      title: 'バックアップを読み込みますか？',
+      body: `${file.name} の内容で、この端末のコメント・Todo・クリップ・通知設定などを復元します。現在の端末データは上書きされる可能性があります。`,
+      okText: '読み込む'
+    });
+    if (!confirmed) {
+      e.target.value = '';
+      qs('#backup-msg').textContent = '読み込みをキャンセルしました';
+      return;
+    }
     applyFullBackupPayload(data);
     await writeFullBackupToCloud('import');
     qs('#backup-msg').textContent = '読み込み完了。ページを再読み込みします…';
     setTimeout(() => location.reload(), 1500);
   } catch(err) {
     qs('#backup-msg').textContent = 'エラー: ' + err.message;
+  } finally {
+    e.target.value = '';
   }
 });
 
@@ -3624,7 +4356,15 @@ qs('#force-resync-photos-btn').addEventListener('click', async () => {
   });
   if (confirmed) resyncPhotos(true);
 });
-qs('#restore-cloud-btn').addEventListener('click', () => restoreFromSupabase({ forcePhotos: false, showMessage: true }));
+qs('#restore-cloud-btn').addEventListener('click', async () => {
+  const confirmed = await confirmAction({
+    title: '写真ログを復元しますか？',
+    body: 'クラウド側のバックアップから写真・コメント・レンズ・デバイスを復元します。現在この端末にある写真はできるだけ維持します。',
+    okText: '復元する'
+  });
+  if (!confirmed) return;
+  restoreFromSupabase({ forcePhotos: false, showMessage: true });
+});
 
 // ── ログ（リスト＋カレンダー） ──────────────────
 let logObjUrls = {};
