@@ -349,23 +349,23 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .sync-health-item{border:1px solid var(--border);padding:10px 12px}
 .sync-health-label{font-size:8px;letter-spacing:.18em;color:var(--fg6);margin-bottom:6px}
 .sync-health-value{font-size:10px;line-height:1.6;color:var(--fg4);letter-spacing:.04em}
-.account-panel{border:1px solid var(--border);padding:16px;margin-top:0;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;min-height:86px}
-.account-status{font-size:11px;color:var(--fg4);line-height:1.8;text-wrap:pretty;flex:1 1 240px}
+.account-panel{border:1px solid var(--border);padding:16px;margin-top:0;display:grid;grid-template-columns:minmax(220px,.9fr) minmax(320px,1.1fr);gap:16px;align-items:start;min-height:86px}
+.account-status{font-size:11px;color:var(--fg4);line-height:1.8;text-wrap:pretty}
 .account-status strong{color:var(--fg)}
-.account-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-left:auto}
+.account-actions{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:start}
 .account-actions .save-btn,.account-actions .ghost-btn{height:40px;align-items:center;justify-content:center;white-space:nowrap}
-.account-actions .ghost-btn{min-width:112px}
-.sync-key-form{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:8px;width:100%;margin-top:4px}
+.account-actions .ghost-btn{min-width:88px}
+.sync-key-form{display:grid;grid-template-columns:minmax(180px,1fr) 88px;gap:8px;width:100%;margin-top:0}
 .sync-key-form input{height:40px;border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);padding:0 12px;font-family:'DM Mono',monospace;font-size:11px;outline:none}
 .sync-key-form input:focus{border-color:var(--fg5)}
 .sync-key-help{font-size:9px;color:var(--fg6);line-height:1.7;margin-top:8px;letter-spacing:.04em}
-.email-login-box{border:1px solid var(--border);padding:14px;margin-top:12px;width:100%}
+.email-login-box{border:1px solid var(--border);padding:16px;margin-top:0;width:100%;grid-column:1 / -1}
 .email-login-title{font-size:10px;color:var(--fg4);letter-spacing:.12em;margin-bottom:10px}
-.email-login-form{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,1fr);gap:8px}
+.email-login-form{display:grid;grid-template-columns:repeat(2,minmax(160px,1fr));gap:8px}
 .email-login-form input{height:40px;border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);padding:0 12px;font-family:'DM Mono',monospace;font-size:11px;outline:none}
 .email-login-form input:focus{border-color:var(--fg5)}
-.email-login-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.email-login-actions .save-btn,.email-login-actions .ghost-btn{height:38px;justify-content:center}
+.email-login-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-top:10px}
+.email-login-actions .save-btn,.email-login-actions .ghost-btn{height:40px;justify-content:center;width:100%}
 .install-steps{display:grid;gap:8px;margin-top:14px}
 .install-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;border-top:1px solid var(--border);padding-top:10px}
 .install-step-no{font-family:'DM Mono',monospace;font-size:10px;color:var(--fg);font-variant-numeric:tabular-nums}
@@ -427,6 +427,13 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-add-form{background:var(--bg2);border:1px solid var(--border);padding:16px;margin-bottom:28px}
 .todo-add-form .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .todo-add-form input[type=text]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;flex:1;min-width:140px}
+.todo-primary-row{align-items:end}
+.todo-inline-field{display:grid;gap:6px;min-width:140px;flex:1}
+.todo-inline-field.subject{flex:0 1 180px}
+.todo-inline-field.priority-field{flex:0 0 124px;min-width:124px}
+.todo-field-label{font-size:8px;color:var(--fg6);letter-spacing:.12em;line-height:1;text-transform:uppercase}
+.todo-inline-field input[type=text]{width:100%;height:34px;min-width:0;padding:0 0 6px;box-sizing:border-box}
+.todo-inline-field .priority-select{width:100%;flex:auto}
 .todo-description-input{border:1px solid var(--border2);background:var(--input-bg);padding:10px 12px;font-size:12px;line-height:1.7;min-height:76px;margin:0 0 14px;resize:vertical}
 .todo-description-input:focus{border-color:var(--fg5);border-bottom-color:var(--fg5)}
 .todo-form-msg{border:1px solid var(--border);color:var(--fg4);font-size:10px;letter-spacing:.04em;line-height:1.7;padding:9px 10px;margin:0 0 14px;background:var(--bg)}
@@ -472,6 +479,8 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-detail-label{font-size:9px;color:var(--fg5);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px}
 .todo-detail-copy{font-size:12px;color:var(--fg3);line-height:1.9;white-space:pre-wrap;text-wrap:pretty}
 .todo-detail-empty{font-size:11px;color:var(--fg6);line-height:1.8}
+.todo-detail-action-msg{border:1px solid var(--border);background:var(--bg2);color:var(--fg4);font-size:10px;letter-spacing:.04em;line-height:1.7;padding:8px 10px;margin:0 0 12px}
+.todo-detail-action-msg.warn{border-color:rgba(255,96,96,.45);color:var(--overdue)}
 .subtask-summary{display:inline-flex;border:1px solid var(--border2);color:var(--fg4);font-size:10px;letter-spacing:.06em;padding:6px 8px;margin:0 0 12px;font-variant-numeric:tabular-nums}
 .milestone-list{display:flex;flex-direction:column;gap:8px}
 .milestone-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--border);background:var(--bg2);padding:10px}
@@ -490,19 +499,32 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .milestone-delete{background:none;border:none;color:var(--fg6);font-family:'DM Mono',monospace;font-size:10px;min-width:44px;min-height:32px;text-align:right}
 .milestone-edit:hover{color:var(--fg)}
 .milestone-delete:hover{color:var(--overdue)}
-.milestone-form{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(118px,.6fr) minmax(96px,.5fr) minmax(0,1fr) auto;gap:8px;margin-top:12px;align-items:start}
+.milestone-form{display:grid;grid-template-columns:minmax(0,1fr) 138px 104px minmax(0,1fr) auto;gap:8px;margin-top:12px;align-items:start}
+.subtask-quick-form{grid-template-columns:130px 104px minmax(0,1fr) 88px}
+.subtask-quick-form>.subtask-field:first-child{grid-column:1 / 4}
+.subtask-quick-form>.save-btn{grid-column:4;grid-row:1;align-self:end;height:40px;min-height:40px}
+.subtask-quick-form>.subtask-picker-field:nth-child(2){grid-column:1;grid-row:2}
+.subtask-quick-form>.subtask-picker-field:nth-child(3){grid-column:2;grid-row:2}
+.subtask-quick-form>.subtask-field:nth-child(4){grid-column:3 / 5;grid-row:2;min-width:0}
 .milestone-form input{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:0 10px;height:40px}
 .milestone-note{font-size:10px;color:var(--fg6);line-height:1.7;margin-top:10px}
 .subtask-quick-form textarea{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:11px;min-height:40px;resize:vertical}
 .subtask-field,.subtask-picker-field{min-width:0;display:grid;gap:5px}
 .subtask-field-label{font-size:8px;color:var(--fg6);letter-spacing:.12em;line-height:1;text-transform:uppercase}
+.subtask-picker-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.subtask-picker-line.no-clear{grid-template-columns:minmax(0,1fr)}
 .subtask-picker-field .custom-date-input,.subtask-picker-field .custom-time-input{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:0 10px;height:40px}
+.subtask-picker-clear{height:40px;min-width:48px;border:1px solid var(--border2);background:transparent;color:var(--fg6);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.05em;padding:0 8px}
+.subtask-picker-clear:hover{color:var(--fg);border-color:var(--fg5)}
 .subtask-extra-fields,.subtask-edit-form{display:grid;grid-template-columns:minmax(0,1fr) 140px 112px;gap:8px;margin-top:8px}
 .subtask-extra-fields.hidden,.subtask-edit-form.hidden{display:none}
 .subtask-extra-fields input,.subtask-extra-fields textarea,.subtask-edit-form input,.subtask-edit-form textarea{border:1px solid var(--border2);border-bottom:1px solid var(--border2);background:var(--input-bg);padding:8px 10px;font-size:11px;min-height:40px}
-.subtask-edit-form{grid-template-columns:minmax(0,1fr) 140px 112px;align-items:start;background:var(--bg2);border:1px solid var(--border);padding:10px}
-.subtask-edit-form .subtask-field.full{grid-column:1 / -1}
-.subtask-edit-form .save-btn{grid-column:1 / -1;justify-content:center}
+.subtask-edit-form{grid-template-columns:140px 112px minmax(0,1fr) 76px;align-items:start;background:var(--bg2);border:1px solid var(--border);border-left:2px solid var(--fg5);padding:12px}
+.subtask-edit-head{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--border);font-size:9px;color:var(--fg5);letter-spacing:.12em;text-transform:uppercase}
+.subtask-edit-target{min-width:0;color:var(--fg3);letter-spacing:.04em;text-transform:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subtask-edit-form .subtask-field:first-of-type{grid-column:1 / 4}
+.subtask-edit-form .subtask-field.full{grid-column:3 / 5}
+.subtask-edit-form .save-btn{grid-column:4;grid-row:2;height:40px;min-height:40px;justify-content:center}
 .priority-tag{font-size:9px;letter-spacing:.1em;border:1px solid var(--border2);padding:2px 6px;color:var(--fg5)}
 .priority-high{border-color:rgba(204,102,102,.55);color:var(--overdue)}
 .priority-low{color:var(--fg6)}
@@ -559,7 +581,7 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .gantt-tick-label{position:absolute;top:5px;transform:translateX(-50%);font-size:9px;color:var(--fg6);font-variant-numeric:tabular-nums;white-space:nowrap}
 .gantt-tick-label.today{top:4px;color:var(--bg);background:var(--fg);font-weight:700;padding:3px 7px}
 .gantt-month-label{position:absolute;bottom:0;transform:translateX(8px);font-size:9px;color:var(--fg5);font-variant-numeric:tabular-nums;white-space:nowrap}
-.gantt-row2{display:grid;grid-template-columns:310px var(--gantt-timeline-width, 840px) 78px;gap:18px;align-items:center;min-height:56px;padding:8px 0;border-bottom:1px solid var(--gantt-row-border);position:relative;transition:background .12s}
+.gantt-row2{display:grid;grid-template-columns:310px var(--gantt-timeline-width, 840px) 78px;gap:18px;align-items:center;min-height:68px;padding:8px 0;border-bottom:1px solid var(--gantt-row-border);position:relative;transition:background .12s}
 .gantt-row2:hover{background:var(--gantt-row-hover)}
 .gantt-row2.done{opacity:.42}
 .gantt-row2:last-child{border-bottom:none}
@@ -567,49 +589,49 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .gantt-title{font-size:12px;color:var(--fg);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gantt-title.done{text-decoration:line-through;color:var(--fg7)}
 .gantt-meta{font-size:9px;color:var(--fg5);letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;font-variant-numeric:tabular-nums}
-.gantt-rail{height:44px;background:var(--gantt-rail-bg);position:relative;overflow:hidden;border-left:1px solid var(--gantt-grid);border-right:1px solid var(--gantt-grid);transition:outline-color .12s}
+.gantt-rail{height:52px;background:var(--gantt-rail-bg);position:relative;overflow:visible;border-left:1px solid var(--gantt-grid);border-right:1px solid var(--gantt-grid);transition:outline-color .12s}
 .gantt-row2:hover .gantt-rail{outline:1px solid var(--gantt-row-border);outline-offset:-1px}
 .gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:var(--gantt-grid);z-index:0}
 .gantt-grid-line.weekend{background:var(--gantt-grid-weekend)}
 .gantt-grid-line.month{background:var(--gantt-grid-month);z-index:1}
 .gantt-today-band{position:absolute;top:0;bottom:0;width:2px;background:var(--gantt-today);z-index:1}
 .gantt-today-band::before{content:'';position:absolute;top:0;bottom:0;left:-9px;width:20px;background:var(--gantt-today-soft)}
-.gantt-fill{height:10px;background:#7a7f86;min-width:10px;position:absolute;top:17px;z-index:2}
+.gantt-fill{height:10px;background:#7a7f86;min-width:10px;position:absolute;top:21px;z-index:2}
 .gantt-fill.hot{background:#d05828}
 .gantt-fill.warn{background:#b89818}
 .gantt-fill.over{background:#d05828}
 .gantt-fill.done{background:var(--border3)}
-.gantt-range-start{position:absolute;top:13px;width:2px;height:18px;background:#7a7f86;z-index:3;transform:translateX(-50%);opacity:.9}
+.gantt-range-start{position:absolute;top:17px;width:2px;height:18px;background:#7a7f86;z-index:3;transform:translateX(-50%);opacity:.9}
 .gantt-range-start.hot{background:#d05828}
 .gantt-range-start.warn{background:#b89818}
 .gantt-range-start.over{background:#d05828}
 .gantt-range-start.done{background:var(--border3);opacity:.55}
-.gantt-deadline-line{height:6px;background:repeating-linear-gradient(90deg,#7a7f86 0 8px,transparent 8px 13px);min-width:10px;position:absolute;top:19px;z-index:2;opacity:.72}
+.gantt-deadline-line{height:6px;background:repeating-linear-gradient(90deg,#7a7f86 0 8px,transparent 8px 13px);min-width:10px;position:absolute;top:23px;z-index:2;opacity:.72}
 .gantt-deadline-line.hot{background:repeating-linear-gradient(90deg,#d05828 0 8px,transparent 8px 13px);opacity:.95}
 .gantt-deadline-line.warn{background:repeating-linear-gradient(90deg,#b89818 0 8px,transparent 8px 13px);opacity:.9}
 .gantt-deadline-line.over{background:repeating-linear-gradient(90deg,#d05828 0 8px,transparent 8px 13px);opacity:.62}
 .gantt-deadline-line.done{background:repeating-linear-gradient(90deg,var(--border3) 0 8px,transparent 8px 13px);opacity:.45}
-.gantt-dot{position:absolute;top:15px;width:14px;height:14px;background:#7a7f86;border:2px solid var(--gantt-dot-border);z-index:3;transform:translateX(-50%)}
+.gantt-dot{position:absolute;top:19px;width:14px;height:14px;background:#7a7f86;border:2px solid var(--gantt-dot-border);z-index:3;transform:translateX(-50%)}
 .gantt-dot.hot{background:#d05828}
 .gantt-dot.warn{background:#b89818}
 .gantt-dot.over{background:#d05828}
 .gantt-dot.done{background:var(--border3)}
 .gantt-dot.is-overdue{transform:translateX(-50%) rotate(45deg)}
-.gantt-dot.is-today{top:13px;width:18px;height:18px;border-width:3px}
+.gantt-dot.is-today{top:17px;width:18px;height:18px;border-width:3px}
 .gantt-dot.is-future{opacity:.95}
 .gantt-dot::after{content:'';position:absolute;inset:-16px}
-.gantt-marker-label{position:absolute;top:3px;transform:translateX(-50%);font-size:8px;color:var(--fg5);letter-spacing:.08em;white-space:nowrap;z-index:4;font-variant-numeric:tabular-nums;pointer-events:none}
+.gantt-marker-label{position:absolute;top:5px;transform:translateX(-50%);font-size:8px;color:var(--fg5);letter-spacing:.08em;white-space:nowrap;z-index:4;font-variant-numeric:tabular-nums;pointer-events:none}
 .gantt-marker-label.hot,.gantt-marker-label.is-overdue{color:#ff7040}
 .gantt-marker-label.warn{color:#d4a820}
 .gantt-marker-label.is-today{color:var(--fg);font-weight:700}
 .gantt-marker-label.done{color:var(--fg6)}
-.gantt-deadline-stem{position:absolute;top:9px;width:2px;height:26px;background:rgba(122,127,134,.8);z-index:2;transform:translateX(-50%)}
+.gantt-deadline-stem{position:absolute;top:13px;width:2px;height:26px;background:rgba(122,127,134,.8);z-index:2;transform:translateX(-50%)}
 .gantt-deadline-stem.hot{background:rgba(208,88,40,.9)}
 .gantt-deadline-stem.warn{background:rgba(184,152,24,.85)}
 .gantt-deadline-stem.over{background:rgba(208,88,40,.9)}
-.gantt-deadline-stem.is-overdue{height:22px;top:11px;opacity:.75}
-.gantt-deadline-stem.is-today{height:30px;top:7px;width:3px}
-.gantt-subtask-marker{position:absolute;max-width:154px;min-height:22px;padding:3px 7px 3px 13px;background:var(--bg);border:1px solid var(--border3);color:var(--fg3);z-index:5;transform:translateY(-50%);opacity:.96;display:flex;align-items:center;gap:5px;font-size:8px;letter-spacing:.03em;white-space:nowrap;box-shadow:0 0 0 1px var(--bg)}
+.gantt-deadline-stem.is-overdue{height:22px;top:15px;opacity:.75}
+.gantt-deadline-stem.is-today{height:30px;top:11px;width:3px}
+.gantt-subtask-marker{position:absolute;max-width:190px;min-height:24px;padding:3px 8px 3px 14px;background:var(--bg);border:1px solid var(--border3);color:var(--fg3);z-index:6;transform:translateY(-50%);opacity:.96;display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.02em;white-space:nowrap;box-shadow:0 0 0 2px var(--bg)}
 .gantt-subtask-marker::before{content:'';position:absolute;left:0;top:50%;width:1px;height:30px;background:currentColor;transform:translateY(-50%);opacity:.65}
 .gantt-subtask-marker.over{border-color:rgba(208,88,40,.6);color:#ff7040;opacity:.9}
 .gantt-subtask-marker.late-parent{outline:1px solid var(--overdue);outline-offset:1px}
@@ -758,6 +780,9 @@ input[type=time]{display:none}
   .timer-mode-tabs::-webkit-scrollbar{display:none}
   .timer-mode-btn{white-space:nowrap;flex-shrink:0}
   .todo-add-form .form-row{flex-direction:column}
+  .todo-inline-field,
+  .todo-inline-field.subject,
+  .todo-inline-field.priority-field{width:100%;min-width:0;flex:0 0 auto}
   .todo-add-form input[type=date]{width:100%}
   .priority-select{width:100%;flex-basis:auto}
   .todo-date-type-group{max-width:none}
@@ -768,8 +793,16 @@ input[type=time]{display:none}
   .todo-detail-sheet{width:100%;height:auto;max-height:92dvh;border-left:none;border-top:1px solid var(--border2);padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -18px 40px rgba(0,0,0,.34)}
   .todo-detail-title{font-size:21px}
   .milestone-form{grid-template-columns:1fr}
+  .subtask-quick-form>.subtask-field:first-child,
+  .subtask-quick-form>.save-btn,
+  .subtask-quick-form>.subtask-picker-field:nth-child(2),
+  .subtask-quick-form>.subtask-picker-field:nth-child(3),
+  .subtask-quick-form>.subtask-field:nth-child(4){grid-column:auto;grid-row:auto}
   .milestone-form .save-btn{width:100%;justify-content:center}
   .subtask-extra-fields,.subtask-edit-form{grid-template-columns:1fr}
+  .subtask-edit-form .subtask-field:first-of-type,
+  .subtask-edit-form .subtask-field.full,
+  .subtask-edit-form .save-btn{grid-column:auto;grid-row:auto}
   .milestone-row{grid-template-columns:44px minmax(0,1fr);padding:12px}
   .milestone-controls{grid-column:2;justify-content:flex-start;margin-top:4px}
   .milestone-check{width:44px;height:44px}
@@ -803,6 +836,8 @@ input[type=time]{display:none}
   .mobile-task-status.warn{color:#d4a820}
   .mobile-task-status.done{color:var(--fg6)}
   .mobile-task-due{margin:10px 0 9px;padding-left:54px;font-size:12px;line-height:1.5;color:var(--fg4);font-variant-numeric:tabular-nums}
+  .mobile-subtask-due{margin:-3px 0 9px 54px;border-left:2px solid var(--border3);padding-left:8px;font-size:11px;line-height:1.5;color:var(--fg5);font-variant-numeric:tabular-nums}
+  .mobile-subtask-due.done{color:var(--fg6);text-decoration:line-through}
   .mobile-mini-timeline{position:relative;height:18px;margin-left:54px;background:var(--gantt-rail-bg);border:1px solid var(--gantt-grid);overflow:hidden}
   .mobile-mini-today{position:absolute;left:33.333%;top:0;bottom:0;width:2px;background:var(--gantt-today);z-index:2}
   .mobile-mini-line,.mobile-mini-span{position:absolute;top:6px;height:6px;background:#7a7f86;min-width:8px}
@@ -836,10 +871,11 @@ input[type=time]{display:none}
   .settings-card-head{grid-template-columns:1fr;gap:14px}
   .settings-actions{grid-template-columns:1fr}
   .sync-health{grid-template-columns:1fr}
-  .account-panel{min-height:0}
-  .account-actions{justify-content:stretch;margin-left:0}
+  .account-panel{grid-template-columns:1fr;min-height:0;padding:14px;gap:14px}
+  .account-actions{grid-template-columns:1fr}
   .sync-key-form{grid-template-columns:1fr}
   .email-login-form{grid-template-columns:1fr}
+  .email-login-actions{grid-template-columns:1fr}
   .email-login-actions .save-btn,.email-login-actions .ghost-btn{width:100%}
   .account-actions,.install-links{flex-direction:column}
   .account-actions .ghost-btn,.account-actions .save-btn,.install-links .ghost-link{width:100%;justify-content:center}
@@ -873,6 +909,7 @@ input[type=time]{display:none}
   .mobile-task-top{grid-template-columns:44px minmax(0,1fr);gap:9px}
   .mobile-task-status{grid-column:2;justify-self:start;margin-top:2px}
   .mobile-task-due,.mobile-mini-timeline{margin-left:53px;padding-left:0}
+  .mobile-subtask-due{margin-left:53px}
 }
 #tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings,#tab-data{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
 #tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden,#tab-settings.hidden,#tab-data.hidden{animation:none}
@@ -1012,16 +1049,25 @@ input[type=time]{display:none}
       <div class="lbl" style="margin-bottom:12px" id="todo-form-heading">タスクを追加</div>
       <div class="todo-form-msg hidden" id="todo-form-msg" role="status" aria-live="polite"></div>
       <!-- タスク名・カテゴリ -->
-      <div class="form-row" style="margin-bottom:14px">
-        <input type="text" id="todo-title-input" placeholder="タスク名" aria-label="タスク名" aria-describedby="todo-form-msg">
-        <input type="text" id="todo-subject-input" placeholder="科目・カテゴリ（任意）" style="max-width:180px" aria-label="科目・カテゴリ">
-        <div class="priority-select">
-          <select id="todo-priority-input" class="priority-native" aria-label="優先度">
-            <option value="normal">通常</option>
-            <option value="high">高優先</option>
-            <option value="low">低優先</option>
-          </select>
-        </div>
+      <div class="form-row todo-primary-row" style="margin-bottom:14px">
+        <label class="todo-inline-field">
+          <span class="todo-field-label">タスク名</span>
+          <input type="text" id="todo-title-input" placeholder="例: レポート下書き" aria-label="タスク名" aria-describedby="todo-form-msg">
+        </label>
+        <label class="todo-inline-field subject">
+          <span class="todo-field-label">科目・カテゴリ</span>
+          <input type="text" id="todo-subject-input" placeholder="任意" aria-label="科目・カテゴリ">
+        </label>
+        <label class="todo-inline-field priority-field">
+          <span class="todo-field-label">優先度</span>
+          <div class="priority-select">
+            <select id="todo-priority-input" class="priority-native" aria-label="優先度">
+              <option value="normal">通常</option>
+              <option value="high">高優先</option>
+              <option value="low">低優先</option>
+            </select>
+          </div>
+        </label>
       </div>
       <textarea id="todo-description-input" class="todo-description-input" rows="3" placeholder="説明・メモ（任意）" aria-label="説明・メモ"></textarea>
       <!-- 日付タイプ選択 -->
@@ -1410,9 +1456,10 @@ input[type=time]{display:none}
     </div>
   </div>
 </div>
-<div class="todo-detail-modal hidden" id="todo-detail-modal" role="dialog" aria-modal="true" aria-labelledby="todo-detail-title">
+<div class="todo-detail-modal hidden" id="todo-detail-modal" role="dialog" aria-modal="true" aria-labelledby="todo-detail-title" aria-describedby="todo-detail-desc">
   <div class="todo-detail-sheet">
     <button class="todo-detail-close" id="todo-detail-close" type="button" aria-label="タスク詳細を閉じる">×</button>
+    <p class="todo-detail-empty" id="todo-detail-desc" style="margin:-6px 0 14px">タスクの説明、サブタスク、期限を確認・編集します。</p>
     <div id="todo-detail-content"></div>
   </div>
 </div>

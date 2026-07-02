@@ -1,4 +1,4 @@
-const CACHE_NAME = 'photo-tracker-shell-v3';
+const CACHE_NAME = 'photo-tracker-shell-v5';
 const SHELL_ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', event => {
@@ -22,7 +22,11 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   event.respondWith((async () => {
-    if (event.request.mode === 'navigate' || url.pathname.endsWith('/index.html')) {
+    const isShellAsset = SHELL_ASSETS.some(asset => {
+      const assetUrl = new URL(asset, self.location.href);
+      return assetUrl.pathname === url.pathname;
+    });
+    if (event.request.mode === 'navigate' || isShellAsset) {
       try {
         const fresh = await fetch(event.request);
         const cache = await caches.open(CACHE_NAME);

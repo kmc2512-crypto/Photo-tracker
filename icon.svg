@@ -1,9 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#080808"/>
-  <rect x="96" y="144" width="320" height="224" rx="28" fill="#e8e8e8"/>
-  <rect x="128" y="176" width="256" height="160" rx="18" fill="#111"/>
-  <circle cx="256" cy="256" r="58" fill="none" stroke="#e8e8e8" stroke-width="22"/>
-  <circle cx="256" cy="256" r="22" fill="#e8e8e8"/>
-  <rect x="322" y="118" width="56" height="36" rx="10" fill="#e8e8e8"/>
-  <circle cx="364" cy="196" r="12" fill="#e8e8e8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="写真成長記録">
+  <rect width="512" height="512" rx="112" fill="#080808"/>
+  <rect x="88" y="96" width="336" height="320" rx="44" fill="#111111" stroke="#e8e8e8" stroke-width="18"/>
+  <rect x="124" y="134" width="264" height="138" rx="24" fill="#e8e8e8"/>
+  <path d="M124 242l62-58 46 42 34-32 122 96v22H124z" fill="#080808" opacity=".92"/>
+  <circle cx="332" cy="178" r="18" fill="#d05828"/>
+  <path d="M144 344h224" stroke="#e8e8e8" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="144" cy="344" r="22" fill="#d05828" stroke="#080808" stroke-width="10"/>
+  <circle cx="256" cy="344" r="15" fill="#e8e8e8" stroke="#080808" stroke-width="8"/>
+  <circle cx="368" cy="344" r="15" fill="#e8e8e8" stroke="#080808" stroke-width="8"/>
+  <path d="M218 368l28 28 58-70" fill="none" stroke="#d05828" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

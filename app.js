@@ -727,6 +727,7 @@ function updateMainLayoutMode() {
 
 function switchTab(tab) {
   state.tab = tab;
+  updateMainLayoutMode();
   document.querySelectorAll('.tab-btn').forEach(b => {
     const isActive = b.dataset.tab === tab;
     b.classList.toggle('active', isActive);
@@ -762,7 +763,6 @@ function switchTab(tab) {
     if (typeof updateSyncHealth === 'function') updateSyncHealth();
     if (typeof renderAutoBackupStatus === 'function') renderAutoBackupStatus();
   }
-  updateMainLayoutMode();
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
@@ -1201,7 +1201,7 @@ async function requestNotifPermission() {
 function scheduleTaskNotifications() {
   state.taskNotificationTimers.forEach(id => clearTimeout(id));
   state.taskNotificationTimers = [];
-  const tasks = getAllTasks().filter(t => t.due && !state.tasksDone[t.id||t.title+t.due]);
+  const tasks = getAllTasks().filter(t => t.due && !isTaskDone(t.id||t.title+t.due));
   const todayKey = getLocalDateStr();
   const leads = getNotifLeads();
   const addTimer = (when, t, title, body, suffix, leadWindow = 14 * 86400000, onFire = null) => {
@@ -1612,7 +1612,7 @@ function repeatLabel(repeat) {
 
 function getTaskKey(t) {
   if (!t) return '';
-  return t.id || `${t.title || ''}${t.due || ''}`;
+  return t.id || `${t.title || ''}${t.due || t.dueDate || ''}`;
 }
 
 function getExternalCompletedTaskIds() {
@@ -1730,12 +1730,27 @@ function normalizeMilestone(m, index = 0) {
 
 function normalizeTask(t) {
   const task = t && typeof t === 'object' ? t : {};
+  const due = String(task.due || task.dueDate || '').trim();
+  const start = String(task.start || task.startDate || '').trim();
+  const subject = String(task.subject || task.category || '').trim();
+  const dateType = task.dateType || (start && due ? 'range' : due ? 'deadline' : 'none');
   const rawMilestones = Array.isArray(task.milestones) ? task.milestones : (Array.isArray(task.subtasks) ? task.subtasks : []);
   const milestones = rawMilestones
     .map(normalizeMilestone)
     .filter(m => m.title);
   return {
     ...task,
+    due,
+    dueDate: due,
+    dueTime: String(task.dueTime || '').trim(),
+    start,
+    startDate: start,
+    startTime: String(task.startTime || '').trim(),
+    subject,
+    category: subject,
+    priority: ['high', 'normal', 'low'].includes(task.priority) ? task.priority : 'normal',
+    dateType,
+    completed: sourceMarksTaskDone(task),
     description: String(task.description || ''),
     milestones,
     subtasks: milestones,
@@ -1787,26 +1802,86 @@ async function saveScriptUrl(url) {
 // タスク完了トグル（完了にしたら5分後に自動削除、未完了に戻したらキャンセル）
 const DONE_DELAY_MS = 5 * 60 * 1000; // 5分
 
-function toggleTaskDone(k, t) {
-  const wasDone = !!state.tasksDone[k];
-  state.tasksDone[k] = !wasDone;
+function persistTasksDone() {
   LS.set('tasks_done', state.tasksDone);
+}
+
+function getTaskDoneRecord(k) {
+  const value = state.tasksDone[k];
+  if (!value) return null;
+  const nowIso = new Date().toISOString();
+  if (value === true) {
+    state.tasksDone[k] = { completed: true, completedAt: nowIso };
+    persistTasksDone();
+    return state.tasksDone[k];
+  }
+  if (typeof value === 'object') {
+    const completedAt = Number.isFinite(Date.parse(value.completedAt)) ? value.completedAt : nowIso;
+    if (value.completed === false) return null;
+    if (completedAt !== value.completedAt || value.completed !== true) {
+      state.tasksDone[k] = { ...value, completed: true, completedAt };
+      persistTasksDone();
+    }
+    return state.tasksDone[k];
+  }
+  delete state.tasksDone[k];
+  persistTasksDone();
+  return null;
+}
+
+function isTaskDone(k) {
+  return !!getTaskDoneRecord(k);
+}
+
+function setTaskDoneRecord(k, completedAt = new Date().toISOString()) {
+  state.tasksDone[k] = { completed: true, completedAt };
+  persistTasksDone();
+}
+
+function clearTaskDoneRecord(k) {
+  if (state.doneTimers[k]) {
+    clearTimeout(state.doneTimers[k]);
+    delete state.doneTimers[k];
+  }
+  delete state.tasksDone[k];
+  persistTasksDone();
+}
+
+function getDoneRemainingMs(k) {
+  const record = getTaskDoneRecord(k);
+  if (!record) return 0;
+  const completedAt = Date.parse(record.completedAt);
+  if (!Number.isFinite(completedAt)) return DONE_DELAY_MS;
+  return Math.max(0, DONE_DELAY_MS - (Date.now() - completedAt));
+}
+
+function scheduleDonePurgeForTask(k, t) {
+  if (!getTaskDoneRecord(k)) return;
+  if (state.doneTimers[k]) return;
+  const remaining = getDoneRemainingMs(k);
+  state.doneTimers[k] = setTimeout(() => {
+    delete state.doneTimers[k];
+    dismissTodoTask(k, t);
+  }, remaining);
+}
+
+function scheduleDonePurgeForVisibleTasks(tasks = getAllTasks()) {
+  (Array.isArray(tasks) ? tasks : []).forEach(t => {
+    const key = getTaskKey(t);
+    if (key) scheduleDonePurgeForTask(key, t);
+  });
+}
+
+function toggleTaskDone(k, t) {
+  const wasDone = isTaskDone(k);
   scheduleTaskNotifications();
 
   if (!wasDone) {
+    setTaskDoneRecord(k);
     recordCompletedTask(t || { id: k, title: k });
-    // 完了にした → 5分後に自動削除スケジュール
-    const timerId = setTimeout(() => {
-      delete state.doneTimers[k];
-      dismissTodoTask(k, t);
-    }, DONE_DELAY_MS);
-    state.doneTimers[k] = timerId;
+    scheduleDonePurgeForTask(k, t);
   } else {
-    // 未完了に戻した → タイマーキャンセル
-    if (state.doneTimers[k]) {
-      clearTimeout(state.doneTimers[k]);
-      delete state.doneTimers[k];
-    }
+    clearTaskDoneRecord(k);
     if (t && !t._manual) removeExternalCompletedTaskId(k);
   }
   if (state.tab === 'widget') renderTodoWidget();
@@ -1836,8 +1911,7 @@ async function dismissTodoTask(k, t) {
     }
   }
 
-  delete state.tasksDone[k];
-  LS.set('tasks_done', state.tasksDone);
+  clearTaskDoneRecord(k);
   scheduleTaskNotifications();
   if (state.tab === 'widget') renderTodoWidget();
   else renderTodo();
@@ -1900,14 +1974,16 @@ function renderTodoEmptyState(list, allTasks) {
 }
 
 function renderTodo() {
+  updateMainLayoutMode();
   const allTasks = getAllTasks();
+  scheduleDonePurgeForVisibleTasks(allTasks);
   const filter = state.todoFilter;
   const limit = getDeadlineLimit(state.todoPeriod);
   const today = new Date(); today.setHours(0,0,0,0);
 
   const filtered = allTasks.filter(t => {
     const k = t.id || t.title + t.due;
-    const done = !!state.tasksDone[k];
+    const done = isTaskDone(k);
     if (filter === 'active' && done) return false;
     if (filter === 'done' && !done) return false;
     // 期間フィルタ（締め切りなしは全期間のみ表示）
@@ -1922,7 +1998,7 @@ function renderTodo() {
     return true;
   });
 
-  const pending = allTasks.filter(t => !state.tasksDone[t.id||t.title+t.due]);
+  const pending = allTasks.filter(t => !isTaskDone(t.id||t.title+t.due));
   qs('#todo-count').textContent = pending.length + ' TASKS';
 
   if (state.todoView === 'list') {
@@ -1945,7 +2021,7 @@ function renderTodo() {
       return a.due < b.due ? -1 : 1;
     }).forEach(t => {
       const k = t.id || t.title + t.due;
-      const done = !!state.tasksDone[k];
+      const done = isTaskDone(k);
       const over = isOverdue(t.due) && !done;
       const row = el('div', 'task-row');
       bindTodoDetailOpen(row, t);
@@ -1982,14 +2058,12 @@ function renderTodo() {
       appendSubtaskProgress(meta, t);
 
       // 完了済み → カウントダウン表示
-      if (done && state.doneTimers[k]) {
+      if (done) {
         const countdown = el('span');
         countdown.style.cssText = 'font-size:10px;color:var(--fg6);letter-spacing:.05em;margin-left:auto';
         countdown.textContent = '5分後に削除';
-        // 残り秒数を更新する関数
-        const startedAt = Date.now();
         const updateCountdown = () => {
-          const remaining = Math.max(0, DONE_DELAY_MS - (Date.now() - startedAt));
+          const remaining = getDoneRemainingMs(k);
           const mins = Math.floor(remaining / 60000);
           const secs = Math.floor((remaining % 60000) / 1000);
           countdown.textContent = remaining > 0
@@ -2128,8 +2202,28 @@ function appendSubtaskProgress(parent, task, cls = 'subtask-progress-chip') {
   parent.appendChild(chip);
 }
 
+function bindImeCompositionGuard(input) {
+  if (!input) return input;
+  input.dataset.imeComposing = 'false';
+  input.dataset.imeEndedAt = '0';
+  input.addEventListener('compositionstart', () => {
+    input.dataset.imeComposing = 'true';
+  });
+  input.addEventListener('compositionend', () => {
+    input.dataset.imeComposing = 'false';
+    input.dataset.imeEndedAt = String(Date.now());
+  });
+  input.addEventListener('blur', () => {
+    input.dataset.imeComposing = 'false';
+  });
+  return input;
+}
+
 function isImeComposingEvent(e) {
-  return !!(e.isComposing || e.keyCode === 229 || e.nativeEvent?.isComposing);
+  const targetComposing = e?.currentTarget?.dataset?.imeComposing === 'true';
+  const endedAt = Number(e?.currentTarget?.dataset?.imeEndedAt || 0);
+  const justEnded = endedAt > 0 && Date.now() - endedAt < 80;
+  return !!(targetComposing || justEnded || e.isComposing || e.keyCode === 229 || e.nativeEvent?.isComposing);
 }
 
 function compareTaskAndSubtaskDue(parentTask, subtask) {
@@ -2162,11 +2256,13 @@ function createSubtaskField(labelText, control, options = {}) {
   return wrap;
 }
 
-function createSubtaskDatePicker(value = '', label = 'サブタスクの期限日') {
+function createSubtaskDatePicker(value = '', label = 'サブタスクの期限日', options = {}) {
   const id = createMilestoneId();
+  const showClear = options.showClear !== false;
   const wrap = el('div', 'subtask-picker-field');
   const fieldLabel = el('span', 'subtask-field-label');
   fieldLabel.textContent = '期限日';
+  const controlLine = el('div', 'subtask-picker-line' + (showClear ? '' : ' no-clear'));
   const trigger = el('div', 'custom-date-input subtask-date-picker');
   trigger.id = 'subtask-date-' + id;
   trigger.dataset.target = 'subtask-date-hidden-' + id;
@@ -2183,6 +2279,19 @@ function createSubtaskDatePicker(value = '', label = 'サブタスクの期限�
   hidden.type = 'hidden';
   hidden.id = trigger.dataset.target;
   hidden.value = value || '';
+  let clear = null;
+  if (showClear) {
+    clear = el('button', 'subtask-picker-clear');
+    clear.type = 'button';
+    clear.textContent = 'クリア';
+    clear.setAttribute('aria-label', `${label}をクリア`);
+    clear.addEventListener('click', e => {
+      e.stopPropagation();
+      hidden.value = '';
+      text.textContent = '日付を選択';
+      text.classList.add('placeholder');
+    });
+  }
   const open = () => Picker.openDate(trigger, hidden.id);
   trigger.addEventListener('click', open);
   trigger.addEventListener('keydown', e => {
@@ -2191,16 +2300,20 @@ function createSubtaskDatePicker(value = '', label = 'サブタスクの期限�
     open();
   });
   wrap.appendChild(fieldLabel);
-  wrap.appendChild(trigger);
+  controlLine.appendChild(trigger);
+  if (clear) controlLine.appendChild(clear);
+  wrap.appendChild(controlLine);
   wrap.appendChild(hidden);
   return { wrap, hidden };
 }
 
-function createSubtaskTimePicker(value = '', label = 'サブタスクの期限時刻') {
+function createSubtaskTimePicker(value = '', label = 'サブタスクの期限時刻', options = {}) {
   const id = createMilestoneId();
+  const showClear = options.showClear !== false;
   const wrap = el('div', 'subtask-picker-field');
   const fieldLabel = el('span', 'subtask-field-label');
   fieldLabel.textContent = '期限時刻';
+  const controlLine = el('div', 'subtask-picker-line' + (showClear ? '' : ' no-clear'));
   const trigger = el('div', 'custom-time-input subtask-time-picker');
   trigger.id = 'subtask-time-' + id;
   trigger.dataset.target = 'subtask-time-hidden-' + id;
@@ -2217,6 +2330,19 @@ function createSubtaskTimePicker(value = '', label = 'サブタスクの期限�
   hidden.type = 'hidden';
   hidden.id = trigger.dataset.target;
   hidden.value = value || '';
+  let clear = null;
+  if (showClear) {
+    clear = el('button', 'subtask-picker-clear');
+    clear.type = 'button';
+    clear.textContent = 'クリア';
+    clear.setAttribute('aria-label', `${label}をクリア`);
+    clear.addEventListener('click', e => {
+      e.stopPropagation();
+      hidden.value = '';
+      text.textContent = '--:--';
+      text.classList.add('placeholder');
+    });
+  }
   const open = () => Picker.openTime(trigger, hidden.id);
   trigger.addEventListener('click', open);
   trigger.addEventListener('keydown', e => {
@@ -2225,7 +2351,9 @@ function createSubtaskTimePicker(value = '', label = 'サブタスクの期限�
     open();
   });
   wrap.appendChild(fieldLabel);
-  wrap.appendChild(trigger);
+  controlLine.appendChild(trigger);
+  if (clear) controlLine.appendChild(clear);
+  wrap.appendChild(controlLine);
   wrap.appendChild(hidden);
   return { wrap, hidden };
 }
@@ -2254,6 +2382,20 @@ async function updateManualTaskById(id, updater) {
   return nextTask;
 }
 
+function setTodoDetailMessage(message, isError = false) {
+  const msg = qs('#todo-detail-action-msg');
+  if (!msg) return;
+  if (!message) {
+    msg.textContent = '';
+    msg.classList.add('hidden');
+    msg.classList.remove('warn');
+    return;
+  }
+  msg.textContent = message;
+  msg.classList.remove('hidden');
+  msg.classList.toggle('warn', isError);
+}
+
 function renderTodoDetail(taskArg) {
   const content = qs('#todo-detail-content');
   if (!content) return;
@@ -2268,7 +2410,7 @@ function renderTodoDetail(taskArg) {
   const editableTask = editableId ? getManualTaskById(editableId) : null;
   const detailTask = normalizeTask(editableTask || task);
   const milestones = detailTask.milestones || [];
-  const done = !!state.tasksDone[key];
+  const done = isTaskDone(key);
 
   content.innerHTML = '';
   const title = el('div', 'todo-detail-title');
@@ -2299,6 +2441,11 @@ function renderTodoDetail(taskArg) {
   const progress = getSubtaskProgress(detailTask);
   milestoneLabel.textContent = 'サブタスク';
   milestoneSection.appendChild(milestoneLabel);
+  const actionMsg = el('div', 'todo-detail-action-msg hidden');
+  actionMsg.id = 'todo-detail-action-msg';
+  actionMsg.setAttribute('role', 'status');
+  actionMsg.setAttribute('aria-live', 'polite');
+  milestoneSection.appendChild(actionMsg);
   if (progress.total) {
     const summary = el('div', 'subtask-summary');
     summary.textContent = `${progress.done} / ${progress.total} 完了`;
@@ -2320,11 +2467,16 @@ function renderTodoDetail(taskArg) {
       check.disabled = !editableId;
       check.addEventListener('click', async () => {
         if (!editableId) return;
+        const nextCompleted = !ms.completed;
         const updated = await updateManualTaskById(editableId, current => ({
           ...current,
           milestones: (current.milestones || []).map(item => item.id === ms.id ? {...item, completed: !item.completed} : item)
         }));
         renderTodoDetail(updated);
+        setTodoDetailMessage(nextCompleted
+          ? `完了にしました: ${ms.title || 'サブタスク'}`
+          : `未完了に戻しました: ${ms.title || 'サブタスク'}`
+        );
       });
       const main = el('div', 'milestone-main');
       const msTitle = el('div', 'milestone-title');
@@ -2360,11 +2512,13 @@ function renderTodoDetail(taskArg) {
           okText: '削除する'
         });
         if (!ok) return;
+        const deletedTitle = ms.title || 'サブタスク';
         const updated = await updateManualTaskById(editableId, current => ({
           ...current,
           milestones: (current.milestones || []).filter(item => item.id !== ms.id)
         }));
         renderTodoDetail(updated);
+        setTodoDetailMessage(`削除しました: ${deletedTitle}`);
       });
       row.appendChild(check);
       row.appendChild(main);
@@ -2372,10 +2526,18 @@ function renderTodoDetail(taskArg) {
       list.appendChild(row);
 
       const editForm = el('div', 'subtask-edit-form hidden');
+      const editHead = el('div', 'subtask-edit-head');
+      const editHeadLabel = el('span');
+      editHeadLabel.textContent = 'サブタスクを編集';
+      const editTarget = el('span', 'subtask-edit-target');
+      editTarget.textContent = ms.title || 'サブタスク';
+      editHead.appendChild(editHeadLabel);
+      editHead.appendChild(editTarget);
       const editTitle = el('input');
       editTitle.type = 'text';
       editTitle.value = ms.title || '';
       editTitle.setAttribute('aria-label', 'サブタスク名を編集');
+      bindImeCompositionGuard(editTitle);
       const editDatePicker = createSubtaskDatePicker(ms.dueDate || '', 'サブタスクの期限日を編集');
       const editTimePicker = createSubtaskTimePicker(ms.dueTime || '', 'サブタスクの期限時刻を編集');
       const editNote = el('textarea');
@@ -2389,6 +2551,7 @@ function renderTodoDetail(taskArg) {
       saveEdit.addEventListener('click', async () => {
         const nextTitle = editTitle.value.trim();
         if (!nextTitle) {
+          setTodoDetailMessage('サブタスク名を入力してください。', true);
           editTitle.focus();
           return;
         }
@@ -2403,11 +2566,13 @@ function renderTodoDetail(taskArg) {
           } : item)
         }));
         renderTodoDetail(updated);
+        setTodoDetailMessage(`保存しました: ${nextTitle}`);
       });
       edit.addEventListener('click', () => {
         editForm.classList.toggle('hidden');
         if (!editForm.classList.contains('hidden')) editTitle.focus();
       });
+      editForm.appendChild(editHead);
       editForm.appendChild(createSubtaskField('サブタスク名', editTitle));
       editForm.appendChild(editDatePicker.wrap);
       editForm.appendChild(editTimePicker.wrap);
@@ -2424,8 +2589,9 @@ function renderTodoDetail(taskArg) {
     titleInput.type = 'text';
     titleInput.placeholder = 'サブタスクを追加...';
     titleInput.setAttribute('aria-label', 'サブタスク名');
-    const datePicker = createSubtaskDatePicker('', 'サブタスクの期限日');
-    const timePicker = createSubtaskTimePicker('', 'サブタスクの期限時刻');
+    bindImeCompositionGuard(titleInput);
+    const datePicker = createSubtaskDatePicker('', 'サブタスクの期限日', { showClear: false });
+    const timePicker = createSubtaskTimePicker('', 'サブタスクの期限時刻', { showClear: false });
     const noteInput = el('textarea');
     noteInput.rows = 2;
     noteInput.placeholder = 'メモ（任意）';
@@ -2439,6 +2605,7 @@ function renderTodoDetail(taskArg) {
       const dueTimeValue = timePicker.hidden.value;
       const noteValue = noteInput.value.trim();
       if (!titleValue) {
+        setTodoDetailMessage('サブタスク名を入力してください。', true);
         titleInput.focus();
         return;
       }
@@ -2458,6 +2625,7 @@ function renderTodoDetail(taskArg) {
       timePicker.wrap.querySelector('.cti-text').classList.add('placeholder');
       noteInput.value = '';
       renderTodoDetail(updated);
+      setTodoDetailMessage(`追加しました: ${titleValue}`);
     };
     add.addEventListener('click', addSubtask);
     titleInput.addEventListener('keydown', e => {
@@ -2511,7 +2679,7 @@ function bindTodoDetailOpen(target, task) {
 
 function getWidgetTasks() {
   return getAllTasks()
-    .filter(t => t.due && !state.tasksDone[t.id || t.title + t.due])
+    .filter(t => t.due && !isTaskDone(t.id || t.title + t.due))
     .sort((a,b) => {
       const pa = priorityRank(a.priority);
       const pb = priorityRank(b.priority);
@@ -2620,7 +2788,7 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
   ];
   const items = tasks.map(t => {
     const k = t.id || t.title + t.due;
-    const done = !!state.tasksDone[k];
+    const done = isTaskDone(k);
     const dueDate = new Date(t.due + 'T00:00:00');
     const daysLeft = daysBetween(dueDate, today);
     const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
@@ -2695,6 +2863,19 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
       due.textContent = isRange && startDate
         ? `${fmtShort(startDate)} から ${fmtShort(dueDate)}`
         : `${fmtShort(dueDate)} 締切`;
+      const subtaskDueItems = getSubtasks(t)
+        .map(ms => ({ ms, date: subtaskDateObject(ms) }))
+        .filter(item => item.date)
+        .sort((a, b) => {
+          if (!!a.ms.completed !== !!b.ms.completed) return a.ms.completed ? 1 : -1;
+          return a.date - b.date;
+        });
+      const nextSubtaskDue = subtaskDueItems[0];
+      const subtaskDue = nextSubtaskDue ? el('div', 'mobile-subtask-due' + (nextSubtaskDue.ms.completed ? ' done' : '')) : null;
+      if (subtaskDue) {
+        const rest = Math.max(0, subtaskDueItems.length - 1);
+        subtaskDue.textContent = `次のサブタスク: ${nextSubtaskDue.ms.title || 'サブタスク'} / ${subtaskDueLabel(nextSubtaskDue.ms)}${rest ? ` / +${rest}` : ''}`;
+      }
 
       const timeline = el('div', 'mobile-mini-timeline');
       const todayMark = el('span', 'mobile-mini-today');
@@ -2718,6 +2899,7 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
 
       card.appendChild(top);
       card.appendChild(due);
+      if (subtaskDue) card.appendChild(subtaskDue);
       card.appendChild(timeline);
       section.appendChild(card);
     });
@@ -2730,8 +2912,8 @@ function renderGantt(tasks) {
   const wrap = qs('#gantt-inner');
   wrap.innerHTML = '';
   const withDue = tasks.filter(t => t.due).sort((a,b) => {
-    const aDone = !!state.tasksDone[a.id || a.title + a.due];
-    const bDone = !!state.tasksDone[b.id || b.title + b.due];
+    const aDone = isTaskDone(a.id || a.title + a.due);
+    const bDone = isTaskDone(b.id || b.title + b.due);
     if (aDone !== bDone) return aDone ? 1 : -1;
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
     return priorityRank(a.priority) - priorityRank(b.priority);
@@ -2746,9 +2928,9 @@ function renderGantt(tasks) {
     renderMobileDeadlineCards(wrap, withDue, today);
     return;
   }
-  const activeCount = withDue.filter(t => !state.tasksDone[t.id || t.title + t.due]).length;
+  const activeCount = withDue.filter(t => !isTaskDone(t.id || t.title + t.due)).length;
   const urgentCount = withDue.filter(t => {
-    const done = !!state.tasksDone[t.id || t.title + t.due];
+    const done = isTaskDone(t.id || t.title + t.due);
     const dueDate = new Date(t.due + 'T00:00:00');
     const daysLeft = Math.round((dueDate - today) / 86400000);
     return !done && daysLeft <= 3;
@@ -2785,7 +2967,7 @@ function renderGantt(tasks) {
   const fmtTick = d => d.toLocaleDateString('ja-JP', {month:'numeric', day:'numeric'});
   const cellWidth = window.matchMedia('(max-width: 600px)').matches ? 48 : 56;
   const maxPastDays = Math.min(10, Math.max(2, ...withDue.map(t => {
-    const done = !!state.tasksDone[t.id || t.title + t.due];
+    const done = isTaskDone(t.id || t.title + t.due);
     if (done) return 0;
     const dueDate = new Date(t.due + 'T00:00:00');
     return Math.max(0, -daysBetween(dueDate, today) + 1);
@@ -2865,7 +3047,7 @@ function renderGantt(tasks) {
 
   withDue.forEach(t => {
     const k = t.id || t.title + t.due;
-    const done = !!state.tasksDone[k];
+    const done = isTaskDone(k);
     const dueDate = new Date(t.due + 'T00:00:00');
     const daysLeft = daysBetween(dueDate, today);
     const over = daysLeft < 0 && !done;
@@ -2932,12 +3114,22 @@ function renderGantt(tasks) {
       .map(ms => ({ ms, date: subtaskDateObject(ms) }))
       .filter(item => item.date && item.date >= windowStart && item.date <= windowEnd)
       .sort((a, b) => a.date - b.date);
-    const visibleSubtaskMarkers = subtaskMarkers.slice(0, 4);
+    const visibleSubtaskMarkers = [];
+    let hiddenSubtaskMarkerCount = 0;
+    subtaskMarkers.forEach(item => {
+      const left = percentForDate(item.date);
+      const tooClose = visibleSubtaskMarkers.some(visible => Math.abs(visible.left - left) < 7);
+      if (visibleSubtaskMarkers.length < 4 && !tooClose) {
+        visibleSubtaskMarkers.push({ ...item, left });
+      } else {
+        hiddenSubtaskMarkerCount++;
+      }
+    });
     visibleSubtaskMarkers.forEach((item, index) => {
       const { ms, date } = item;
       const lateParent = compareTaskAndSubtaskDue(t, ms) > 0;
       const isPast = date < today && !ms.completed;
-      const markerLeft = percentForDate(date);
+      const markerLeft = item.left;
       const marker = el('div', 'gantt-subtask-marker'
         + (ms.completed ? ' done' : '')
         + (lateParent ? ' late-parent' : '')
@@ -2945,7 +3137,7 @@ function renderGantt(tasks) {
         + (markerLeft > 76 ? ' left' : '')
       );
       marker.style.left = `${markerLeft}%`;
-      marker.style.top = `${index % 2 === 0 ? 7 : 30}px`;
+      marker.style.top = `${index % 2 === 0 ? 14 : 38}px`;
       const markerDot = el('span', 'gantt-subtask-dot');
       const markerBody = el('span', 'gantt-subtask-body');
       const markerTitle = el('span', 'gantt-subtask-title');
@@ -2960,9 +3152,9 @@ function renderGantt(tasks) {
       marker.setAttribute('aria-label', marker.title);
       rail.appendChild(marker);
     });
-    if (subtaskMarkers.length > visibleSubtaskMarkers.length) {
+    if (hiddenSubtaskMarkerCount > 0) {
       const more = el('div', 'gantt-subtask-more');
-      more.textContent = `+${subtaskMarkers.length - visibleSubtaskMarkers.length}`;
+      more.textContent = `+${hiddenSubtaskMarkerCount}`;
       more.title = 'ほかのサブタスク期限があります';
       rail.appendChild(more);
     }
@@ -3127,27 +3319,34 @@ qs('#todo-add-btn').addEventListener('click', () => {
   const manual = normalizeManualTasks(LS.get('manual_tasks'));
   const isEditing = !!state.editingTaskId;
   const existingTask = isEditing ? manual.find(x => x.id === state.editingTaskId) : null;
+  const subject = qs('#todo-subject-input').value.trim();
+  const preservedMilestones = existingTask?.milestones || existingTask?.subtasks || [];
 
   const task = {
     id: isEditing ? state.editingTaskId : 'manual_' + Date.now(),
     title,
-    subject: qs('#todo-subject-input').value.trim(),
+    subject,
+    category: subject,
     priority: qs('#todo-priority-input').value || 'normal',
     repeat: qs('#todo-repeat-input').value || 'none',
     description: qs('#todo-description-input')?.value.trim() || '',
-    milestones: existingTask?.milestones || [],
+    milestones: preservedMilestones,
+    subtasks: preservedMilestones,
     _manual: true,
     dateType: state.todoDateType,
   };
 
   if (state.todoDateType === 'deadline') {
     task.due = qs('#todo-due-input').value || '';
+    task.dueDate = task.due;
     const t = qs('#todo-due-time-input').value;
     if (t) task.dueTime = t;
   } else if (state.todoDateType === 'range') {
     task.start = qs('#todo-start-input').value || '';
+    task.startDate = task.start;
     task.startTime = qs('#todo-start-time-input').value || '';
     task.due = qs('#todo-end-input').value || '';   // 終了日=締め切りとして扱う
+    task.dueDate = task.due;
     task.dueTime = qs('#todo-end-time-input').value || '';
   }
   // dateType === 'none' は日付なし
@@ -5139,12 +5338,14 @@ async function syncSettingsFromSupabase() {
     }
   }
   scheduleTaskNotifications();
+  scheduleDonePurgeForVisibleTasks();
 }
 
 // ── 初期化 ────────────────────────────────────
 (function() {
   const cache = LS.get('tasks_cache');
   if (cache && cache.tasks) { state.tasks = filterVisibleExternalTasks(cache.tasks); }
+  setTimeout(() => scheduleDonePurgeForVisibleTasks(), 0);
 })();
 
 // ★ 日付変更を1分ごとに監視して、日付が変わったら今日タブをリセット
