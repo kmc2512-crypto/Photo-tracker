@@ -3484,13 +3484,13 @@ function renderGantt(tasks) {
     subtaskMarkers.forEach(item => {
       const left = percentForDate(item.date);
       const tooClose = visibleSubtaskMarkers.some(visible => Math.abs(visible.left - left) < 7);
-      if (visibleSubtaskMarkers.length < 4 && !tooClose) {
+      if (visibleSubtaskMarkers.length < 3 && !tooClose) {
         visibleSubtaskMarkers.push({ ...item, left });
       } else {
         hiddenSubtaskMarkerCount++;
       }
     });
-    visibleSubtaskMarkers.forEach((item, index) => {
+    visibleSubtaskMarkers.forEach(item => {
       const { ms, date } = item;
       const lateParent = compareTaskAndSubtaskDue(t, ms) > 0;
       const isPast = date < today && !ms.completed;
@@ -3502,17 +3502,8 @@ function renderGantt(tasks) {
         + (markerLeft > 76 ? ' left' : '')
       );
       marker.style.left = `${markerLeft}%`;
-      marker.style.top = `${index % 2 === 0 ? 14 : 38}px`;
       const markerDot = el('span', 'gantt-subtask-dot');
-      const markerBody = el('span', 'gantt-subtask-body');
-      const markerTitle = el('span', 'gantt-subtask-title');
-      markerTitle.textContent = ms.title || 'サブタスク';
-      const markerDue = el('span', 'gantt-subtask-due');
-      markerDue.textContent = `〆 ${date.getMonth() + 1}/${date.getDate()}${ms.dueTime ? ' ' + ms.dueTime : ''}`;
       marker.appendChild(markerDot);
-      markerBody.appendChild(markerTitle);
-      markerBody.appendChild(markerDue);
-      marker.appendChild(markerBody);
       marker.title = `${ms.title || 'サブタスク'} ${subtaskDueLabel(ms)}`;
       marker.setAttribute('aria-label', marker.title);
       rail.appendChild(marker);
@@ -3533,12 +3524,6 @@ function renderGantt(tasks) {
       startMark.style.left = `${percentForDate(startDate)}%`;
       startMark.title = `開始: ${fmtShort(startDate)}`;
       rail.appendChild(startMark);
-      if (!done) {
-        const rangeLabel = el('div', 'gantt-marker-label' + (tone ? ' ' + tone : '') + ' ' + relation);
-        rangeLabel.style.left = `${dueLeft}%`;
-        rangeLabel.textContent = '終了';
-        rail.appendChild(rangeLabel);
-      }
       const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : '') + ' ' + relation);
       dot.style.left = `${dueLeft}%`;
       dot.title = `終了/締切: ${fmtShort(dueDate)}`;
@@ -3553,12 +3538,6 @@ function renderGantt(tasks) {
       stem.style.left = `${dueLeft}%`;
       stem.title = `締切: ${fmtShort(dueDate)}`;
       rail.appendChild(stem);
-      if (!done && daysLeft === 0) {
-        const markerLabel = el('div', 'gantt-marker-label' + (tone ? ' ' + tone : '') + ' ' + relation);
-        markerLabel.style.left = `${dueLeft}%`;
-        markerLabel.textContent = '今日';
-        rail.appendChild(markerLabel);
-      }
       const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : '') + ' ' + relation);
       dot.style.left = `${dueLeft}%`;
       dot.title = `締切: ${fmtShort(dueDate)}`;
