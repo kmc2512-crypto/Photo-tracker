@@ -739,6 +739,9 @@ function switchTab(tab) {
   if (tab === 'log') {
     renderLog();
   }
+  if (tab === 'today') {
+    renderCommandCenter();
+  }
   if (tab === 'learn') renderLearn();
   if (tab === 'todo') {
     renderTodo();
@@ -837,6 +840,269 @@ function renderProgressBanner() {
 // クリックイベントは一度だけ登録（renderProgressBanner()が複数回呼ばれても重複登録しない）
 qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
 renderProgressBanner();
+renderCommandCenter();
+
+function daysFromToday(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(getLocalDateStr() + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.round((date - today) / 86400000);
+}
+
+function commandDeadlineLabel(days) {
+  if (days === null) return '日時なし';
+  if (days < 0) return `${Math.abs(days)}日超過`;
+  if (days === 0) return '今日';
+  if (days === 1) return '明日';
+  return `あと${days}日`;
+}
+
+function commandTone(days) {
+  if (days === null) return '';
+  if (days < 0 || days <= 3) return 'hot';
+  if (days <= 7) return 'warn';
+  return '';
+}
+
+function commandTaskSortValue(item) {
+  if (item.days === null) return 2000 - priorityRank(item.task.priority);
+  if (item.days < 0) return -1000 + item.days - priorityRank(item.task.priority);
+  return item.days * 10 - priorityRank(item.task.priority);
+}
+
+function addCommandTaskButton(parent, item, options = {}) {
+  const task = item.task || item;
+  const days = item.days ?? daysFromToday(task.due);
+  const tone = item.tone || commandTone(days);
+  const btn = el('button', options.large ? 'command-action-card' + (tone ? ' ' + tone : '') : 'command-row');
+  btn.type = 'button';
+  btn.addEventListener('click', () => openTodoDetail(task));
+  if (options.large) {
+    const kicker = el('div', 'command-action-kicker');
+    kicker.textContent = item.kicker || 'CHECK';
+    const title = el('div', 'command-action-title');
+    title.textContent = task.title || 'Untitled';
+    const meta = el('div', 'command-action-meta');
+    [commandDeadlineLabel(days), task.subject, priorityLabel(task.priority), getSubtaskProgress(task).text]
+      .filter(Boolean)
+      .forEach(text => {
+        const chip = el('span');
+        chip.textContent = text;
+        meta.appendChild(chip);
+      });
+    btn.appendChild(kicker);
+    btn.appendChild(title);
+    btn.appendChild(meta);
+  } else {
+    const left = el('div');
+    const title = el('div', 'command-row-title');
+    title.textContent = item.title || task.title || 'Untitled';
+    const meta = el('div', 'command-row-meta');
+    meta.textContent = item.meta || [task.subject, priorityLabel(task.priority), getTaskDateLabel(task)].filter(Boolean).join(' / ');
+    const badge = el('div', 'command-row-badge' + (tone ? ' ' + tone : ''));
+    badge.textContent = item.badge || commandDeadlineLabel(days);
+    left.appendChild(title);
+    left.appendChild(meta);
+    btn.appendChild(left);
+    btn.appendChild(badge);
+  }
+  parent.appendChild(btn);
+}
+
+function addCommandLink(parent, label, onClick, className = 'ghost-btn') {
+  const btn = el('button', className);
+  btn.type = 'button';
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  parent.appendChild(btn);
+}
+
+function getRecentLogItems(limit = 2) {
+  const meta = LS.get('meta') || {};
+  return Object.entries(meta)
+    .filter(([, data]) => hasLogContent(data))
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, limit)
+    .map(([date, data]) => ({ date, data }));
+}
+
+function renderCommandCenter() {
+  const wrap = qs('#command-center');
+  if (!wrap) return;
+  const tasks = getAllTasks();
+  const active = tasks.filter(t => !isTaskDone(getTaskKey(t)));
+  const dueItems = active
+    .map(task => ({ task, days: daysFromToday(task.due) }))
+    .filter(item => item.days !== null);
+  const overdue = dueItems.filter(item => item.days < 0);
+  const today = dueItems.filter(item => item.days === 0);
+  const within3 = dueItems.filter(item => item.days >= 0 && item.days <= 3);
+  const within7 = dueItems.filter(item => item.days >= 0 && item.days <= 7);
+  const noDue = active.filter(t => !t.due);
+  const subtaskItems = active.flatMap(task => getSubtasks(task)
+    .filter(ms => !ms.completed)
+    .map(ms => {
+      const subDays = daysFromToday(ms.dueDate);
+      const parentDays = daysFromToday(task.due);
+      return {
+        task,
+        ms,
+        days: subDays ?? parentDays,
+        title: `${task.title || 'Untitled'}: ${ms.title || 'サブタスク'}`,
+        meta: ms.dueDate ? `サブタスク期限 ${fmtFull(ms.dueDate)}${ms.dueTime ? ' ' + ms.dueTime : ''}` : `親タスク ${getTaskDateLabel(task)}`,
+        badge: ms.dueDate ? commandDeadlineLabel(subDays) : commandDeadlineLabel(parentDays),
+        tone: commandTone(subDays ?? parentDays),
+      };
+    }));
+  subtaskItems.sort((a, b) => commandTaskSortValue(a) - commandTaskSortValue(b));
+  const subtaskTotal = active.reduce((sum, task) => sum + getSubtasks(task).length, 0);
+  const subtaskDone = active.reduce((sum, task) => sum + getSubtasks(task).filter(ms => ms.completed).length, 0);
+  const priorityItems = [
+    ...overdue.map(item => ({ ...item, kicker: 'OVERDUE' })),
+    ...today.map(item => ({ ...item, kicker: 'TODAY' })),
+    ...within3.filter(item => item.days > 0).map(item => ({ ...item, kicker: 'NEXT 3 DAYS' })),
+    ...dueItems.filter(item => item.task.priority === 'high').map(item => ({ ...item, kicker: 'HIGH PRIORITY' })),
+  ]
+    .filter((item, index, arr) => arr.findIndex(x => getTaskKey(x.task) === getTaskKey(item.task)) === index)
+    .sort((a, b) => commandTaskSortValue(a) - commandTaskSortValue(b))
+    .slice(0, 3);
+  const recentLogs = getRecentLogItems(2);
+
+  wrap.innerHTML = '';
+  const head = el('div', 'command-center-head');
+  const headText = el('div');
+  const title = el('div', 'command-center-title');
+  title.textContent = 'Today Command Center';
+  const sub = el('div', 'command-center-sub');
+  sub.textContent = 'Todo、作業ステップ、締め切り、制作ログをまとめて、今日見るべき順に整理します。';
+  const date = el('div', 'command-center-date');
+  date.textContent = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'numeric', day:'numeric', weekday:'short'});
+  headText.appendChild(title);
+  headText.appendChild(sub);
+  head.appendChild(headText);
+  head.appendChild(date);
+  wrap.appendChild(head);
+
+  const metrics = el('div', 'command-metrics');
+  [
+    ['未完了', active.length, 'ACTIVE', active.length ? '' : ''],
+    ['期限切れ', overdue.length, 'OVERDUE', overdue.length ? 'hot' : ''],
+    ['7日以内', within7.length, 'DEADLINES', within3.length ? 'warn' : ''],
+    ['サブタスク', subtaskTotal ? `${subtaskDone}/${subtaskTotal}` : '0', 'STEPS', subtaskTotal && subtaskDone === subtaskTotal ? '' : ''],
+  ].forEach(([label, value, note, tone]) => {
+    const cell = el('div', 'command-metric' + (tone ? ' ' + tone : ''));
+    const num = el('div', 'command-metric-num');
+    num.textContent = String(value);
+    const lab = el('div', 'command-metric-label');
+    lab.textContent = `${label} / ${note}`;
+    cell.appendChild(num);
+    cell.appendChild(lab);
+    metrics.appendChild(cell);
+  });
+
+  const grid = el('div', 'command-grid');
+  const left = el('div', 'command-panel command-main-card');
+  const leftTitle = el('div', 'command-panel-title');
+  leftTitle.textContent = '今すぐ見るべきこと';
+  left.appendChild(leftTitle);
+  if (priorityItems.length) {
+    priorityItems.forEach(item => addCommandTaskButton(left, item, { large: true }));
+  } else {
+    const empty = el('div', 'command-empty');
+    empty.textContent = active.length ? '今すぐ危ない締め切りはありません。次の作業ステップを確認しましょう。' : '未完了タスクはありません。写真や制作メモを残して、次の計画を追加できます。';
+    left.appendChild(empty);
+  }
+  const quickLinks = el('div', 'command-links');
+  addCommandLink(quickLinks, 'TODOを開く', () => {
+    state.todoView = 'list';
+    qs('#todo-view-list-btn')?.classList.add('active');
+    qs('#todo-view-gantt-btn')?.classList.remove('active');
+    switchTab('todo');
+  });
+  addCommandLink(quickLinks, 'ガントを見る', () => {
+    state.todoView = 'gantt';
+    qs('#todo-view-gantt-btn')?.classList.add('active');
+    qs('#todo-view-list-btn')?.classList.remove('active');
+    switchTab('todo');
+  });
+  addCommandLink(quickLinks, '記録を書く', () => qs('#photo-comment')?.focus());
+  left.appendChild(quickLinks);
+
+  const right = el('div', 'command-panel');
+  const stepTitle = el('div', 'command-panel-title');
+  stepTitle.textContent = '次の作業ステップ';
+  right.appendChild(stepTitle);
+  const stepList = el('div', 'command-section-list');
+  if (subtaskItems.length) {
+    subtaskItems.slice(0, 4).forEach(item => addCommandTaskButton(stepList, item));
+  } else {
+    const empty = el('div', 'command-empty');
+    empty.textContent = '未完了のサブタスクはありません。タスク詳細から作業ステップを追加すると、ここに次の一手が出ます。';
+    stepList.appendChild(empty);
+  }
+  right.appendChild(stepList);
+
+  const deadlineTitle = el('div', 'command-panel-title');
+  deadlineTitle.style.marginTop = '18px';
+  deadlineTitle.textContent = '直近の締め切り';
+  right.appendChild(deadlineTitle);
+  const deadlineList = el('div', 'command-section-list');
+  const deadlineItems = dueItems
+    .filter(item => item.days <= 7)
+    .sort((a, b) => commandTaskSortValue(a) - commandTaskSortValue(b))
+    .slice(0, 4);
+  if (deadlineItems.length) {
+    deadlineItems.forEach(item => addCommandTaskButton(deadlineList, item));
+  } else {
+    const empty = el('div', 'command-empty');
+    empty.textContent = noDue.length ? `日時なしタスクが${noDue.length}件あります。必要なら期限を追加してください。` : '7日以内の締め切りはありません。';
+    deadlineList.appendChild(empty);
+  }
+  right.appendChild(deadlineList);
+
+  const logTitle = el('div', 'command-panel-title');
+  logTitle.style.marginTop = '18px';
+  logTitle.textContent = '記録への入口';
+  right.appendChild(logTitle);
+  const logList = el('div', 'command-section-list');
+  if (recentLogs.length) {
+    recentLogs.forEach(item => {
+      const row = el('button', 'command-row');
+      row.type = 'button';
+      row.addEventListener('click', () => {
+        switchTab('log');
+        setTimeout(() => showLogDetail(item.date), 0);
+      });
+      const leftLog = el('div');
+      const rowTitle = el('div', 'command-row-title');
+      rowTitle.textContent = item.data.comment || item.data.proMemos?.find(Boolean) || '制作ログ';
+      const rowMeta = el('div', 'command-row-meta');
+      rowMeta.textContent = [fmtFull(item.date), item.data.lens, item.data.device].filter(Boolean).join(' / ');
+      const badge = el('div', 'command-row-badge');
+      badge.textContent = item.data.hasPhoto ? 'PHOTO' : 'TEXT';
+      leftLog.appendChild(rowTitle);
+      leftLog.appendChild(rowMeta);
+      row.appendChild(leftLog);
+      row.appendChild(badge);
+      logList.appendChild(row);
+    });
+  } else {
+    const empty = el('div', 'command-empty');
+    empty.textContent = 'まだ記録がありません。写真や制作メモを追加して、作業の流れを残しましょう。';
+    logList.appendChild(empty);
+  }
+  const logLinks = el('div', 'command-links');
+  addCommandLink(logLinks, 'ログ一覧', () => switchTab('log'));
+  addCommandLink(logLinks, '今日の写真記録', () => qs('#photo-drop')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  right.appendChild(logList);
+  right.appendChild(logLinks);
+
+  grid.appendChild(left);
+  grid.appendChild(right);
+  wrap.appendChild(metrics);
+  wrap.appendChild(grid);
+}
 
 // ── 通知 ────────────────────────────────────
 const LOCALHOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$/;
@@ -1973,10 +2239,109 @@ function renderTodoEmptyState(list, allTasks) {
   list.appendChild(box);
 }
 
+function renderTodoWorkSummary(allTasks) {
+  const wrap = qs('#todo-work-summary');
+  if (!wrap) return;
+  const todayStr = getLocalDateStr();
+  const today = new Date(todayStr + 'T00:00:00');
+  const daysBetween = dateStr => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr + 'T00:00:00');
+    if (Number.isNaN(date.getTime())) return null;
+    return Math.round((date - today) / 86400000);
+  };
+  const active = allTasks.filter(t => !isTaskDone(t.id || t.title + t.due));
+  const dueTasks = active
+    .map(t => ({ task: t, days: daysBetween(t.due) }))
+    .filter(item => item.days !== null);
+  const todayTasks = dueTasks.filter(item => item.days === 0);
+  const overdueTasks = dueTasks.filter(item => item.days < 0);
+  const soonTasks = dueTasks.filter(item => item.days >= 0 && item.days <= 3);
+  const subtaskTotal = active.reduce((sum, t) => sum + getSubtasks(t).length, 0);
+  const subtaskDone = active.reduce((sum, t) => sum + getSubtasks(t).filter(ms => ms.completed).length, 0);
+  const next = dueTasks
+    .slice()
+    .sort((a, b) => {
+      const aUrgency = a.days < 0 ? -1000 + a.days : a.days;
+      const bUrgency = b.days < 0 ? -1000 + b.days : b.days;
+      if (aUrgency !== bUrgency) return aUrgency - bUrgency;
+      return priorityRank(b.task.priority) - priorityRank(a.task.priority);
+    })[0];
+  const doneTotal = allTasks.length - active.length;
+
+  wrap.innerHTML = '';
+  wrap.classList.toggle('is-empty', allTasks.length === 0);
+  const focus = el('div', 'todo-focus-card' + (overdueTasks.length || todayTasks.length ? ' hot' : ''));
+  const kicker = el('div', 'todo-focus-kicker');
+  kicker.textContent = allTasks.length ? 'NEXT CHECK' : 'START';
+  const title = el('div', 'todo-focus-title');
+  const meta = el('div', 'todo-focus-meta');
+  const copy = el('div', 'todo-focus-copy');
+
+  if (!allTasks.length) {
+    title.textContent = '最初の制作タスクを追加しましょう';
+    copy.textContent = 'タスク名と締め切りを入れると、リスト・Deadline Timeline・スマホカードに同じ予定が反映されます。';
+  } else if (next) {
+    const { task, days } = next;
+    title.textContent = task.title || 'Untitled';
+    const due = el('span');
+    due.textContent = days < 0 ? `${Math.abs(days)}日超過` : days === 0 ? '今日締切' : days === 1 ? '明日締切' : `あと${days}日`;
+    meta.appendChild(due);
+    [task.subject, priorityLabel(task.priority)].filter(Boolean).forEach(text => {
+      const chip = el('span');
+      chip.textContent = text;
+      meta.appendChild(chip);
+    });
+    const progress = getSubtaskProgress(task);
+    if (progress.total) {
+      const chip = el('span');
+      chip.textContent = `${progress.done}/${progress.total} サブタスク`;
+      meta.appendChild(chip);
+    }
+    copy.textContent = overdueTasks.length
+      ? '期限切れがあります。まず赤い状態のタスクから確認してください。'
+      : todayTasks.length
+        ? '今日締切のタスクがあります。詳細を開いてサブタスクまで確認できます。'
+        : '直近の締切です。ガントでは今日から締切までの距離を確認できます。';
+  } else {
+    title.textContent = '日時なしタスクがあります';
+    copy.textContent = '締め切りがないタスクはリストで確認できます。必要なら詳細から日付やサブタスクを追加してください。';
+  }
+  focus.appendChild(kicker);
+  focus.appendChild(title);
+  if (meta.childNodes.length) focus.appendChild(meta);
+  focus.appendChild(copy);
+  wrap.appendChild(focus);
+
+  if (!allTasks.length) return;
+  const metrics = [
+    { label: '今日', value: todayTasks.length, note: '今日締切', tone: todayTasks.length ? 'hot' : '' },
+    { label: '期限切れ', value: overdueTasks.length, note: '要確認', tone: overdueTasks.length ? 'hot' : '' },
+    { label: '3日以内', value: soonTasks.length, note: '直近予定', tone: soonTasks.length ? 'warn' : '' },
+    { label: 'サブタスク', value: subtaskTotal ? `${subtaskDone}/${subtaskTotal}` : '0', note: doneTotal ? `完了 ${doneTotal}` : '作業ステップ', tone: subtaskTotal && subtaskDone === subtaskTotal ? 'complete' : '' },
+  ];
+  const grid = el('div', 'todo-metric-grid');
+  metrics.forEach(item => {
+    const card = el('div', 'todo-metric' + (item.tone ? ' ' + item.tone : ''));
+    const label = el('div', 'todo-metric-label');
+    label.textContent = item.label;
+    const value = el('div', 'todo-metric-value');
+    value.textContent = String(item.value);
+    const note = el('div', 'todo-metric-note');
+    note.textContent = item.note;
+    card.appendChild(label);
+    card.appendChild(value);
+    card.appendChild(note);
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+}
+
 function renderTodo() {
   updateMainLayoutMode();
   const allTasks = getAllTasks();
   scheduleDonePurgeForVisibleTasks(allTasks);
+  renderTodoWorkSummary(allTasks);
   const filter = state.todoFilter;
   const limit = getDeadlineLimit(state.todoPeriod);
   const today = new Date(); today.setHours(0,0,0,0);
@@ -4187,6 +4552,7 @@ qs('#save-btn').addEventListener('click', async () => {
   msg.classList.remove('hidden');
   setTimeout(() => { msg.classList.add('hidden'); msg.textContent = '保存済み'; }, 3000);
   renderProgressBanner();
+  renderCommandCenter();
 });
 
 // ── 学習タブ ──────────────────────────────────
@@ -5339,6 +5705,7 @@ async function syncSettingsFromSupabase() {
   }
   scheduleTaskNotifications();
   scheduleDonePurgeForVisibleTasks();
+  if (state.tab === 'today') renderCommandCenter();
 }
 
 // ── 初期化 ────────────────────────────────────
@@ -5360,6 +5727,7 @@ setInterval(() => {
     // 今日のデータをリセット＆ロード
     initTodayData();
     renderProgressBanner();
+    renderCommandCenter();
   }
 }, 60000);
 
@@ -5369,4 +5737,5 @@ initTodayData().then(() => {
   ensureCloudLogsFresh(true);
   syncTodayPhotosFromSupabase();
   syncSettingsFromSupabase();
+  renderCommandCenter();
 });

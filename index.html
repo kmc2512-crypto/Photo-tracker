@@ -121,6 +121,40 @@ button{cursor:pointer}
 .day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
 .day-date{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1;text-wrap:balance}
 .day-weekday{font-size:10px;color:var(--fg5);letter-spacing:.18em;margin-top:8px}
+.command-center{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:18px 0 20px;margin-bottom:28px}
+.command-center-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+.command-center-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2;text-wrap:balance}
+.command-center-sub{font-size:10px;color:var(--fg5);letter-spacing:.05em;line-height:1.75;margin-top:6px;text-wrap:pretty;max-width:520px}
+.command-center-date{font-size:10px;color:var(--fg5);letter-spacing:.12em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.command-grid{display:grid;grid-template-columns:minmax(260px,1.2fr) minmax(320px,1.8fr);gap:16px;align-items:start}
+.command-panel{border:1px solid var(--border);background:var(--bg2);padding:16px;min-width:0}
+.command-panel-title{font-size:9px;color:var(--fg6);letter-spacing:.16em;text-transform:uppercase;margin-bottom:12px}
+.command-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);background:var(--bg)}
+.command-metric{min-height:76px;padding:12px;border-right:1px solid var(--border);display:grid;align-content:space-between;gap:8px}
+.command-metric:last-child{border-right:none}
+.command-metric-num{font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.command-metric-label{font-size:9px;color:var(--fg6);letter-spacing:.08em;line-height:1.45}
+.command-metric.hot .command-metric-num,.command-action-card.hot .command-action-title{color:#ff7040}
+.command-metric.warn .command-metric-num{color:#d4a820}
+.command-main-card{display:grid;gap:11px}
+.command-action-card{width:100%;min-width:0;border:1px solid var(--border);background:var(--bg);color:var(--fg);text-align:left;padding:13px 14px;display:grid;gap:8px;min-height:82px}
+.command-action-card:hover{border-color:var(--border3);background:var(--bg3)}
+.command-action-kicker{font-size:9px;color:var(--fg6);letter-spacing:.14em;text-transform:uppercase}
+.command-action-title{font-size:14px;font-weight:700;line-height:1.45;text-wrap:balance}
+.command-action-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--fg5);font-variant-numeric:tabular-nums}
+.command-action-meta span{border:1px solid var(--border2);padding:3px 7px}
+.command-section-list{display:grid;gap:8px}
+.command-row{width:100%;min-width:0;border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:11px 12px;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-height:48px}
+.command-row:hover{border-color:var(--border3);background:var(--bg3)}
+.command-row>div{min-width:0}
+.command-row-title{font-size:12px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.command-row-meta{font-size:9px;color:var(--fg5);letter-spacing:.05em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.command-row-badge{font-size:10px;color:var(--fg4);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.command-row-badge.hot{color:#ff7040}
+.command-row-badge.warn{color:#d4a820}
+.command-empty{border:1px solid var(--border);background:var(--bg);padding:13px 14px;font-size:11px;color:var(--fg5);line-height:1.8;text-wrap:pretty}
+.command-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.command-links .ghost-btn{height:36px}
 .progress-banner{background:var(--bg2);border:1px solid var(--border);padding:14px 16px;margin-bottom:28px;display:flex;align-items:center;gap:16px;cursor:pointer;text-decoration:none;transition:border-color .15s,transform .1s}
 .progress-banner:hover{border-color:var(--border3)}
 .progress-banner:active{transform:scale(0.99)}
@@ -441,6 +475,22 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-add-form input[type=date]{border-bottom:1px solid var(--border2);padding:6px 0;font-size:12px;width:140px;color:var(--fg);background:transparent;font-variant-numeric:tabular-nums}
 .todo-add-form input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.6)}
 .todo-add-form select{border:1px solid var(--border2);background:var(--input-bg);color:var(--fg);font-family:'DM Mono',monospace;font-size:11px;height:34px;padding:0 10px;outline:none;min-width:120px}
+.todo-work-summary{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:16px 0;margin:18px 0 24px;display:grid;grid-template-columns:minmax(220px,1.15fr) minmax(320px,1.85fr);gap:18px;align-items:stretch}
+.todo-work-summary.is-empty{grid-template-columns:1fr}
+.todo-focus-card{border:1px solid var(--border);background:var(--bg2);padding:16px;min-width:0;display:grid;align-content:start;gap:10px}
+.todo-focus-kicker,.todo-metric-label{font-size:9px;color:var(--fg6);letter-spacing:.14em;text-transform:uppercase}
+.todo-focus-title{font-size:15px;font-weight:700;color:var(--fg);line-height:1.45;text-wrap:balance}
+.todo-focus-meta{display:flex;flex-wrap:wrap;gap:7px;color:var(--fg4);font-size:10px;line-height:1.5;font-variant-numeric:tabular-nums}
+.todo-focus-meta span{border:1px solid var(--border2);padding:4px 7px}
+.todo-focus-copy{font-size:11px;color:var(--fg5);line-height:1.8;text-wrap:pretty}
+.todo-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);background:var(--bg)}
+.todo-metric{min-height:88px;padding:13px 14px;border-right:1px solid var(--border);display:grid;align-content:space-between;gap:10px}
+.todo-metric:last-child{border-right:none}
+.todo-metric-value{font-family:'Space Grotesk',sans-serif;font-size:24px;line-height:1;color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
+.todo-metric-note{font-size:10px;color:var(--fg5);line-height:1.5;letter-spacing:.03em}
+.todo-metric.hot .todo-metric-value,.todo-focus-card.hot .todo-focus-title{color:#ff7040}
+.todo-metric.warn .todo-metric-value{color:#d4a820}
+.todo-metric.complete .todo-metric-value{color:var(--fg3)}
 .todo-date-type-block{margin-bottom:16px}
 .todo-date-type-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border2);width:100%;max-width:360px}
 .todo-date-type-group .todo-filter-btn{height:36px;justify-content:center;padding:0 12px}
@@ -765,6 +815,19 @@ input[type=time]{display:none}
   .confirm-actions{flex-direction:column}
   .confirm-actions .ghost-btn,.confirm-actions .save-btn{width:100%;justify-content:center}
   .day-date{font-size:22px}
+  .command-center{padding:14px 0 18px;margin-bottom:24px}
+  .command-center-head{display:grid;gap:8px;align-items:start}
+  .command-center-title{font-size:20px}
+  .command-center-date{white-space:normal}
+  .command-grid{grid-template-columns:1fr;gap:10px}
+  .command-panel{padding:14px}
+  .command-metrics{grid-template-columns:1fr 1fr}
+  .command-metric{min-height:72px;border-bottom:1px solid var(--border)}
+  .command-metric:nth-child(2n){border-right:none}
+  .command-metric:nth-last-child(-n+2){border-bottom:none}
+  .command-action-card,.command-row{min-height:52px}
+  .command-row{grid-template-columns:1fr;gap:6px}
+  .command-row-badge{justify-self:start}
   .progress-banner{padding:12px}
   .pb-theme{font-size:12px}
   .pro-grid{grid-template-columns:1fr 1fr 1fr;gap:8px}
@@ -780,6 +843,13 @@ input[type=time]{display:none}
   .timer-mode-tabs::-webkit-scrollbar{display:none}
   .timer-mode-btn{white-space:nowrap;flex-shrink:0}
   .todo-add-form .form-row{flex-direction:column}
+  .todo-work-summary{grid-template-columns:1fr;gap:10px;margin:14px 0 20px;padding:12px 0}
+  .todo-focus-card{padding:14px}
+  .todo-metric-grid{grid-template-columns:1fr 1fr}
+  .todo-metric{min-height:76px;padding:12px;border-bottom:1px solid var(--border)}
+  .todo-metric:nth-child(2n){border-right:none}
+  .todo-metric:nth-last-child(-n+2){border-bottom:none}
+  .todo-metric-value{font-size:21px}
   .todo-inline-field,
   .todo-inline-field.subject,
   .todo-inline-field.priority-field{width:100%;min-width:0;flex:0 0 auto}
@@ -959,6 +1029,7 @@ input[type=time]{display:none}
         <button class="save-btn" id="save-btn">SAVE</button>
       </div>
     </div>
+    <section class="command-center" id="command-center" aria-label="Today Command Center"></section>
     <!-- 進捗バナー -->
     <div class="progress-banner" id="progress-banner">
       <div class="pb-left">
@@ -1044,6 +1115,7 @@ input[type=time]{display:none}
         <div class="todo-subtitle">課題・予定の締切、期間、完了状態をまとめて確認します。追加したタスクはリストとDeadline Timelineに反映されます。</div>
       </div>
     </div>
+    <section class="todo-work-summary" id="todo-work-summary" aria-label="今日のTodo概要"></section>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">
       <div class="lbl" style="margin-bottom:12px" id="todo-form-heading">タスクを追加</div>
