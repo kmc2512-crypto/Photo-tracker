@@ -76,7 +76,7 @@ const LS = {
 };
 
 window.PTR_BACKUP_KEYS = new Set([
-  'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','external_tasks_completed','script_url',
+  'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','task_overrides','external_tasks_completed','script_url',
   'clips','clips_deleted','timer_log_today','todo_done_log','inbox_items','notif','notif_leads','auth_session'
 ]);
 
@@ -1037,6 +1037,7 @@ async function convertInboxItemToTodo(id) {
     due: item.dueCandidate || '',
     dueDate: item.dueCandidate || '',
     dueTime: item.dueTimeCandidate || '',
+    updatedAt: now,
   });
   const manual = normalizeManualTasks(LS.get('manual_tasks'));
   await saveManualTasks([...manual, task]);
@@ -2212,16 +2213,34 @@ function createMilestoneId() {
 
 function normalizeMilestone(m, index = 0) {
   const rawTitle = String(m?.title || '').trim();
+  const startDate = String(m?.startDate || m?.start || '').trim();
   const dueDate = String(m?.dueDate || m?.due || '').trim();
   const title = rawTitle || (dueDate ? 'サブタスク' : '');
   return {
     id: m?.id || `ms_existing_${index}`,
     title,
+    startDate,
+    start: startDate,
     dueDate,
     dueTime: String(m?.dueTime || '').trim(),
     note: String(m?.note || '').trim(),
     completed: !!m?.completed,
   };
+}
+
+function getDatePart(value) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = Date.parse(raw);
+  if (!Number.isFinite(parsed)) return '';
+  return getLocalDateStr(new Date(parsed));
+}
+
+function normalizeTaskType(task, milestones = []) {
+  const explicit = String(task?.taskType || '').trim().toLowerCase();
+  if (explicit === 'main' || explicit === 'quick') return explicit;
+  if (task?._manual && milestones.length) return 'main';
+  return 'quick';
 }
 
 function normalizeTask(t) {
@@ -2234,8 +2253,14 @@ function normalizeTask(t) {
   const milestones = rawMilestones
     .map(normalizeMilestone)
     .filter(m => m.title);
+  const taskType = normalizeTaskType(task, milestones);
+  const createdAt = Number.isFinite(Date.parse(task.createdAt))
+    ? task.createdAt
+    : (Number.isFinite(Date.parse(task.updatedAt)) ? task.updatedAt : '');
   return {
     ...task,
+    taskType,
+    createdAt,
     due,
     dueDate: due,
     dueTime: String(task.dueTime || '').trim(),
@@ -2247,6 +2272,7 @@ function normalizeTask(t) {
     priority: ['high', 'normal', 'low'].includes(task.priority) ? task.priority : 'normal',
     dateType,
     completed: sourceMarksTaskDone(task),
+    completedAt: task.completedAt || '',
     description: String(task.description || ''),
     milestones,
     subtasks: milestones,
@@ -2257,11 +2283,233 @@ function normalizeManualTasks(tasks) {
   return Array.isArray(tasks) ? tasks.map(normalizeTask) : [];
 }
 
+function taskUpdatedAt(task) {
+  const ts = Date.parse(task?.updatedAt);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function mergeTaskRecords(base, next) {
+  const a = normalizeTask(base);
+  const b = normalizeTask(next);
+  const preferNext = taskUpdatedAt(b) >= taskUpdatedAt(a);
+  const newest = preferNext ? b : a;
+  const older = preferNext ? a : b;
+  const milestones = mergeMilestoneLists(older.milestones, newest.milestones);
+  return normalizeTask({
+    ...older,
+    ...newest,
+    title: newest.title || older.title,
+    due: newest.due || older.due,
+    dueDate: newest.due || older.due,
+    dueTime: newest.dueTime || older.dueTime,
+    start: newest.start || older.start,
+    startDate: newest.start || older.start,
+    startTime: newest.startTime || older.startTime,
+    taskType: newest.taskType || older.taskType,
+    createdAt: newest.createdAt || older.createdAt,
+    subject: newest.subject || older.subject,
+    category: newest.category || older.category,
+    priority: newest.priority || older.priority,
+    description: newest.description || older.description,
+    completed: sourceMarksTaskDone(older) || sourceMarksTaskDone(newest),
+    completedAt: newest.completedAt || older.completedAt,
+    milestones,
+    subtasks: milestones,
+    updatedAt: newest.updatedAt || older.updatedAt,
+  });
+}
+
+function mergeTaskListsById(remoteTasks = [], localTasks = [], deletedIds = []) {
+  const deleted = new Set(deletedIds || []);
+  const merged = new Map();
+  [...remoteTasks, ...localTasks].forEach(task => {
+    const normalized = normalizeTask(task);
+    const key = getTaskKey(normalized);
+    if (!key || deleted.has(key) || deleted.has(normalized.id)) return;
+    merged.set(key, merged.has(key) ? mergeTaskRecords(merged.get(key), normalized) : normalized);
+  });
+  return [...merged.values()];
+}
+
+function getExternalTaskIdentityKeys(task) {
+  const t = task && typeof task === 'object' ? task : {};
+  if (t._manual) return [];
+  const due = String(t.due || t.dueDate || '').trim();
+  const title = String(t.title || '').trim();
+  const candidates = [
+    t.sourceId,
+    t.classroomId,
+    t.classroomTaskId,
+    t.courseWorkId,
+    t.assignmentId,
+    t.alternateLink,
+    t.htmlLink,
+    t.url,
+    t.link,
+    t.id,
+    title && due ? `title:${title}|due:${due}` : '',
+  ];
+  return [...new Set(candidates.map(v => String(v || '').trim()).filter(Boolean))];
+}
+
+function mergeMilestoneLists(...lists) {
+  const merged = new Map();
+  lists.flat().forEach((item, index) => {
+    const ms = normalizeMilestone(item, index);
+    if (!ms.title) return;
+    const key = ms.id || `${ms.title}_${ms.dueDate}_${ms.dueTime}`;
+    const prev = merged.get(key) || {};
+    merged.set(key, { ...prev, ...ms, completed: !!(prev.completed || ms.completed) });
+  });
+  return [...merged.values()];
+}
+
+function normalizeTaskOverride(value = {}) {
+  const source = value && typeof value === 'object' ? value : {};
+  const milestones = mergeMilestoneLists(source.milestones || [], source.subtasks || []);
+  const completedAt = Number.isFinite(Date.parse(source.completedAt)) ? source.completedAt : '';
+  const taskType = ['quick', 'main'].includes(String(source.taskType || '').trim().toLowerCase())
+    ? String(source.taskType).trim().toLowerCase()
+    : '';
+  return {
+    taskType,
+    description: String(source.description || '').trim(),
+    start: String(source.start || source.startDate || '').trim(),
+    startDate: String(source.startDate || source.start || '').trim(),
+    due: String(source.due || source.dueDate || '').trim(),
+    dueDate: String(source.dueDate || source.due || '').trim(),
+    milestones,
+    subtasks: milestones,
+    priority: ['high', 'normal', 'low'].includes(source.priority) ? source.priority : '',
+    subject: String(source.subject || source.category || '').trim(),
+    category: String(source.category || source.subject || '').trim(),
+    dueTime: String(source.dueTime || '').trim(),
+    completed: !!source.completed,
+    completedAt,
+    updatedAt: Number.isFinite(Date.parse(source.updatedAt)) ? source.updatedAt : '1970-01-01T00:00:00.000Z',
+  };
+}
+
+function normalizeTaskOverrideMap(map) {
+  const source = map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+  return Object.entries(source).reduce((acc, [key, value]) => {
+    if (!key || !value) return acc;
+    const normalized = normalizeTaskOverride(value);
+    if (
+      normalized.description
+      || normalized.taskType
+      || normalized.startDate
+      || normalized.dueDate
+      || normalized.milestones.length
+      || normalized.priority
+      || normalized.subject
+      || normalized.dueTime
+      || normalized.completed
+      || normalized.completedAt
+    ) acc[key] = normalized;
+    return acc;
+  }, {});
+}
+
+function mergeTaskOverrideEntries(base = {}, next = {}) {
+  const a = normalizeTaskOverride(base);
+  const b = normalizeTaskOverride(next);
+  const preferNext = String(b.updatedAt || '') >= String(a.updatedAt || '');
+  const newest = preferNext ? b : a;
+  const older = preferNext ? a : b;
+  const milestones = mergeMilestoneLists(older.milestones, newest.milestones);
+  return normalizeTaskOverride({
+    ...older,
+    ...newest,
+    description: newest.description || older.description,
+    taskType: newest.taskType || older.taskType,
+    start: newest.start || older.start,
+    startDate: newest.startDate || older.startDate,
+    due: newest.due || older.due,
+    dueDate: newest.dueDate || older.dueDate,
+    subject: newest.subject || older.subject,
+    category: newest.category || older.category,
+    priority: newest.priority || older.priority,
+    dueTime: newest.dueTime || older.dueTime,
+    completed: older.completed || newest.completed,
+    completedAt: newest.completedAt || older.completedAt,
+    milestones,
+    subtasks: milestones,
+    updatedAt: newest.updatedAt || older.updatedAt,
+  });
+}
+
+function mergeTaskOverrideMaps(...maps) {
+  const merged = {};
+  maps.forEach(map => {
+    Object.entries(normalizeTaskOverrideMap(map)).forEach(([key, value]) => {
+      merged[key] = merged[key] ? mergeTaskOverrideEntries(merged[key], value) : value;
+    });
+  });
+  return merged;
+}
+
+function getTaskOverrides() {
+  return normalizeTaskOverrideMap(LS.get('task_overrides'));
+}
+
+function saveTaskOverrides(overrides, sync = true) {
+  const normalized = normalizeTaskOverrideMap(overrides);
+  LS.set('task_overrides', normalized);
+  if (sync && typeof SB !== 'undefined' && typeof SB.setSetting === 'function') {
+    SB.setSetting('task_overrides', normalized);
+  }
+  return normalized;
+}
+
+function getTaskOverrideKey(t) {
+  if (!t || t._manual) return '';
+  if (t._overrideKey) return String(t._overrideKey);
+  return getExternalTaskIdentityKeys(t)[0] || getTaskKey(t);
+}
+
+function findTaskOverrideForTask(task, overrides = getTaskOverrides()) {
+  const keys = getExternalTaskIdentityKeys(task);
+  for (const key of keys) {
+    if (overrides[key]) return { key, value: overrides[key] };
+  }
+  const fallback = getTaskKey(task);
+  return fallback && overrides[fallback] ? { key: fallback, value: overrides[fallback] } : null;
+}
+
+function applyTaskUserOverride(task) {
+  const normalized = normalizeTask(task);
+  const key = getTaskOverrideKey(normalized);
+  if (!key) return normalized;
+  const found = findTaskOverrideForTask(normalized);
+  const override = found?.value;
+  if (!override) return { ...normalized, _overrideKey: key };
+  const milestones = mergeMilestoneLists(normalized.milestones, override.milestones);
+  return normalizeTask({
+    ...normalized,
+    taskType: override.taskType || normalized.taskType,
+    description: override.description || normalized.description,
+    start: override.startDate || override.start || normalized.start,
+    startDate: override.startDate || override.start || normalized.startDate,
+    due: override.dueDate || override.due || normalized.due,
+    dueDate: override.dueDate || override.due || normalized.dueDate,
+    milestones,
+    subtasks: milestones,
+    priority: override.priority || normalized.priority,
+    subject: override.subject || normalized.subject,
+    category: override.category || normalized.category,
+    dueTime: override.dueTime || normalized.dueTime,
+    completed: normalized.completed || override.completed,
+    completedAt: override.completedAt || normalized.completedAt,
+    _overrideKey: found.key || key,
+  });
+}
+
 function getAllTasks() {
   const manual = normalizeManualTasks(LS.get('manual_tasks'));
   const expandedManual = manual.flatMap(t => expandRecurringTask(t));
   const tasks = [
-    ...filterVisibleExternalTasks(state.tasks).map(normalizeTask),
+    ...filterVisibleExternalTasks(state.tasks).map(applyTaskUserOverride),
     ...expandedManual.map(normalizeTask)
   ];
   tasks.forEach(hydrateTaskDoneRecordFromTask);
@@ -2389,6 +2637,7 @@ async function updateManualTaskCompletion(k, completed, completedAt = '') {
     const nextTask = { ...task, completed: !!completed };
     if (completed) nextTask.completedAt = completedAt || new Date().toISOString();
     else delete nextTask.completedAt;
+    nextTask.updatedAt = new Date().toISOString();
     return nextTask;
   });
   if (changed) await saveManualTasks(next);
@@ -2845,6 +3094,14 @@ function getSubtasks(t) {
   return normalizeTask(t).milestones || [];
 }
 
+function isMainTask(t) {
+  return normalizeTask(t).taskType === 'main';
+}
+
+function taskTypeLabel(t) {
+  return isMainTask(t) ? 'MAIN TASK' : 'QUICK TASK';
+}
+
 function getSubtaskProgress(t) {
   const subtasks = getSubtasks(t);
   const total = subtasks.length;
@@ -2896,13 +3153,60 @@ function compareTaskAndSubtaskDue(parentTask, subtask) {
 
 function subtaskDueLabel(subtask) {
   if (!subtask?.dueDate) return '';
-  return fmtFull(subtask.dueDate) + (subtask.dueTime ? ` ${subtask.dueTime}` : '') + 'まで';
+  const start = subtask.startDate ? fmtFull(subtask.startDate) + ' → ' : '';
+  return start + fmtFull(subtask.dueDate) + (subtask.dueTime ? ` ${subtask.dueTime}` : '') + 'まで';
 }
 
 function subtaskDateObject(subtask) {
   if (!subtask?.dueDate) return null;
   const d = new Date(`${subtask.dueDate}T${subtask.dueTime || '12:00'}:00`);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function subtaskStartDateObject(subtask) {
+  if (!subtask?.startDate) return null;
+  const d = new Date(`${subtask.startDate}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function taskDateObject(value, fallbackTime = '00:00') {
+  const date = getDatePart(value);
+  if (!date) return null;
+  const d = new Date(`${date}T${fallbackTime}:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function getTaskTimelineStartDate(task, today = new Date()) {
+  const t = normalizeTask(task);
+  const explicit = taskDateObject(t.startDate || t.start);
+  if (explicit) return explicit;
+  if (!isMainTask(t)) {
+    const created = taskDateObject(t.createdAt);
+    if (created) return created;
+    const due = getTaskDueDateObject(t);
+    const fallback = new Date(today);
+    fallback.setHours(0, 0, 0, 0);
+    if (due && due < fallback) return due;
+    return fallback;
+  }
+  return taskDateObject(t.dueDate || t.due) || null;
+}
+
+function getTaskDueDateObject(task) {
+  const t = normalizeTask(task);
+  return taskDateObject(t.dueDate || t.due);
+}
+
+function getNextTaskStep(task) {
+  const steps = getSubtasks(task)
+    .filter(step => !step.completed)
+    .map(step => ({ step, due: subtaskDateObject(step), start: subtaskStartDateObject(step) }))
+    .sort((a, b) => {
+      const ad = a.due || a.start || new Date(8640000000000000);
+      const bd = b.due || b.start || new Date(8640000000000000);
+      return ad - bd;
+    });
+  return steps[0] || null;
 }
 
 function createSubtaskField(labelText, control, options = {}) {
@@ -2919,7 +3223,7 @@ function createSubtaskDatePicker(value = '', label = 'サブタスクの期限�
   const showClear = options.showClear !== false;
   const wrap = el('div', 'subtask-picker-field');
   const fieldLabel = el('span', 'subtask-field-label');
-  fieldLabel.textContent = '期限日';
+  fieldLabel.textContent = options.fieldLabel || '期限日';
   const controlLine = el('div', 'subtask-picker-line' + (showClear ? '' : ' no-clear'));
   const trigger = el('div', 'custom-date-input subtask-date-picker');
   trigger.id = 'subtask-date-' + id;
@@ -3034,10 +3338,45 @@ async function updateManualTaskById(id, updater) {
   const idx = manual.findIndex(t => t.id === id);
   if (idx === -1) return null;
   const nextTask = normalizeTask(updater(manual[idx]));
+  nextTask.updatedAt = new Date().toISOString();
   manual[idx] = nextTask;
   await saveManualTasks(manual);
   renderTodo();
   return nextTask;
+}
+
+async function updateTaskPlanningData(task, updater) {
+  const baseTask = normalizeTask(task);
+  const manualId = getEditableManualTaskId(baseTask);
+  if (manualId) return await updateManualTaskById(manualId, updater);
+
+  const overrideKey = getTaskOverrideKey(baseTask);
+  if (!overrideKey) return null;
+  const overrides = getTaskOverrides();
+  const current = applyTaskUserOverride(baseTask);
+  const nextTask = normalizeTask(updater(current));
+  const milestones = mergeMilestoneLists(nextTask.milestones);
+  overrides[overrideKey] = normalizeTaskOverride({
+    ...(overrides[overrideKey] || {}),
+    taskType: nextTask.taskType,
+    description: nextTask.description,
+    start: nextTask.start,
+    startDate: nextTask.startDate,
+    due: nextTask.due,
+    dueDate: nextTask.dueDate,
+    milestones,
+    subtasks: milestones,
+    priority: nextTask.priority,
+    subject: nextTask.subject,
+    category: nextTask.category || nextTask.subject,
+    dueTime: nextTask.dueTime,
+    completed: sourceMarksTaskDone(nextTask),
+    completedAt: nextTask.completedAt,
+    updatedAt: new Date().toISOString(),
+  });
+  saveTaskOverrides(overrides);
+  renderTodo();
+  return applyTaskUserOverride(baseTask);
 }
 
 function setTodoDetailMessage(message, isError = false) {
@@ -3066,7 +3405,9 @@ function renderTodoDetail(taskArg) {
   const key = getTaskKey(task);
   const editableId = getEditableManualTaskId(task);
   const editableTask = editableId ? getManualTaskById(editableId) : null;
-  const detailTask = normalizeTask(editableTask || task);
+  const overrideKey = getTaskOverrideKey(task);
+  const canEditPlanning = !!editableId || !!overrideKey;
+  const detailTask = normalizeTask(editableTask || applyTaskUserOverride(task));
   const milestones = detailTask.milestones || [];
   const done = isTaskDone(key);
 
@@ -3076,6 +3417,7 @@ function renderTodoDetail(taskArg) {
   title.textContent = task.title || 'Untitled';
   const meta = el('div', 'todo-detail-meta');
   [
+    taskTypeLabel(detailTask),
     getTaskDateLabel(task),
     task.subject || 'カテゴリなし',
     priorityLabel(task.priority),
@@ -3093,6 +3435,57 @@ function renderTodoDetail(taskArg) {
   desc.textContent = detailTask.description || '説明なし';
   descSection.appendChild(descLabel);
   descSection.appendChild(desc);
+  const descEditKey = getEditableManualTaskId(task) || getTaskOverrideKey(task);
+  if (descEditKey) {
+    const descForm = el('div', 'todo-detail-desc-form');
+    const descInput = el('textarea');
+    descInput.rows = 3;
+    descInput.value = detailTask.description || '';
+    descInput.placeholder = 'このタスクの進め方やメモを書く';
+    descInput.setAttribute('aria-label', '説明またはメモを編集');
+    const descSave = el('button', 'ghost-btn');
+    descSave.type = 'button';
+    descSave.textContent = 'メモ保存';
+    descSave.addEventListener('click', async () => {
+      const updated = await updateTaskPlanningData(detailTask, current => ({
+        ...current,
+        description: descInput.value.trim()
+      }));
+      renderTodoDetail(updated);
+      setTodoDetailMessage('説明 / メモを保存しました');
+    });
+    descForm.appendChild(descInput);
+    descForm.appendChild(descSave);
+    descSection.appendChild(descForm);
+  }
+
+  const typeSection = el('section', 'todo-detail-section todo-detail-type-section');
+  const typeLabel = el('div', 'todo-detail-label');
+  typeLabel.textContent = isMainTask(detailTask) ? '作業計画' : 'タスク種別';
+  const typeCopy = el('div', 'todo-detail-copy');
+  typeCopy.textContent = isMainTask(detailTask)
+    ? '開始日から最終締切までを制作・課題の作業期間として扱い、サブタスクを工程として表示します。'
+    : 'これは軽いタスクとして扱われます。Ganttでは期限までの注意期間として細いバーで表示します。';
+  typeSection.appendChild(typeLabel);
+  typeSection.appendChild(typeCopy);
+  if (canEditPlanning && !isMainTask(detailTask)) {
+    const convert = el('button', 'ghost-btn todo-convert-main-btn');
+    convert.type = 'button';
+    convert.textContent = 'Main Task化';
+    convert.addEventListener('click', async () => {
+      const start = detailTask.start || getDatePart(detailTask.createdAt) || getLocalDateStr();
+      const updated = await updateTaskPlanningData(detailTask, current => ({
+        ...current,
+        taskType: 'main',
+        start,
+        startDate: start,
+        dateType: current.due ? 'range' : current.dateType,
+      }));
+      renderTodoDetail(updated);
+      setTodoDetailMessage('Main Taskとして扱うようにしました。工程を追加できます。');
+    });
+    typeSection.appendChild(convert);
+  }
 
   const milestoneSection = el('section', 'todo-detail-section');
   const milestoneLabel = el('div', 'todo-detail-label');
@@ -3122,11 +3515,11 @@ function renderTodoDetail(taskArg) {
       const check = el('button', 'milestone-check' + (ms.completed ? ' done' : ''));
       check.type = 'button';
       check.setAttribute('aria-label', ms.completed ? `${ms.title}を未完了に戻す` : `${ms.title}を完了にする`);
-      check.disabled = !editableId;
+      check.disabled = !canEditPlanning;
       check.addEventListener('click', async () => {
-        if (!editableId) return;
+        if (!canEditPlanning) return;
         const nextCompleted = !ms.completed;
-        const updated = await updateManualTaskById(editableId, current => ({
+        const updated = await updateTaskPlanningData(detailTask, current => ({
           ...current,
           milestones: (current.milestones || []).map(item => item.id === ms.id ? {...item, completed: !item.completed} : item)
         }));
@@ -3155,15 +3548,15 @@ function renderTodoDetail(taskArg) {
       const edit = el('button', 'milestone-edit');
       edit.type = 'button';
       edit.textContent = '編集';
-      edit.disabled = !editableId;
+      edit.disabled = !canEditPlanning;
       const del = el('button', 'milestone-delete');
       del.type = 'button';
       del.textContent = '削除';
-      del.disabled = !editableId;
+      del.disabled = !canEditPlanning;
       controls.appendChild(edit);
       controls.appendChild(del);
       del.addEventListener('click', async () => {
-        if (!editableId) return;
+        if (!canEditPlanning) return;
         const ok = await confirmAction({
           title: 'サブタスクを削除しますか？',
           body: 'このサブタスクだけを削除します。親タスクは残ります。',
@@ -3171,7 +3564,7 @@ function renderTodoDetail(taskArg) {
         });
         if (!ok) return;
         const deletedTitle = ms.title || 'サブタスク';
-        const updated = await updateManualTaskById(editableId, current => ({
+        const updated = await updateTaskPlanningData(detailTask, current => ({
           ...current,
           milestones: (current.milestones || []).filter(item => item.id !== ms.id)
         }));
@@ -3196,7 +3589,8 @@ function renderTodoDetail(taskArg) {
       editTitle.value = ms.title || '';
       editTitle.setAttribute('aria-label', 'サブタスク名を編集');
       bindImeCompositionGuard(editTitle);
-      const editDatePicker = createSubtaskDatePicker(ms.dueDate || '', 'サブタスクの期限日を編集');
+      const editStartDatePicker = createSubtaskDatePicker(ms.startDate || '', 'サブタスクの開始日を編集', { fieldLabel: '開始日' });
+      const editDatePicker = createSubtaskDatePicker(ms.dueDate || '', 'サブタスクの期限日を編集', { fieldLabel: '終了日' });
       const editTimePicker = createSubtaskTimePicker(ms.dueTime || '', 'サブタスクの期限時刻を編集');
       const editNote = el('textarea');
       editNote.rows = 2;
@@ -3213,11 +3607,13 @@ function renderTodoDetail(taskArg) {
           editTitle.focus();
           return;
         }
-        const updated = await updateManualTaskById(editableId, current => ({
+        const updated = await updateTaskPlanningData(detailTask, current => ({
           ...current,
           milestones: (current.milestones || []).map(item => item.id === ms.id ? {
             ...item,
             title: nextTitle,
+            startDate: editStartDatePicker.hidden.value,
+            start: editStartDatePicker.hidden.value,
             dueDate: editDatePicker.hidden.value,
             dueTime: editTimePicker.hidden.value,
             note: editNote.value.trim()
@@ -3232,6 +3628,7 @@ function renderTodoDetail(taskArg) {
       });
       editForm.appendChild(editHead);
       editForm.appendChild(createSubtaskField('サブタスク名', editTitle));
+      editForm.appendChild(editStartDatePicker.wrap);
       editForm.appendChild(editDatePicker.wrap);
       editForm.appendChild(editTimePicker.wrap);
       editForm.appendChild(createSubtaskField('メモ', editNote, { full: true }));
@@ -3241,14 +3638,15 @@ function renderTodoDetail(taskArg) {
   }
   milestoneSection.appendChild(list);
 
-  if (editableId) {
+  if (canEditPlanning) {
     const form = el('div', 'milestone-form subtask-quick-form');
     const titleInput = el('input');
     titleInput.type = 'text';
     titleInput.placeholder = 'サブタスクを追加...';
     titleInput.setAttribute('aria-label', 'サブタスク名');
     bindImeCompositionGuard(titleInput);
-    const datePicker = createSubtaskDatePicker('', 'サブタスクの期限日', { showClear: false });
+    const startDatePicker = createSubtaskDatePicker('', 'サブタスクの開始日', { showClear: false, fieldLabel: '開始日' });
+    const datePicker = createSubtaskDatePicker('', 'サブタスクの期限日', { showClear: false, fieldLabel: '終了日' });
     const timePicker = createSubtaskTimePicker('', 'サブタスクの期限時刻', { showClear: false });
     const noteInput = el('textarea');
     noteInput.rows = 2;
@@ -3259,6 +3657,7 @@ function renderTodoDetail(taskArg) {
     add.textContent = '追加';
     const addSubtask = async () => {
       const titleValue = titleInput.value.trim();
+      const startValue = startDatePicker.hidden.value;
       const dueValue = datePicker.hidden.value;
       const dueTimeValue = timePicker.hidden.value;
       const noteValue = noteInput.value.trim();
@@ -3267,14 +3666,17 @@ function renderTodoDetail(taskArg) {
         titleInput.focus();
         return;
       }
-      const updated = await updateManualTaskById(editableId, current => ({
+      const updated = await updateTaskPlanningData(detailTask, current => ({
         ...current,
         milestones: [
           ...(current.milestones || []),
-          { id: createMilestoneId(), title: titleValue, dueDate: dueValue, dueTime: dueTimeValue, note: noteValue, completed: false }
+          { id: createMilestoneId(), title: titleValue, startDate: startValue, start: startValue, dueDate: dueValue, dueTime: dueTimeValue, note: noteValue, completed: false }
         ]
       }));
       titleInput.value = '';
+      startDatePicker.hidden.value = '';
+      startDatePicker.wrap.querySelector('.cdi-text').textContent = '日付を選択';
+      startDatePicker.wrap.querySelector('.cdi-text').classList.add('placeholder');
       datePicker.hidden.value = '';
       datePicker.wrap.querySelector('.cdi-text').textContent = '日付を選択';
       datePicker.wrap.querySelector('.cdi-text').classList.add('placeholder');
@@ -3293,6 +3695,7 @@ function renderTodoDetail(taskArg) {
       addSubtask();
     });
     form.appendChild(createSubtaskField('サブタスク名', titleInput));
+    form.appendChild(startDatePicker.wrap);
     form.appendChild(datePicker.wrap);
     form.appendChild(timePicker.wrap);
     form.appendChild(createSubtaskField('メモ', noteInput));
@@ -3300,13 +3703,14 @@ function renderTodoDetail(taskArg) {
     milestoneSection.appendChild(form);
   } else {
     const note = el('div', 'milestone-note');
-    note.textContent = '同期タスクはこの画面ではサブタスクを編集できません。必要なら手動タスクとして追加してください。';
+    note.textContent = 'このタスクではサブタスクを編集できません。同期状態を確認してください。';
     milestoneSection.appendChild(note);
   }
 
   content.appendChild(title);
   content.appendChild(meta);
   content.appendChild(descSection);
+  content.appendChild(typeSection);
   content.appendChild(milestoneSection);
 }
 
@@ -3447,11 +3851,12 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
   const items = tasks.map(t => {
     const k = t.id || t.title + t.due;
     const done = isTaskDone(k);
-    const dueDate = new Date(t.due + 'T00:00:00');
+    const dueDate = getTaskDueDateObject(t) || new Date(t.due + 'T00:00:00');
     const daysLeft = daysBetween(dueDate, today);
-    const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
-    const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
-    return { t, k, done, dueDate, daysLeft, isRange, startDate };
+    const startDate = getTaskTimelineStartDate(t, today);
+    const isProject = isMainTask(t);
+    const hasSpan = !!(startDate && t.due && getLocalDateStr(startDate) !== t.due);
+    return { t, k, done, dueDate, daysLeft, isProject, hasSpan, startDate };
   });
   const activeCount = items.filter(item => !item.done).length;
   const urgentCount = items.filter(item => !item.done && item.daysLeft <= 3).length;
@@ -3482,9 +3887,9 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
     title.innerHTML = `<span>${group.title}</span><em>${groupItems.length}</em>`;
     section.appendChild(title);
     groupItems.forEach(item => {
-      const { t, k, done, dueDate, daysLeft, isRange, startDate } = item;
+      const { t, k, done, dueDate, daysLeft, isProject, hasSpan, startDate } = item;
       const tone = toneClass(item);
-      const card = el('div', 'mobile-task-card ' + tone + (done ? ' done' : ''));
+      const card = el('div', 'mobile-task-card ' + tone + (done ? ' done' : '') + (isProject ? ' is-main' : ' is-quick'));
       bindTodoDetailOpen(card, t);
       const top = el('div', 'mobile-task-top');
       const cb = el('button', 'mobile-task-check' + (done ? ' done' : ''));
@@ -3503,6 +3908,9 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
         chip.textContent = text;
         meta.appendChild(chip);
       });
+      const typeChip = el('span');
+      typeChip.textContent = isProject ? 'MAIN' : 'QUICK';
+      meta.appendChild(typeChip);
       const progress = getSubtaskProgress(t);
       if (progress.total) {
         const chip = el('span');
@@ -3518,30 +3926,31 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
       top.appendChild(status);
 
       const due = el('div', 'mobile-task-due');
-      due.textContent = isRange && startDate
+      due.textContent = hasSpan && startDate
         ? `${fmtShort(startDate)} から ${fmtShort(dueDate)}`
         : `${fmtShort(dueDate)} 締切`;
-      const subtaskDueItems = getSubtasks(t)
+      const subtaskDueItems = isProject ? getSubtasks(t)
         .map(ms => ({ ms, date: subtaskDateObject(ms) }))
         .filter(item => item.date)
         .sort((a, b) => {
           if (!!a.ms.completed !== !!b.ms.completed) return a.ms.completed ? 1 : -1;
           return a.date - b.date;
-        });
+        }) : [];
       const nextSubtaskDue = subtaskDueItems[0];
       const subtaskDue = nextSubtaskDue ? el('div', 'mobile-subtask-due' + (nextSubtaskDue.ms.completed ? ' done' : '')) : null;
       if (subtaskDue) {
         const rest = Math.max(0, subtaskDueItems.length - 1);
-        subtaskDue.textContent = `次のサブタスク: ${nextSubtaskDue.ms.title || 'サブタスク'} / ${subtaskDueLabel(nextSubtaskDue.ms)}${rest ? ` / +${rest}` : ''}`;
+        subtaskDue.textContent = `次の工程: ${nextSubtaskDue.ms.title || '工程'} / ${subtaskDueLabel(nextSubtaskDue.ms)}${rest ? ` / +${rest}` : ''}`;
       }
 
       const timeline = el('div', 'mobile-mini-timeline');
       const todayMark = el('span', 'mobile-mini-today');
       timeline.appendChild(todayMark);
-      if (isRange && startDate) {
+      if (hasSpan && startDate) {
         const span = el('span', 'mobile-mini-span ' + tone);
         span.style.left = `${rangeLeft(startDate, dueDate)}%`;
         span.style.width = `${rangeWidth(startDate, dueDate)}%`;
+        span.classList.add(isProject ? 'project' : 'attention');
         timeline.appendChild(span);
       } else {
         const line = el('span', 'mobile-mini-line ' + tone);
@@ -3558,6 +3967,23 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
       card.appendChild(top);
       card.appendChild(due);
       if (subtaskDue) card.appendChild(subtaskDue);
+      if (isProject) {
+        const nextSteps = getSubtasks(t).filter(step => !step.completed).slice(0, 3);
+        if (nextSteps.length) {
+          const stepList = el('div', 'mobile-step-list');
+          nextSteps.forEach(step => {
+            const stepRow = el('div', 'mobile-step-row');
+            const name = el('span');
+            name.textContent = step.title || '工程';
+            const date = el('em');
+            date.textContent = step.dueDate ? subtaskDueLabel(step).replace('まで', '') : '日付なし';
+            stepRow.appendChild(name);
+            stepRow.appendChild(date);
+            stepList.appendChild(stepRow);
+          });
+          card.appendChild(stepList);
+        }
+      }
       card.appendChild(timeline);
       section.appendChild(card);
     });
@@ -3605,9 +4031,9 @@ function renderGantt(tasks) {
 
   const legend = el('div', 'gantt-legend');
   legend.innerHTML = `
-    <span class="gantt-legend-item"><span class="gantt-legend-bar"></span>期間</span>
-    <span class="gantt-legend-item"><span class="gantt-legend-tick"></span>単発締切</span>
-    <span class="gantt-legend-item"><span class="gantt-legend-subtask"><span></span></span>サブタスク期限</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-bar gantt-legend-project"></span>Main作業期間</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-bar gantt-legend-attention"></span>Quick注意期間</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-subtask"><span></span></span>工程</span>
     <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-hot"></span>3日以内</span>
     <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-warn"></span>7日以内</span>
   `;
@@ -3702,9 +4128,9 @@ function renderGantt(tasks) {
     const daysLeft = daysBetween(dueDate, today);
     const over = daysLeft < 0 && !done;
     const relation = done ? 'is-done' : over ? 'is-overdue' : daysLeft === 0 ? 'is-today' : 'is-future';
-    const isRange = t.dateType === 'range' && t.start && t.start !== t.due;
-    const startDate = isRange ? new Date(t.start + 'T00:00:00') : null;
-    const range = isRange && startDate ? widthPercentForRange(startDate, dueDate) : null;
+    const isProject = isMainTask(t);
+    const startDate = getTaskTimelineStartDate(t, today);
+    const range = startDate ? widthPercentForRange(startDate, dueDate) : null;
     const dueLeft = percentForDate(dueDate);
 
     const tone = done ? 'done' : daysLeft <= 3 ? 'hot' : daysLeft <= 7 ? 'warn' : '';
@@ -3714,7 +4140,7 @@ function renderGantt(tasks) {
       : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const row = el('div', 'gantt-row2' + (done ? ' done' : '') + ' ' + relation);
+    const row = el('div', 'gantt-row2' + (done ? ' done' : '') + ' ' + relation + (isProject ? ' type-main' : ' type-quick'));
     bindTodoDetailOpen(row, t);
 
     const task = el('div', 'gantt-task');
@@ -3725,26 +4151,25 @@ function renderGantt(tasks) {
     });
     const text = el('div');
     text.style.minWidth = '0';
+    const titleLine = el('div', 'gantt-title-line');
     const nt = el('div', 'gantt-title' + (done ? ' done' : ''));
     nt.textContent = t.title;
+    titleLine.appendChild(nt);
     const meta = el('div', 'gantt-meta');
     const metaParts = [];
     if (t.subject) metaParts.push(t.subject);
     metaParts.push(priorityLabel(t.priority));
-    metaParts.push(isRange && startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
+    metaParts.push(isProject ? 'MAIN' : 'QUICK');
+    metaParts.push(startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
     meta.textContent = metaParts.join(' / ');
     appendSubtaskProgress(meta, t, 'gantt-subtask-progress');
-    text.appendChild(nt);
+    text.appendChild(titleLine);
     text.appendChild(meta);
     task.appendChild(cb);
     task.appendChild(text);
 
     const rail = el('div', 'gantt-rail');
     rail.setAttribute('role', 'img');
-    rail.setAttribute('aria-label', isRange && startDate
-      ? `${t.title} の期間。開始 ${fmtShort(startDate)}、終了 ${fmtShort(dueDate)}。${badgeText}。`
-      : `${t.title} の締切。締切 ${fmtShort(dueDate)}。今日からの状態: ${badgeText}。`
-    );
     ticks.forEach(tick => {
       if (tick.weekend) {
         const weekend = el('div', 'gantt-grid-line weekend');
@@ -3759,61 +4184,151 @@ function renderGantt(tasks) {
     todayBand.style.left = `${todayLeft}%`;
     rail.appendChild(todayBand);
 
-    const subtaskMarkers = getSubtasks(t)
-      .map(ms => ({ ms, date: subtaskDateObject(ms) }))
-      .filter(item => item.date && item.date >= windowStart && item.date <= windowEnd)
-      .sort((a, b) => a.date - b.date);
-    const visibleSubtaskMarkers = [];
-    let hiddenSubtaskMarkerCount = 0;
-    subtaskMarkers.forEach(item => {
-      const left = percentForDate(item.date);
-      if (visibleSubtaskMarkers.length < 3) {
-        visibleSubtaskMarkers.push({ ...item, left, lane: visibleSubtaskMarkers.length });
-      } else {
-        hiddenSubtaskMarkerCount++;
-      }
+    const parentStartForSteps = startDate || dueDate;
+    const subtaskCandidates = isProject ? getSubtasks(t)
+      .map(ms => ({ ms, start: subtaskStartDateObject(ms), date: subtaskDateObject(ms) }))
+      .filter(item => item.date)
+      .sort((a, b) => a.date - b.date) : [];
+    const isOutsideParentRange = item => {
+      if (!parentStartForSteps || !item.date) return false;
+      const stepStart = item.start || item.date;
+      return stepStart < parentStartForSteps || item.date < parentStartForSteps || item.date > dueDate;
+    };
+    const outsideParentSegments = subtaskCandidates.filter(isOutsideParentRange);
+    const subtaskSegments = subtaskCandidates
+      .filter(item => !isOutsideParentRange(item) && item.date >= windowStart && item.date <= windowEnd);
+    const activeStepIndex = subtaskSegments.findIndex(item =>
+      !item.ms.completed
+      && item.start
+      && item.start <= today
+      && item.date >= today
+    );
+    const nextStepIndex = activeStepIndex >= 0
+      ? activeStepIndex
+      : subtaskSegments.findIndex(item => !item.ms.completed && item.date >= today);
+    const visibleStepIndexes = [];
+    [activeStepIndex, nextStepIndex].forEach(index => {
+      if (index >= 0 && !visibleStepIndexes.includes(index)) visibleStepIndexes.push(index);
     });
-    visibleSubtaskMarkers.forEach(item => {
-      const { ms, date } = item;
+    subtaskSegments.forEach((_, index) => {
+      if (visibleStepIndexes.length >= 5) return;
+      if (!visibleStepIndexes.includes(index)) visibleStepIndexes.push(index);
+    });
+    visibleStepIndexes.sort((a, b) => a - b);
+    const visibleStepIndexSet = new Set(visibleStepIndexes);
+    const hiddenSubtaskMarkerCount = Math.max(0, subtaskSegments.length - visibleStepIndexes.length);
+    const activeStep = activeStepIndex >= 0 ? subtaskSegments[activeStepIndex]?.ms : null;
+    const nextStep = nextStepIndex >= 0 ? subtaskSegments[nextStepIndex]?.ms : null;
+    const stepSummary = isProject
+      ? activeStep
+        ? `進行中工程 ${activeStep.title || '工程'}、${subtaskDueLabel(activeStep)}。`
+        : nextStep
+          ? `次の工程 ${nextStep.title || '工程'}、${subtaskDueLabel(nextStep)}。`
+          : subtaskSegments.length
+            ? `工程 ${subtaskSegments.length}件。`
+            : outsideParentSegments.length
+              ? `親期間外の工程 ${outsideParentSegments.length}件。`
+            : '工程なし。'
+      : '';
+    rail.setAttribute('aria-label', isProject
+      ? `${t.title} の作業期間。開始 ${startDate ? fmtShort(startDate) : '未設定'}、最終締切 ${fmtShort(dueDate)}。${badgeText}。${stepSummary}`
+      : `${t.title} の注意期間。開始 ${startDate ? fmtShort(startDate) : '今日'}、締切 ${fmtShort(dueDate)}。${badgeText}。`
+    );
+    visibleStepIndexes.forEach((sourceIndex, visibleIndex) => {
+      const item = subtaskSegments[sourceIndex];
+      const { ms, start, date } = item;
       const lateParent = compareTaskAndSubtaskDue(t, ms) > 0;
       const isPast = date < today && !ms.completed;
-      const markerLeft = item.left;
-      const nearParent = Math.abs(markerLeft - dueLeft) < 2.2;
-      const nearToday = Math.abs(markerLeft - todayLeft) < 2.2;
-      const marker = el('div', 'gantt-subtask-marker'
-        + ` lane-${item.lane || 0}`
-        + (ms.completed ? ' done' : '')
-        + (lateParent ? ' late-parent' : '')
-        + (isPast ? ' over' : '')
-        + (nearParent ? ' near-parent' : '')
-        + (nearToday ? ' near-today' : '')
-        + (markerLeft > 76 ? ' left' : '')
-      );
-      marker.style.left = `${markerLeft}%`;
-      const markerDot = el('span', 'gantt-subtask-dot');
-      marker.appendChild(markerDot);
-      const statusLabel = ms.completed ? '完了' : '未完了';
-      marker.title = `${ms.title || 'サブタスク'} / ${subtaskDueLabel(ms)} / ${statusLabel}`;
-      marker.setAttribute('aria-label', marker.title);
-      rail.appendChild(marker);
+      const isCurrentStep = sourceIndex === activeStepIndex;
+      const isNextStep = !isCurrentStep && sourceIndex === nextStepIndex;
+      const duePct = percentForDate(date);
+      const nearParent = Math.abs(duePct - dueLeft) < 2.2;
+      const nearToday = Math.abs(duePct - todayLeft) < 2.2;
+      const hasStepRange = start && start <= date && getLocalDateStr(start) !== getLocalDateStr(date);
+      const labelText = ms.title || '工程';
+      const labelShort = labelText.length > 7 ? labelText.slice(0, 6) + '…' : labelText;
+      const rightEdge = duePct > 82;
+      if (hasStepRange) {
+        const stepRange = widthPercentForRange(start, date);
+        const segmentRightEdge = stepRange.left + stepRange.width > 88;
+        const segment = el('div', 'gantt-step-segment'
+          + ' range'
+          + (ms.completed ? ' done' : '')
+          + (lateParent ? ' late-parent' : '')
+          + (isPast ? ' over' : '')
+          + (isCurrentStep ? ' current-step' : '')
+          + (isNextStep ? ' next-step' : '')
+          + (segmentRightEdge ? ' right-edge' : '')
+        );
+        segment.style.left = `${stepRange.left}%`;
+        segment.style.width = `${stepRange.width}%`;
+        segment.title = `${isCurrentStep ? '進行中: ' : isNextStep ? '次の工程: ' : ''}${labelText} / ${subtaskDueLabel(ms)} / ${ms.completed ? '完了' : '未完了'}`;
+        segment.setAttribute('aria-label', segment.title);
+        if (stepRange.width >= 10 && labelText.length <= 7) {
+          const stepLabel = el('span', 'gantt-step-label');
+          stepLabel.textContent = labelShort;
+          segment.appendChild(stepLabel);
+        }
+        rail.appendChild(segment);
+      } else {
+        const shortWidth = Math.max(2.8, Math.min(5.2, 86 / Math.max(320, (windowTotal + 1) * cellWidth) * 100));
+        const shortLeft = clamp(duePct - (shortWidth / 2), 0, 100 - shortWidth);
+        const segment = el('div', 'gantt-step-segment milestone'
+          + (ms.completed ? ' done' : '')
+          + (lateParent ? ' late-parent' : '')
+          + (isPast ? ' over' : '')
+          + (isCurrentStep ? ' current-step' : '')
+          + (isNextStep ? ' next-step' : '')
+          + (nearParent ? ' near-parent' : '')
+          + (nearToday ? ' near-today' : '')
+          + (rightEdge ? ' right-edge' : '')
+        );
+        segment.style.left = `${shortLeft}%`;
+        segment.style.width = `${shortWidth}%`;
+        const statusLabel = ms.completed ? '完了' : '未完了';
+        segment.title = `${isCurrentStep ? '進行中: ' : isNextStep ? '次の工程: ' : ''}${labelText} / ${subtaskDueLabel(ms)} / ${statusLabel}`;
+        segment.setAttribute('aria-label', segment.title);
+        rail.appendChild(segment);
+      }
     });
+    if (outsideParentSegments.length > 0) {
+      const warning = el('div', 'gantt-step-warning' + (tone ? ' ' + tone : ''));
+      warning.style.left = `${clamp(dueLeft + 1.4, 2, 98)}%`;
+      const warningTitles = outsideParentSegments
+        .slice(0, 4)
+        .map(item => `${item.ms.title || '工程'} / ${subtaskDueLabel(item.ms)}`)
+        .join(' / ');
+      warning.title = `親期間外の工程 ${outsideParentSegments.length}件: ${warningTitles}`;
+      warning.setAttribute('aria-label', warning.title);
+      rail.appendChild(warning);
+    }
     if (hiddenSubtaskMarkerCount > 0) {
       const more = el('div', 'gantt-subtask-more');
       more.textContent = `+${hiddenSubtaskMarkerCount}`;
-      more.title = 'ほかのサブタスク期限があります';
+      const hiddenTitles = subtaskSegments
+        .filter((_, index) => !visibleStepIndexSet.has(index))
+        .slice(0, 4)
+        .map(item => item.ms.title || '工程')
+        .join(' / ');
+      more.title = hiddenTitles ? `ほかの工程: ${hiddenTitles}` : 'ほかのサブタスク期限があります';
       rail.appendChild(more);
     }
     if (range) {
-      const fill = el('div', 'gantt-fill' + (tone ? ' ' + tone : ''));
+      const fill = el('div', 'gantt-fill' + (isProject ? ' project' : ' attention') + (tone ? ' ' + tone : ''));
       fill.style.left = `${range.left}%`;
       fill.style.width = `${range.width}%`;
-      fill.title = `期間: ${fmtShort(startDate)} から ${fmtShort(dueDate)}`;
+      fill.title = isProject
+        ? `作業期間: ${fmtShort(startDate)} から ${fmtShort(dueDate)}`
+        : `注意期間: ${fmtShort(startDate)} から ${fmtShort(dueDate)}`;
       rail.appendChild(fill);
-      const startMark = el('div', 'gantt-range-start' + (tone ? ' ' + tone : ''));
-      startMark.style.left = `${percentForDate(startDate)}%`;
-      startMark.title = `開始: ${fmtShort(startDate)}`;
-      rail.appendChild(startMark);
+      if (isProject) {
+        const startMark = el('div', 'gantt-range-start' + (tone ? ' ' + tone : ''));
+        startMark.style.left = `${percentForDate(startDate)}%`;
+        startMark.title = `開始: ${fmtShort(startDate)}`;
+        rail.appendChild(startMark);
+      }
       const dot = el('div', 'gantt-dot' + (tone ? ' ' + tone : '') + ' ' + relation);
+      dot.classList.add(isProject ? 'project-deadline' : 'quick-deadline');
       dot.style.left = `${dueLeft}%`;
       dot.title = `終了/締切: ${fmtShort(dueDate)}`;
       rail.appendChild(dot);
@@ -3962,6 +4477,9 @@ qs('#todo-add-btn').addEventListener('click', () => {
     subtasks: preservedMilestones,
     _manual: true,
     dateType: state.todoDateType,
+    taskType: existingTask?.taskType || (state.todoDateType === 'range' ? 'main' : 'quick'),
+    createdAt: existingTask?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   if (state.todoDateType === 'deadline') {
@@ -4190,7 +4708,7 @@ async function syncTodoTasks(url) {
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('JSON応答ではありません'); }
-    state.tasks = filterVisibleExternalTasks(Array.isArray(data) ? data : (data.tasks || []));
+    state.tasks = filterVisibleExternalTasks(Array.isArray(data) ? data : (data.tasks || [])).map(applyTaskUserOverride);
     const cachePayload = {tasks: state.tasks, fetchedAt: new Date().toISOString()};
     LS.set('tasks_cache', cachePayload);
     // ★ GAS由来のタスクもSupabaseにキャッシュ保存（他端末がSYNCしなくても見えるように）
@@ -4988,6 +5506,7 @@ function createFullBackupPayload(reason = 'manual') {
     tasksDone: LS.get('tasks_done') || {},
     manualTasks: LS.get('manual_tasks') || [],
     manualTasksDeleted: LS.get('manual_tasks_deleted') || [],
+    taskOverrides: LS.get('task_overrides') || {},
     externalTasksCompleted: LS.get('external_tasks_completed') || [],
     scriptUrl: LS.get('script_url') || '',
     clips: LS.get('clips') || [],
@@ -5015,6 +5534,7 @@ function applyFullBackupPayload(data) {
   if (data.tasksDone) LS.set('tasks_done', data.tasksDone);
   if (data.manualTasks) LS.set('manual_tasks', data.manualTasks);
   if (data.manualTasksDeleted) LS.set('manual_tasks_deleted', data.manualTasksDeleted);
+  if (data.taskOverrides) LS.set('task_overrides', data.taskOverrides);
   if (data.externalTasksCompleted) LS.set('external_tasks_completed', data.externalTasksCompleted);
   if (data.scriptUrl !== undefined) LS.set('script_url', data.scriptUrl);
   if (data.clips) LS.set('clips', data.clips);
@@ -5899,6 +6419,21 @@ async function syncSettingsFromSupabase() {
     if (localCompleted.length) SB.setSetting('external_tasks_completed', localCompleted);
   }
 
+  const remoteTasksDone = await SB.getSetting('tasks_done');
+  const localTasksDone = normalizeTaskDoneMap(state.tasksDone || LS.get('tasks_done') || {});
+  if (remoteTasksDone && typeof remoteTasksDone === 'object' && !Array.isArray(remoteTasksDone)) {
+    const mergedTasksDone = mergeTaskDoneMaps(remoteTasksDone, localTasksDone);
+    state.tasksDone = mergedTasksDone;
+    LS.set('tasks_done', mergedTasksDone);
+    if (JSON.stringify(normalizeTaskDoneMap(remoteTasksDone)) !== JSON.stringify(mergedTasksDone)) {
+      SB.setSetting('tasks_done', mergedTasksDone);
+    }
+  } else if (Object.keys(localTasksDone).length) {
+    state.tasksDone = localTasksDone;
+    LS.set('tasks_done', localTasksDone);
+    SB.setSetting('tasks_done', localTasksDone);
+  }
+
   const remoteInbox = await SB.getSetting('inbox_items');
   const localInbox = getInboxItems();
   if (Array.isArray(remoteInbox)) {
@@ -5919,6 +6454,20 @@ async function syncSettingsFromSupabase() {
     }
   } else if (localInbox.length) {
     SB.setSetting('inbox_items', localInbox);
+  }
+
+  const remoteTaskOverrides = await SB.getSetting('task_overrides');
+  const localTaskOverrides = getTaskOverrides();
+  if (remoteTaskOverrides && typeof remoteTaskOverrides === 'object' && !Array.isArray(remoteTaskOverrides)) {
+    const mergedTaskOverrides = mergeTaskOverrideMaps(remoteTaskOverrides, localTaskOverrides);
+    if (JSON.stringify(localTaskOverrides) !== JSON.stringify(mergedTaskOverrides)) {
+      LS.set('task_overrides', mergedTaskOverrides);
+    }
+    if (JSON.stringify(normalizeTaskOverrideMap(remoteTaskOverrides)) !== JSON.stringify(mergedTaskOverrides)) {
+      SB.setSetting('task_overrides', mergedTaskOverrides);
+    }
+  } else if (Object.keys(localTaskOverrides).length) {
+    SB.setSetting('task_overrides', localTaskOverrides);
   }
 
   // GAS連携URL: リモートにあればローカルより優先（リモートが正の場合のみ上書き）
@@ -5943,20 +6492,7 @@ async function syncSettingsFromSupabase() {
   const deletedIds = LS.get('manual_tasks_deleted') || [];
 
   if (Array.isArray(remoteTasks)) {
-    // リモートのタスクのうち、ローカルで削除済みでないものだけ採用
-    const remoteAlive = remoteTasks.filter(t => {
-      const tid = t.id || t.title + t.due;
-      return !deletedIds.includes(tid);
-    });
-    const remoteIds = new Set(remoteAlive.map(t => t.id || t.title + t.due));
-
-    // ローカルにしかないタスク（他端末でまだ見えていないもの）を追加
-    const localOnly = localTasks.filter(t => {
-      const tid = t.id || t.title + t.due;
-      return !remoteIds.has(tid) && !deletedIds.includes(tid);
-    });
-
-    const merged = [...remoteAlive, ...localOnly];
+    const merged = mergeTaskListsById(remoteTasks, localTasks, deletedIds);
 
     // 内容に変化があればローカル・リモート両方を更新
     const localStr = JSON.stringify(localTasks);
@@ -5984,7 +6520,7 @@ async function syncSettingsFromSupabase() {
     const remoteIsNewer = !localCache || !localCache.fetchedAt
       || new Date(remoteGasCache.fetchedAt) > new Date(localCache.fetchedAt);
     if (remoteIsNewer) {
-      state.tasks = filterVisibleExternalTasks(remoteGasCache.tasks);
+      state.tasks = filterVisibleExternalTasks(remoteGasCache.tasks).map(applyTaskUserOverride);
       LS.set('tasks_cache', {...remoteGasCache, tasks: state.tasks});
       if (state.tab === 'todo') renderTodo();
       if (state.tab === 'widget') renderTodoWidget();
@@ -5998,7 +6534,7 @@ async function syncSettingsFromSupabase() {
 // ── 初期化 ────────────────────────────────────
 (function() {
   const cache = LS.get('tasks_cache');
-  if (cache && cache.tasks) { state.tasks = filterVisibleExternalTasks(cache.tasks); }
+  if (cache && cache.tasks) { state.tasks = filterVisibleExternalTasks(cache.tasks).map(applyTaskUserOverride); }
   setTimeout(() => scheduleDonePurgeForVisibleTasks(), 0);
 })();
 
