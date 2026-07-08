@@ -4031,8 +4031,7 @@ function renderGantt(tasks) {
 
   const legend = el('div', 'gantt-legend');
   legend.innerHTML = `
-    <span class="gantt-legend-item"><span class="gantt-legend-bar gantt-legend-project"></span>Main作業期間</span>
-    <span class="gantt-legend-item"><span class="gantt-legend-bar gantt-legend-attention"></span>Quick注意期間</span>
+    <span class="gantt-legend-item"><span class="gantt-legend-bar gantt-legend-project"></span>タスク期間</span>
     <span class="gantt-legend-item"><span class="gantt-legend-subtask"><span></span></span>工程</span>
     <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-hot"></span>3日以内</span>
     <span class="gantt-legend-item"><span class="gantt-legend-line gantt-legend-warn"></span>7日以内</span>
