@@ -687,6 +687,7 @@ const state = {
   defaultTitle: document.title,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
+  todoTaskType: 'simple',
 };
 
 function fmtFull(s) {
@@ -726,15 +727,21 @@ function updateMainLayoutMode() {
 }
 
 function switchTab(tab) {
+  if (!tab) return;
   state.tab = tab;
   updateMainLayoutMode();
-  document.querySelectorAll('.tab-btn').forEach(b => {
+  document.querySelectorAll('.tab-btn[data-tab],.utility-tab-btn[data-tab]').forEach(b => {
     const isActive = b.dataset.tab === tab;
     b.classList.toggle('active', isActive);
     b.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
+  const utilityTabs = new Set(['timer','clip','settings','data','widget']);
+  qs('#nav-more-btn')?.classList.toggle('active', utilityTabs.has(tab));
+  qs('#nav-more-menu')?.classList.add('hidden');
+  qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
   document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-widget,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
+  if (!panel) return;
   panel.classList.remove('hidden');
   if (tab === 'log') {
     renderLog();
@@ -767,7 +774,23 @@ function switchTab(tab) {
     if (typeof renderAutoBackupStatus === 'function') renderAutoBackupStatus();
   }
 }
-document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+document.querySelectorAll('.tab-btn[data-tab],.utility-tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+qs('#nav-more-btn')?.addEventListener('click', e => {
+  e.stopPropagation();
+  const menu = qs('#nav-more-menu');
+  const open = menu?.classList.toggle('hidden') === false;
+  qs('#nav-more-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+document.addEventListener('click', e => {
+  if (e.target?.closest?.('.nav-more-wrap')) return;
+  qs('#nav-more-menu')?.classList.add('hidden');
+  qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  qs('#nav-more-menu')?.classList.add('hidden');
+  qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
+});
 qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
 qs('#sync-key-save-btn')?.addEventListener('click', saveSyncKeyFromInput);
 qs('#sync-key-restore-btn')?.addEventListener('click', restoreFromSyncKey);
@@ -1199,12 +1222,17 @@ function renderCommandCenter() {
   const recentLogs = getRecentLogItems(2);
 
   wrap.innerHTML = '';
+  const captureSlot = qs('#quick-capture-slot');
+  if (captureSlot) {
+    captureSlot.innerHTML = '';
+    renderQuickCapture(captureSlot);
+  }
   const head = el('div', 'command-center-head');
   const headText = el('div');
   const title = el('div', 'command-center-title');
   title.textContent = 'Today Command Center';
   const sub = el('div', 'command-center-sub');
-  sub.textContent = 'Todo、作業ステップ、締め切り、制作ログをまとめて、今日見るべき順に整理します。';
+  sub.textContent = '今すぐ見るべき3件、次の作業ステップ、締め切りと未整理メモをまとめます。写真の記録は上の入力欄から残せます。';
   const date = el('div', 'command-center-date');
   date.textContent = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'numeric', day:'numeric', weekday:'short'});
   headText.appendChild(title);
@@ -1212,7 +1240,6 @@ function renderCommandCenter() {
   head.appendChild(headText);
   head.appendChild(date);
   wrap.appendChild(head);
-  renderQuickCapture(wrap);
 
   const metrics = el('div', 'command-metrics');
   [
@@ -1238,6 +1265,12 @@ function renderCommandCenter() {
   left.appendChild(leftTitle);
   if (priorityItems.length) {
     priorityItems.forEach(item => addCommandTaskButton(left, item, { large: true }));
+    const extraImportant = Math.max(0, overdue.length + today.length + within3.filter(item => item.days > 0).length - priorityItems.length);
+    if (extraImportant > 0) {
+      const more = el('div', 'inbox-more');
+      more.textContent = `残り ${extraImportant} 件は締め切り欄で確認`;
+      left.appendChild(more);
+    }
   } else {
     const empty = el('div', 'command-empty');
     empty.textContent = active.length ? '今すぐ危ない締め切りはありません。次の作業ステップを確認しましょう。' : '未完了タスクはありません。写真や制作メモを残して、次の計画を追加できます。';
@@ -1264,8 +1297,17 @@ function renderCommandCenter() {
   stepTitle.textContent = '次の作業ステップ';
   right.appendChild(stepTitle);
   const stepList = el('div', 'command-section-list');
+  const shownStepTaskKeys = new Set();
   if (subtaskItems.length) {
-    subtaskItems.slice(0, 4).forEach(item => addCommandTaskButton(stepList, item));
+    subtaskItems.slice(0, 3).forEach(item => {
+      shownStepTaskKeys.add(getTaskKey(item.task));
+      addCommandTaskButton(stepList, item);
+    });
+    if (subtaskItems.length > 3) {
+      const more = el('div', 'inbox-more');
+      more.textContent = `残り ${subtaskItems.length - 3} 件`;
+      stepList.appendChild(more);
+    }
   } else {
     const empty = el('div', 'command-empty');
     empty.textContent = '未完了のサブタスクはありません。タスク詳細から作業ステップを追加すると、ここに次の一手が出ます。';
@@ -1280,10 +1322,17 @@ function renderCommandCenter() {
   const deadlineList = el('div', 'command-section-list');
   const deadlineItems = dueItems
     .filter(item => item.days <= 7)
+    .filter(item => !shownStepTaskKeys.has(getTaskKey(item.task)))
     .sort((a, b) => commandTaskSortValue(a) - commandTaskSortValue(b))
-    .slice(0, 4);
+    .slice(0, 3);
   if (deadlineItems.length) {
     deadlineItems.forEach(item => addCommandTaskButton(deadlineList, item));
+    const deadlineRemainder = dueItems.filter(item => item.days <= 7 && !shownStepTaskKeys.has(getTaskKey(item.task))).length - deadlineItems.length;
+    if (deadlineRemainder > 0) {
+      const more = el('div', 'inbox-more');
+      more.textContent = `残り ${deadlineRemainder} 件`;
+      deadlineList.appendChild(more);
+    }
   } else {
     const empty = el('div', 'command-empty');
     empty.textContent = noDue.length ? `日時なしタスクが${noDue.length}件あります。必要なら期限を追加してください。` : '7日以内の締め切りはありません。';
@@ -2238,9 +2287,9 @@ function getDatePart(value) {
 
 function normalizeTaskType(task, milestones = []) {
   const explicit = String(task?.taskType || '').trim().toLowerCase();
-  if (explicit === 'main' || explicit === 'quick') return explicit;
-  if (task?._manual && milestones.length) return 'main';
-  return 'quick';
+  if (explicit === 'main') return 'main';
+  if (explicit === 'simple' || explicit === 'quick') return 'simple';
+  return 'simple';
 }
 
 function normalizeTask(t) {
@@ -2368,9 +2417,10 @@ function normalizeTaskOverride(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const milestones = mergeMilestoneLists(source.milestones || [], source.subtasks || []);
   const completedAt = Number.isFinite(Date.parse(source.completedAt)) ? source.completedAt : '';
-  const taskType = ['quick', 'main'].includes(String(source.taskType || '').trim().toLowerCase())
-    ? String(source.taskType).trim().toLowerCase()
-    : '';
+  const rawTaskType = String(source.taskType || '').trim().toLowerCase();
+  const taskType = rawTaskType === 'main'
+    ? 'main'
+    : (rawTaskType === 'simple' || rawTaskType === 'quick' ? 'simple' : '');
   return {
     taskType,
     description: String(source.description || '').trim(),
@@ -2946,6 +2996,9 @@ function renderTodo() {
       const pr = el('span', 'priority-tag priority-' + (t.priority || 'normal'));
       pr.textContent = priorityLabel(t.priority);
       meta.appendChild(pr);
+      const typeTag = el('span', 'tag');
+      typeTag.textContent = isMainTask(t) ? 'MAIN' : 'SIMPLE';
+      meta.appendChild(typeTag);
       const repeatText = repeatLabel(t.repeat);
       if (repeatText) { const tag = el('span', 'tag'); tag.textContent = repeatText; meta.appendChild(tag); }
       if (t.subject) { const tag = el('span', 'tag'); tag.textContent = t.subject; meta.appendChild(tag); }
@@ -3099,7 +3152,7 @@ function isMainTask(t) {
 }
 
 function taskTypeLabel(t) {
-  return isMainTask(t) ? 'MAIN TASK' : 'QUICK TASK';
+  return isMainTask(t) ? 'MAIN TASK' : 'SIMPLE TASK';
 }
 
 function getSubtaskProgress(t) {
@@ -3468,23 +3521,38 @@ function renderTodoDetail(taskArg) {
     : 'これは軽いタスクとして扱われます。Ganttでは期限までの注意期間として細いバーで表示します。';
   typeSection.appendChild(typeLabel);
   typeSection.appendChild(typeCopy);
-  if (canEditPlanning && !isMainTask(detailTask)) {
-    const convert = el('button', 'ghost-btn todo-convert-main-btn');
-    convert.type = 'button';
-    convert.textContent = 'Main Task化';
-    convert.addEventListener('click', async () => {
-      const start = detailTask.start || getDatePart(detailTask.createdAt) || getLocalDateStr();
-      const updated = await updateTaskPlanningData(detailTask, current => ({
-        ...current,
-        taskType: 'main',
-        start,
-        startDate: start,
-        dateType: current.due ? 'range' : current.dateType,
-      }));
-      renderTodoDetail(updated);
-      setTodoDetailMessage('Main Taskとして扱うようにしました。工程を追加できます。');
+  if (canEditPlanning) {
+    const switcher = el('div', 'todo-detail-type-switch');
+    [
+      { type: 'simple', label: '簡易タスク' },
+      { type: 'main', label: 'メインタスク' },
+    ].forEach(option => {
+      const btn = el('button', isMainTask(detailTask) === (option.type === 'main') ? 'active' : '');
+      btn.type = 'button';
+      btn.textContent = option.label;
+      btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+      btn.addEventListener('click', async () => {
+        const nextType = option.type;
+        if (normalizeTaskType({ taskType: nextType }) === detailTask.taskType) return;
+        const start = detailTask.start || getDatePart(detailTask.createdAt) || getLocalDateStr();
+        const updated = await updateTaskPlanningData(detailTask, current => ({
+          ...current,
+          taskType: nextType,
+          start: nextType === 'main' ? (current.start || current.startDate || start) : current.start,
+          startDate: nextType === 'main' ? (current.startDate || current.start || start) : current.startDate,
+          dateType: nextType === 'main' && (current.due || current.dueDate) ? 'range' : current.dateType,
+          milestones: current.milestones || detailTask.milestones || [],
+          subtasks: current.subtasks || current.milestones || detailTask.milestones || [],
+        }));
+        renderTodoDetail(updated);
+        setTodoDetailMessage(nextType === 'main'
+          ? 'メインタスクに変更しました。工程を追加できます。'
+          : '簡易タスクに変更しました。既存のサブタスクは消さずに保持しています。'
+        );
+      });
+      switcher.appendChild(btn);
     });
-    typeSection.appendChild(convert);
+    typeSection.appendChild(switcher);
   }
 
   const milestoneSection = el('section', 'todo-detail-section');
@@ -3889,7 +3957,7 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
     groupItems.forEach(item => {
       const { t, k, done, dueDate, daysLeft, isProject, hasSpan, startDate } = item;
       const tone = toneClass(item);
-      const card = el('div', 'mobile-task-card ' + tone + (done ? ' done' : '') + (isProject ? ' is-main' : ' is-quick'));
+      const card = el('div', 'mobile-task-card ' + tone + (done ? ' done' : '') + (isProject ? ' is-main' : ' is-simple'));
       bindTodoDetailOpen(card, t);
       const top = el('div', 'mobile-task-top');
       const cb = el('button', 'mobile-task-check' + (done ? ' done' : ''));
@@ -3909,7 +3977,7 @@ function renderMobileDeadlineCards(wrap, tasks, today) {
         meta.appendChild(chip);
       });
       const typeChip = el('span');
-      typeChip.textContent = isProject ? 'MAIN' : 'QUICK';
+      typeChip.textContent = isProject ? 'MAIN' : 'SIMPLE';
       meta.appendChild(typeChip);
       const progress = getSubtaskProgress(t);
       if (progress.total) {
@@ -4139,7 +4207,7 @@ function renderGantt(tasks) {
       : daysLeft === 1 ? '明日締切'
       : `あと${daysLeft}日`;
 
-    const row = el('div', 'gantt-row2' + (done ? ' done' : '') + ' ' + relation + (isProject ? ' type-main' : ' type-quick'));
+    const row = el('div', 'gantt-row2' + (done ? ' done' : '') + ' ' + relation + (isProject ? ' type-main' : ' type-simple'));
     bindTodoDetailOpen(row, t);
 
     const task = el('div', 'gantt-task');
@@ -4158,7 +4226,7 @@ function renderGantt(tasks) {
     const metaParts = [];
     if (t.subject) metaParts.push(t.subject);
     metaParts.push(priorityLabel(t.priority));
-    metaParts.push(isProject ? 'MAIN' : 'QUICK');
+    metaParts.push(isProject ? 'MAIN' : 'SIMPLE');
     metaParts.push(startDate ? `${fmtShort(startDate)} - ${fmtShort(dueDate)}` : fmtShort(dueDate));
     meta.textContent = metaParts.join(' / ');
     appendSubtaskProgress(meta, t, 'gantt-subtask-progress');
@@ -4400,17 +4468,42 @@ qs('#todo-title-input')?.addEventListener('input', () => {
   qs('#todo-form-msg')?.classList.contains('warn') && setTodoFormMessage('');
 });
 
-// 日付タイプ切り替え
-state.todoDateType = 'deadline';
-document.querySelectorAll('[data-datetype]').forEach(b => {
-  b.addEventListener('click', () => {
-    document.querySelectorAll('[data-datetype]').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    state.todoDateType = b.dataset.datetype;
-    qs('#form-deadline-row').classList.toggle('hidden', state.todoDateType !== 'deadline');
-    qs('#form-range-row').classList.toggle('hidden', state.todoDateType !== 'range');
-    qs('#form-none-row').classList.toggle('hidden', state.todoDateType !== 'none');
+function setTodoDateType(type) {
+  const nextType = ['deadline', 'range', 'none'].includes(type) ? type : 'deadline';
+  state.todoDateType = nextType;
+  document.querySelectorAll('[data-datetype]').forEach(b => b.classList.toggle('active', b.dataset.datetype === nextType));
+  qs('#form-deadline-row')?.classList.toggle('hidden', nextType !== 'deadline');
+  qs('#form-range-row')?.classList.toggle('hidden', nextType !== 'range');
+  qs('#form-none-row')?.classList.toggle('hidden', nextType !== 'none');
+}
+
+function setTodoTaskType(type, options = {}) {
+  const nextType = type === 'main' ? 'main' : 'simple';
+  state.todoTaskType = nextType;
+  document.querySelectorAll('[data-tasktype]').forEach(b => {
+    const active = b.dataset.tasktype === nextType;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  const help = qs('#todo-task-type-help');
+  if (help) {
+    help.textContent = nextType === 'main'
+      ? '開始日と最終締切を持つ制作・課題として追加します。作業ステップは作成後の詳細で追加できます。'
+      : '軽い用事や単発の締切として追加します。必要になったら詳細からメインタスク化できます。';
+  }
+  if (nextType === 'main' && options.adjustDateType !== false && state.todoDateType !== 'range') {
+    setTodoDateType('range');
+  }
+}
+
+// タスク種別・日付タイプ切り替え
+state.todoDateType = 'deadline';
+setTodoTaskType('simple', { adjustDateType: false });
+document.querySelectorAll('[data-tasktype]').forEach(b => {
+  b.addEventListener('click', () => setTodoTaskType(b.dataset.tasktype));
+});
+document.querySelectorAll('[data-datetype]').forEach(b => {
+  b.addEventListener('click', () => setTodoDateType(b.dataset.datetype));
 });
 
 // 手動タスク追加・編集（state.editingTaskIdがあれば編集モード）
@@ -4476,7 +4569,7 @@ qs('#todo-add-btn').addEventListener('click', () => {
     subtasks: preservedMilestones,
     _manual: true,
     dateType: state.todoDateType,
-    taskType: existingTask?.taskType || (state.todoDateType === 'range' ? 'main' : 'quick'),
+    taskType: state.todoTaskType === 'main' ? 'main' : 'simple',
     createdAt: existingTask?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -4531,13 +4624,10 @@ function startEditTask(t) {
   if (qs('#todo-description-input')) qs('#todo-description-input').value = t.description || '';
   setPriorityValue(t.priority || 'normal');
   qs('#todo-repeat-input').value = t.repeat || 'none';
+  setTodoTaskType(normalizeTask(t).taskType, { adjustDateType: false });
 
   const dt = t.dateType || (t.due ? 'deadline' : 'none');
-  document.querySelectorAll('[data-datetype]').forEach(b => b.classList.toggle('active', b.dataset.datetype === dt));
-  state.todoDateType = dt;
-  qs('#form-deadline-row').classList.toggle('hidden', dt !== 'deadline');
-  qs('#form-range-row').classList.toggle('hidden', dt !== 'range');
-  qs('#form-none-row').classList.toggle('hidden', dt !== 'none');
+  setTodoDateType(dt);
 
   resetPickers();
   if (dt === 'deadline') {
@@ -4592,11 +4682,8 @@ function exitEditMode() {
   qs('#todo-end-time-input').value = '';
   resetPickers();
   // デフォルト（締め切りモード）に戻す
-  document.querySelectorAll('[data-datetype]').forEach(b => b.classList.toggle('active', b.dataset.datetype === 'deadline'));
-  state.todoDateType = 'deadline';
-  qs('#form-deadline-row').classList.remove('hidden');
-  qs('#form-range-row').classList.add('hidden');
-  qs('#form-none-row').classList.add('hidden');
+  setTodoTaskType('simple', { adjustDateType: false });
+  setTodoDateType('deadline');
 
   qs('#todo-form-heading').textContent = 'タスクを追加';
   qs('#todo-add-btn').textContent = '追加';
@@ -5314,7 +5401,7 @@ qs('#save-btn').addEventListener('click', async () => {
   });
 
   saveBtn.disabled = false;
-  saveBtn.textContent = 'SAVE';
+  saveBtn.textContent = '写真ログを保存';
 
   // ★ 保存後、もし state.today が変わっていなければ、入力欄をスナップショット値で再確認する
   //   （万一何かが入力欄を空にしていた場合の保険）
@@ -5349,14 +5436,21 @@ function renderLearn() {
   const cur = CURRICULUM.find(c => c.week === weekNum);
   if (!cur) return;
   const header = el('div', 'learn-header');
-  header.innerHTML = `<div class="learn-week-badge">WEEK ${weekNum} / 6</div><div class="learn-week-title">今週のカリキュラム</div><div class="learn-week-sub">ログを5回記録するとWeek${weekNum<6?weekNum+1:''}に進みます</div>`;
+  header.innerHTML = `<div class="learn-week-badge">WEEK ${weekNum} / 6</div><div class="learn-week-title">今週のカリキュラム</div><div class="learn-week-sub">次にやること: 目標を確認し、実践課題を撮影ログに残します。ログを5回記録するとWeek${weekNum<6?weekNum+1:''}に進みます</div>`;
   container.appendChild(header);
+  const lessonKeys = ['shooting','editing'];
+  const focusKey = lessonKeys.find(key => {
+    const data = cur[key];
+    const savedChecks = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
+    return data.checklist.some((_, i) => !savedChecks[i]);
+  }) || 'shooting';
   [['shooting','撮影編'],['editing','編集編']].forEach(([key, label]) => {
     const badge = key;
     const data = cur[key];
     const savedChecks = LS.get('learn_checks_w' + weekNum + '_' + key) || [];
     const savedMemo = LS.get('learn_memo_w' + weekNum + '_' + key) || '';
-    const isOpen = LS.get('learn_open_' + key) !== false;
+    const storedOpen = LS.get('learn_open_' + key + '_w' + weekNum);
+    const isOpen = typeof storedOpen === 'boolean' ? storedOpen : key === focusKey;
     const section = el('div', 'learn-section');
     const doneCount = data.checklist.filter((_, i) => savedChecks[i]).length;
     const secHeader = el('div', 'learn-section-header');
@@ -5372,36 +5466,19 @@ function renderLearn() {
       const open = body.style.display !== 'none';
       body.style.display = open ? 'none' : 'block';
       secHeader.setAttribute('aria-expanded', open ? 'false' : 'true');
-      LS.set('learn_open_' + key, !open);
+      LS.set('learn_open_' + key + '_w' + weekNum, !open);
     };
     secHeader.addEventListener('click', toggleSection);
     secHeader.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(); } });
     const goal = el('div', 'learn-goal'); goal.textContent = '目標：' + data.goal;
     body.appendChild(goal);
-    const theoryWrap = el('div');
-    const theoryLbl = el('div', 'lbl'); theoryLbl.style.marginBottom = '8px'; theoryLbl.textContent = '解説';
-    const theory = el('div', 'learn-theory'); theory.textContent = data.theory;
-    theoryWrap.appendChild(theoryLbl); theoryWrap.appendChild(theory);
-    body.appendChild(theoryWrap);
-    if (data.youtube && data.youtube.length > 0) {
-      const ytWrap = el('div', 'learn-yt');
-      const ytLbl = el('div', 'lbl'); ytLbl.style.marginBottom = '8px'; ytLbl.textContent = '参考動画';
-      ytWrap.appendChild(ytLbl);
-      data.youtube.forEach(yt => {
-        const link = el('a', 'learn-yt-link');
-        link.href = yt.url; link.target = '_blank'; link.rel = 'noopener';
-        link.innerHTML = `<span class="learn-yt-icon">▶</span><span class="learn-yt-text">${yt.title}</span>`;
-        ytWrap.appendChild(link);
-      });
-      body.appendChild(ytWrap);
-    }
     const practiceWrap = el('div', 'learn-practice');
     const practiceLbl = el('div', 'lbl'); practiceLbl.style.marginBottom = '8px'; practiceLbl.textContent = '実践課題';
     const practiceText = el('div', 'learn-practice-text'); practiceText.textContent = data.practice;
     practiceWrap.appendChild(practiceLbl); practiceWrap.appendChild(practiceText);
     body.appendChild(practiceWrap);
     const checkWrap = el('div', 'learn-checklist');
-    const checkLbl = el('div', 'lbl'); checkLbl.style.marginBottom = '8px'; checkLbl.textContent = 'チェックリスト';
+    const checkLbl = el('div', 'lbl'); checkLbl.style.marginBottom = '8px'; checkLbl.textContent = '完了条件';
     checkWrap.appendChild(checkLbl);
     data.checklist.forEach((item, i) => {
       const row = el('div', 'learn-check-item');
@@ -5433,6 +5510,34 @@ function renderLearn() {
     });
     memoWrap.appendChild(memoLbl); memoWrap.appendChild(memoTA); memoWrap.appendChild(memoBtn);
     body.appendChild(memoWrap);
+    const extraToggle = el('button', 'learn-detail-toggle');
+    extraToggle.type = 'button';
+    extraToggle.textContent = '解説と参考動画を見る';
+    extraToggle.setAttribute('aria-expanded', 'false');
+    const extra = el('div', 'learn-extra');
+    const theoryWrap = el('div');
+    const theoryLbl = el('div', 'lbl'); theoryLbl.style.marginBottom = '8px'; theoryLbl.textContent = '解説';
+    const theory = el('div', 'learn-theory'); theory.textContent = data.theory;
+    theoryWrap.appendChild(theoryLbl); theoryWrap.appendChild(theory);
+    extra.appendChild(theoryWrap);
+    if (data.youtube && data.youtube.length > 0) {
+      const ytWrap = el('div', 'learn-yt');
+      const ytLbl = el('div', 'lbl'); ytLbl.style.marginBottom = '8px'; ytLbl.textContent = '参考動画';
+      ytWrap.appendChild(ytLbl);
+      data.youtube.forEach(yt => {
+        const link = el('a', 'learn-yt-link');
+        link.href = yt.url; link.target = '_blank'; link.rel = 'noopener';
+        link.innerHTML = `<span class="learn-yt-icon">▶</span><span class="learn-yt-text">${yt.title}</span>`;
+        ytWrap.appendChild(link);
+      });
+      extra.appendChild(ytWrap);
+    }
+    extraToggle.addEventListener('click', () => {
+      const open = extra.classList.toggle('open');
+      extraToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    body.appendChild(extraToggle);
+    body.appendChild(extra);
     section.appendChild(secHeader); section.appendChild(body);
     container.appendChild(section);
   });

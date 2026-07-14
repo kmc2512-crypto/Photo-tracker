@@ -16,26 +16,26 @@
 /* ── CSS変数でダーク/ライト切り替え ── */
 :root {
   --bg: #080808;
-  --bg2: #0c0c0c;
-  --bg3: #0e0e0e;
+  --bg2: #0f0f0f;
+  --bg3: #121212;
   --bg4: #141414;
-  --bg5: #1a1a1a;
-  --bg6: #1e1e1e;
-  --fg: #e8e8e8;
-  --fg2: #aaa;
-  --fg3: #777;
-  --fg4: #555;
-  --fg5: #444;
-  --fg6: #333;
-  --fg7: #2a2a2a;
+  --bg5: #181818;
+  --bg6: #1c1c1c;
+  --fg: #f2f2f2;
+  --fg2: #c8c8c8;
+  --fg3: #a6a6a6;
+  --fg4: #858585;
+  --fg5: #707070;
+  --fg6: #5b5b5b;
+  --fg7: #424242;
   --fg8: #222;
-  --border: #141414;
-  --border2: #1e1e1e;
-  --border3: #2a2a2a;
+  --border: #242424;
+  --border2: #2e2e2e;
+  --border3: #3a3a3a;
   --del-bg: rgba(8,8,8,.88);
   --pro-del-bg: rgba(8,8,8,.9);
   --lb-bg: rgba(0,0,0,.85);
-  --input-bg: #0a0a0a;
+  --input-bg: #101010;
   --save-bg: #e8e8e8;
   --save-fg: #080808;
   --overdue: #cc6666;
@@ -104,16 +104,23 @@ html.light {
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%;background:var(--bg);color:var(--fg);font-family:'DM Mono',monospace;transition:background .2s,color .2s;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--fg8)}
-input,textarea{font-family:'DM Mono',monospace;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--fg);outline:none;width:100%;padding:8px 0;font-size:12px;line-height:1.7;resize:none;transition:border-color .15s}
+input,textarea{font-family:'DM Mono',monospace;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--fg);outline:none;width:100%;padding:8px 0;font-size:14px;line-height:1.6;resize:none;transition:border-color .15s}
 input:focus,textarea:focus{border-bottom-color:var(--fg5)}
 input::placeholder,textarea::placeholder{color:var(--fg6)}
 button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,[role="button"]:focus-visible{outline:2px solid var(--fg3);outline-offset:2px}
 .nav{border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;background:var(--nav-bg);z-index:10;height:48px;transition:background .2s}
 .nav-title{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
-.nav-tabs{display:flex}
-.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding:0 16px;height:48px;color:var(--fg6);border-bottom:2px solid transparent;transition:color .15s;min-width:40px}
+.nav-tabs{display:flex;align-items:center;gap:2px}
+.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.04em;padding:0 16px;height:48px;color:var(--fg5);border-bottom:2px solid transparent;transition:color .15s,border-color .15s,font-weight .15s;min-width:44px}
 .tab-btn:hover{color:var(--fg3)}
-.tab-btn.active{color:var(--fg);border-bottom-color:var(--fg)}
+.tab-btn.active{color:var(--fg);border-bottom-color:var(--fg);font-weight:700}
+.nav-more-wrap{position:relative}
+.nav-more-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:184px;border:1px solid var(--border);background:var(--bg2);padding:6px;display:grid;gap:2px;box-shadow:0 16px 40px rgba(0,0,0,.26);z-index:20}
+.nav-more-menu.hidden{display:none}
+.utility-tab-btn{height:40px;border:none;background:transparent;color:var(--fg4);font-family:'DM Mono',monospace;font-size:11px;text-align:left;padding:0 12px}
+.utility-tab-btn:hover,.utility-tab-btn.active{background:var(--bg4);color:var(--fg)}
+.mobile-bottom-nav{display:none}
 .nav-right{display:flex;align-items:center;gap:12px}
 .streak{font-size:10px;color:var(--fg6);letter-spacing:.1em;font-variant-numeric:tabular-nums}
 .sync-pill{border:1px solid var(--border2);background:transparent;color:var(--fg5);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px}
@@ -129,49 +136,49 @@ button{cursor:pointer}
 .theme-btn:active{transform:scale(0.96)}
 .main{max-width:var(--page-max-width);margin:0 auto;padding:var(--page-pad-y) var(--page-pad-x) 80px}
 .main.todo-gantt-main{max-width:min(var(--page-wide-max-width),calc(100vw - (var(--page-pad-x) * 2)))}
-.day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.day-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
 .day-date{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1;text-wrap:balance}
-.day-weekday{font-size:10px;color:var(--fg5);letter-spacing:.18em;margin-top:8px}
+.day-weekday{font-size:11px;color:var(--fg4);letter-spacing:.12em;margin-top:8px}
 .command-center{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:20px 0;margin-bottom:var(--section-gap)}
 .command-center-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--grid-gap);margin-bottom:var(--grid-gap)}
 .command-center-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2;text-wrap:balance}
-.command-center-sub{font-size:10px;color:var(--fg5);letter-spacing:.05em;line-height:1.75;margin-top:6px;text-wrap:pretty;max-width:520px}
+.command-center-sub{font-size:14px;color:var(--fg3);letter-spacing:.01em;line-height:1.6;margin-top:8px;text-wrap:pretty;max-width:620px}
 .command-center-date{font-size:10px;color:var(--fg5);letter-spacing:.12em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .command-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(360px,1.55fr);gap:var(--grid-gap);align-items:start}
 .command-panel{border:1px solid var(--border);background:var(--bg2);padding:var(--card-pad);min-width:0}
-.command-panel-title{font-size:9px;color:var(--fg6);letter-spacing:.16em;text-transform:uppercase;margin-bottom:12px}
+.command-panel-title{font-size:10px;color:var(--fg4);letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px}
 .command-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);background:var(--bg)}
 .command-metric{min-height:76px;padding:12px;border-right:1px solid var(--border);display:grid;align-content:space-between;gap:var(--form-gap)}
 .command-metric:last-child{border-right:none}
 .command-metric-num{font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
-.command-metric-label{font-size:9px;color:var(--fg6);letter-spacing:.08em;line-height:1.45}
+.command-metric-label{font-size:10px;color:var(--fg4);letter-spacing:.05em;line-height:1.45}
 .command-metric.hot .command-metric-num,.command-action-card.hot .command-action-title{color:#ff7040}
 .command-metric.warn .command-metric-num{color:#d4a820}
 .command-main-card{display:grid;gap:var(--card-gap)}
 .command-action-card{width:100%;min-width:0;border:1px solid var(--border);background:var(--bg);color:var(--fg);text-align:left;padding:14px;display:grid;gap:var(--form-gap);min-height:82px}
 .command-action-card:hover{border-color:var(--border3);background:var(--bg3)}
-.command-action-kicker{font-size:9px;color:var(--fg6);letter-spacing:.14em;text-transform:uppercase}
-.command-action-title{font-size:14px;font-weight:700;line-height:1.45;text-wrap:balance}
+.command-action-kicker{font-size:10px;color:var(--fg4);letter-spacing:.12em;text-transform:uppercase}
+.command-action-title{font-size:15px;font-weight:700;line-height:1.45;text-wrap:balance}
 .command-action-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--fg5);font-variant-numeric:tabular-nums}
 .command-action-meta span{border:1px solid var(--border2);padding:3px 7px}
 .command-section-list{display:grid;gap:var(--form-gap)}
 .command-row{width:100%;min-width:0;border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:12px;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-height:48px}
 .command-row:hover{border-color:var(--border3);background:var(--bg3)}
 .command-row>div{min-width:0}
-.command-row-title{font-size:12px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.command-row-title{font-size:14px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .command-row-meta{font-size:9px;color:var(--fg5);letter-spacing:.05em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .command-row-badge{font-size:10px;color:var(--fg4);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
 .command-row-badge.hot{color:#ff7040}
 .command-row-badge.warn{color:#d4a820}
-.command-empty{border:1px solid var(--border);background:var(--bg);padding:13px 14px;font-size:11px;color:var(--fg5);line-height:1.8;text-wrap:pretty}
+.command-empty{border:1px solid var(--border);background:var(--bg);padding:13px 14px;font-size:14px;color:var(--fg4);line-height:1.6;text-wrap:pretty}
 .command-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .command-links .ghost-btn{height:36px}
 .quick-capture{border:1px solid var(--border);background:var(--bg2);padding:var(--card-pad);margin-bottom:var(--grid-gap)}
 .quick-capture-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px}
-.quick-capture-title{font-size:9px;color:var(--fg5);letter-spacing:.16em;text-transform:uppercase}
+.quick-capture-title{font-size:10px;color:var(--fg4);letter-spacing:.14em;text-transform:uppercase}
 .quick-capture-count{font-size:9px;color:var(--fg6);letter-spacing:.1em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .quick-capture-form{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:var(--form-gap);align-items:stretch}
-.quick-capture-input{min-height:var(--form-control-height);height:var(--form-control-height);border:1px solid var(--border2);background:var(--bg);padding:9px 12px;font-size:12px;line-height:1.55;resize:none}
+.quick-capture-input{min-height:var(--form-control-height);height:var(--form-control-height);border:1px solid var(--border2);background:var(--bg);padding:9px 12px;font-size:14px;line-height:1.55;resize:none}
 .quick-capture-input:focus{border-color:var(--fg5)}
 .quick-capture-btn{height:var(--form-control-height);border:1px solid var(--border2);background:var(--fg);color:var(--bg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em}
 .quick-capture-msg{min-height:16px;margin-top:7px;font-size:9px;color:var(--fg5);letter-spacing:.04em}
@@ -198,12 +205,19 @@ button{cursor:pointer}
 .save-btn{background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:0 20px;height:var(--form-control-height);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;transition:opacity .15s,transform .1s}
 .save-btn:hover{opacity:.85}
 .save-btn:active{transform:scale(0.96)}
-.saved-msg{font-size:10px;color:var(--fg5);letter-spacing:.1em}
+.saved-msg{font-size:11px;color:var(--fg4);letter-spacing:.08em}
 .ghost-btn{background:none;border:1px solid var(--border2);color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:0 14px;height:var(--form-control-height);display:inline-flex;align-items:center;transition:border-color .15s,color .15s,transform .1s;min-width:40px}
 .ghost-btn:hover{border-color:var(--fg5);color:var(--fg)}
 .ghost-btn:active{transform:scale(0.96)}
 .ghost-btn:disabled{opacity:.25;cursor:default}
 .section{margin-bottom:40px}
+.photo-record-section{border:1px solid var(--border);background:var(--bg2);padding:var(--card-pad);margin-bottom:var(--section-gap)}
+.photo-record-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.photo-record-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;line-height:1.25}
+.photo-record-sub{margin-top:6px;font-size:14px;color:var(--fg4);line-height:1.6;max-width:560px}
+.photo-record-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.photo-record-section .drop-zone{height:176px;margin-bottom:14px}
+.photo-record-section textarea{border:1px solid var(--border2);background:var(--input-bg);padding:12px 14px}
 .section-div{border-top:1px solid var(--border);margin:0 0 40px}
 .lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5)}
 .row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -353,25 +367,30 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .learn-week-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px;text-wrap:balance}
 .learn-week-sub{font-size:11px;color:var(--fg4);letter-spacing:.04em;text-wrap:pretty}
 .learn-section{margin-bottom:36px}
-.learn-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--border);cursor:pointer;min-height:44px}
-.learn-section-title{font-size:13px;font-weight:500;letter-spacing:.02em}
+.learn-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--border);cursor:pointer;min-height:52px}
+.learn-section-title{font-size:15px;font-weight:700;letter-spacing:.01em}
 .learn-section-badge{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--border2);color:var(--fg5)}
 .learn-section-badge.shooting{border-color:#334;color:#667}
 .learn-section-badge.editing{border-color:#443;color:#776}
 .learn-body{padding:16px 0 20px}
-.learn-goal{font-size:11px;color:var(--fg3);letter-spacing:.04em;margin-bottom:16px;padding:10px 14px;background:var(--bg2);border-left:2px solid var(--border3);text-wrap:pretty}
-.learn-theory{font-size:12px;color:var(--fg3);line-height:2;letter-spacing:.02em;margin-bottom:20px;white-space:pre-wrap}
+.learn-goal{font-size:14px;color:var(--fg2);letter-spacing:.01em;margin-bottom:14px;padding:12px 14px;background:var(--bg2);border-left:2px solid var(--border3);line-height:1.6;text-wrap:pretty}
+.learn-detail-toggle{width:100%;height:42px;border:1px solid var(--border2);background:var(--bg);color:var(--fg3);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;text-align:left;padding:0 12px;margin:14px 0}
+.learn-detail-toggle::after{content:'+';float:right;color:var(--fg5)}
+.learn-detail-toggle[aria-expanded="true"]::after{content:'−'}
+.learn-extra{display:none}
+.learn-extra.open{display:block}
+.learn-theory{font-size:14px;color:var(--fg3);line-height:1.8;letter-spacing:.01em;margin-bottom:20px;white-space:pre-wrap}
 .learn-yt{margin-bottom:20px}
 .learn-yt-link{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bg5);text-decoration:none;color:var(--fg);transition:border-color .15s;min-height:44px}
 .learn-yt-link:hover{border-color:var(--border3)}
 .learn-yt-icon{font-size:14px;flex-shrink:0}
 .learn-yt-text{font-size:11px;color:var(--fg3);letter-spacing:.03em}
 .learn-practice{margin-bottom:20px}
-.learn-practice-text{font-size:12px;color:var(--fg2);line-height:1.9;letter-spacing:.02em;margin-top:8px;padding:12px 14px;background:var(--bg2);border-left:2px solid var(--border3);text-wrap:pretty}
+.learn-practice-text{font-size:14px;color:var(--fg2);line-height:1.7;letter-spacing:.01em;margin-top:8px;padding:12px 14px;background:var(--bg2);border-left:2px solid var(--border3);text-wrap:pretty}
 .learn-checklist{margin-bottom:20px}
 .learn-check-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--bg3);cursor:pointer;min-height:40px}
 .learn-check-item:last-child{border-bottom:none}
-.learn-check-text{font-size:12px;color:var(--fg3);line-height:1.6;letter-spacing:.02em}
+.learn-check-text{font-size:14px;color:var(--fg3);line-height:1.6;letter-spacing:.01em}
 .learn-check-text.done{color:var(--fg7);text-decoration:line-through}
 .learn-memo{margin-top:16px}
 .learn-memo textarea{border:1px solid var(--bg5);border-bottom:1px solid var(--bg5);padding:10px 12px;font-size:11px;background:var(--input-bg);line-height:1.8}
@@ -522,6 +541,14 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-metric.warn .todo-metric-value{color:#d4a820}
 .todo-metric.complete .todo-metric-value{color:var(--fg3)}
 .todo-date-type-block{margin-bottom:16px}
+.todo-task-type-block{border:1px solid var(--border);background:var(--bg);padding:12px;margin-bottom:14px}
+.todo-task-type-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.todo-task-type-copy{font-size:10px;color:var(--fg5);line-height:1.7;letter-spacing:.04em;text-wrap:pretty}
+.todo-task-type-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--border2);width:100%;max-width:360px}
+.todo-task-type-btn{background:none;border:none;border-right:1px solid var(--border2);height:var(--form-control-height);min-height:44px;color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;padding:0 12px}
+.todo-task-type-btn:last-child{border-right:none}
+.todo-task-type-btn.active{background:var(--fg);color:var(--bg)}
+.todo-task-type-btn:focus-visible{outline:1px solid var(--fg5);outline-offset:2px}
 .todo-date-type-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border2);width:100%;max-width:360px}
 .todo-date-type-group .todo-filter-btn{height:var(--form-control-height);justify-content:center;padding:0 12px}
 .todo-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
@@ -564,6 +591,11 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .todo-detail-desc-form .ghost-btn{height:var(--form-control-height);justify-content:center}
 .todo-detail-action-msg{border:1px solid var(--border);background:var(--bg2);color:var(--fg4);font-size:10px;letter-spacing:.04em;line-height:1.7;padding:8px 10px;margin:0 0 12px}
 .todo-detail-action-msg.warn{border-color:rgba(255,96,96,.45);color:var(--overdue)}
+.todo-detail-type-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--border2);margin-top:12px;max-width:360px}
+.todo-detail-type-switch button{height:var(--form-control-height);min-height:44px;background:transparent;border:none;border-right:1px solid var(--border2);color:var(--fg5);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em}
+.todo-detail-type-switch button:last-child{border-right:none}
+.todo-detail-type-switch button.active{background:var(--fg);color:var(--bg)}
+.todo-detail-type-switch button:disabled{opacity:.55;cursor:not-allowed}
 .subtask-summary{display:inline-flex;border:1px solid var(--border2);color:var(--fg4);font-size:10px;letter-spacing:.06em;padding:6px 8px;margin:0 0 12px;font-variant-numeric:tabular-nums}
 .milestone-list{display:flex;flex-direction:column;gap:8px}
 .milestone-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--border);background:var(--bg2);padding:10px}
@@ -876,22 +908,26 @@ input[type=time]{display:none}
     --card-pad:14px;
     --form-control-height:var(--form-control-height-mobile);
   }
-  .nav{padding:0 12px;height:auto;flex-wrap:wrap;gap:0}
+  .nav{padding:0 12px;height:48px;gap:0}
   .nav-title{display:none}
-  .nav-tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:1px}
-  .nav-tabs::-webkit-scrollbar{display:none}
-  .tab-btn{padding:0 10px;height:44px;font-size:9px;letter-spacing:.08em;white-space:nowrap;flex-shrink:0}
+  .nav-tabs{display:none}
+  .mobile-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);background:var(--nav-bg);padding-bottom:env(safe-area-inset-bottom)}
+  .mobile-bottom-nav .tab-btn{height:50px;font-size:11px;padding:0;color:var(--fg5)}
+  .mobile-bottom-nav .tab-btn.active{color:var(--fg);border-bottom:none;border-top:2px solid var(--fg)}
   .nav-right{position:absolute;top:8px;right:12px;gap:8px}
   .streak{display:none}
   .sync-pill{height:28px;padding:0 8px;font-size:8px}
   .theme-btn{width:28px;height:28px;font-size:11px}
-  .main{padding:var(--page-pad-y) var(--page-pad-x) 60px}
+  .main{padding:var(--page-pad-y) var(--page-pad-x) calc(76px + env(safe-area-inset-bottom))}
   .main.todo-gantt-main{max-width:640px}
   .runtime-guard.show{flex-direction:column;align-items:stretch}
   .runtime-guard .notif-actions{width:100%}
   .confirm-actions{flex-direction:column}
   .confirm-actions .ghost-btn,.confirm-actions .save-btn{width:100%;justify-content:center}
   .day-date{font-size:22px}
+  .photo-record-head{display:grid;gap:12px}
+  .photo-record-actions{justify-content:space-between}
+  .photo-record-section .drop-zone{height:150px}
   .command-center{padding:16px 0 18px;margin-bottom:var(--section-gap)}
   .command-center-head{display:grid;gap:8px;align-items:start}
   .command-center-title{font-size:20px}
@@ -1069,7 +1105,7 @@ input[type=time]{display:none}
 }
 @media (max-width: 380px) {
   :root{--page-pad-x:12px}
-  .tab-btn{padding:0 8px;font-size:8px}
+  .tab-btn{padding:0 8px;font-size:10px}
   .main{padding:16px var(--page-pad-x) 60px}
   .mobile-task-card{padding:13px 12px}
   .mobile-task-top{grid-template-columns:44px minmax(0,1fr);gap:9px}
@@ -1088,19 +1124,30 @@ input[type=time]{display:none}
   <div class="nav-tabs" role="tablist" aria-label="メインタブ">
     <button class="tab-btn active" data-tab="today" role="tab" id="tab-btn-today" aria-selected="true" aria-controls="tab-today">今日</button>
     <button class="tab-btn" data-tab="learn" role="tab" id="tab-btn-learn" aria-selected="false" aria-controls="tab-learn">学習</button>
+    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">記録</button>
     <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">プラン</button>
-    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">ログ</button>
     <button class="tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">Todo</button>
-    <button class="tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
-    <button class="tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
-    <button class="tab-btn" data-tab="settings" role="tab" id="tab-btn-settings" aria-selected="false" aria-controls="tab-settings">設定</button>
-    <button class="tab-btn" data-tab="data" role="tab" id="tab-btn-data" aria-selected="false" aria-controls="tab-data">データ</button>
+    <div class="nav-more-wrap">
+      <button class="tab-btn nav-more-btn" id="nav-more-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-more-menu">その他</button>
+      <div class="nav-more-menu hidden" id="nav-more-menu">
+        <button class="utility-tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
+        <button class="utility-tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
+        <button class="utility-tab-btn" data-tab="settings" role="tab" id="tab-btn-settings" aria-selected="false" aria-controls="tab-settings">設定</button>
+        <button class="utility-tab-btn" data-tab="data" role="tab" id="tab-btn-data" aria-selected="false" aria-controls="tab-data">データ</button>
+      </div>
+    </div>
   </div>
   <div class="nav-right">
     <button class="sync-pill" id="sync-pill" type="button">確認中</button>
     <span class="streak" id="streak" aria-label="連続記録日数"></span>
     <button class="theme-btn" id="theme-btn" aria-label="ライトモードに切り替え">☀</button>
   </div>
+</nav>
+<nav class="mobile-bottom-nav" aria-label="モバイルナビゲーション">
+  <button class="tab-btn active" data-tab="today" type="button" aria-label="今日を開く">今日</button>
+  <button class="tab-btn" data-tab="learn" type="button" aria-label="学習を開く">学習</button>
+  <button class="tab-btn" data-tab="log" type="button" aria-label="記録を開く">記録</button>
+  <button class="tab-btn" data-tab="todo" type="button" aria-label="その他の管理を開く">その他</button>
 </nav>
 <main class="main" id="main-content">
   <div class="runtime-guard" id="runtime-guard">
@@ -1120,10 +1167,29 @@ input[type=time]{display:none}
         <div class="day-date" id="day-date"></div>
         <div class="day-weekday" id="day-weekday"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding-top:4px">
-        <span class="saved-msg hidden" id="saved-msg" aria-live="polite" aria-atomic="true">保存済み</span>
-        <button class="save-btn" id="save-btn">SAVE</button>
+    </div>
+    <section id="quick-capture-slot" aria-label="Quick Capture"></section>
+    <!-- 写真記録 -->
+    <div class="section photo-record-section">
+      <div class="photo-record-head">
+        <div>
+          <div class="lbl" style="margin-bottom:6px">今日の写真・制作記録</div>
+          <div class="photo-record-title">写真を追加して、気づきを残す</div>
+          <div class="photo-record-sub">写真・コメント・レンズ・デバイスをまとめて保存します。あとでログから見返せます。</div>
+        </div>
+        <div class="photo-record-actions">
+          <span class="saved-msg hidden" id="saved-msg" aria-live="polite" aria-atomic="true">保存済み</span>
+          <button class="save-btn" id="save-btn">写真ログを保存</button>
+        </div>
       </div>
+      <div class="drop-zone" id="photo-drop">
+        <span class="plus">+</span>
+        <span class="hint">写真をドロップ or クリック</span>
+        <span class="sub">原画質で保存</span>
+      </div>
+      <input type="file" accept="image/*" id="photo-input" class="hidden">
+      <div class="lens-wrap" id="lens-wrap"></div>
+      <textarea id="photo-comment" rows="3" placeholder="今日の気づき — 「光が良かった」は不正解。「逆光で葉が透けて希望を感じるから」が正解。"></textarea>
     </div>
     <section class="command-center" id="command-center" aria-label="Today Command Center"></section>
     <!-- 進捗バナー -->
@@ -1135,18 +1201,6 @@ input[type=time]{display:none}
         <div class="pb-label" id="pb-label"></div>
       </div>
       <div class="pb-arrow">学習へ →</div>
-    </div>
-    <!-- 写真記録 -->
-    <div class="section">
-      <div class="lbl" style="margin-bottom:4px">写真記録</div>
-      <div class="drop-zone" id="photo-drop" style="height:160px;margin-bottom:14px">
-        <span class="plus">+</span>
-        <span class="hint">写真をドロップ or クリック</span>
-        <span class="sub">原画質で保存</span>
-      </div>
-      <input type="file" accept="image/*" id="photo-input" class="hidden">
-      <div class="lens-wrap" id="lens-wrap"></div>
-      <textarea id="photo-comment" rows="3" placeholder="今日の気づき — 「光が良かった」は不正解。「逆光で葉が透けて希望を感じるから」が正解。"></textarea>
     </div>
     <div class="section-div"></div>
     <!-- プロ研究 -->
@@ -1216,6 +1270,18 @@ input[type=time]{display:none}
     <div class="todo-add-form">
       <div class="lbl" style="margin-bottom:12px" id="todo-form-heading">タスクを追加</div>
       <div class="todo-form-msg hidden" id="todo-form-msg" role="status" aria-live="polite"></div>
+      <div class="todo-task-type-block">
+        <div class="todo-task-type-head">
+          <div>
+            <div class="todo-field-label" style="margin-bottom:6px">タスク種別</div>
+            <div class="todo-task-type-copy" id="todo-task-type-help">軽い用事は簡易タスク、工程を分けたい制作・課題はメインタスクにします。</div>
+          </div>
+        </div>
+        <div class="todo-task-type-group" role="group" aria-label="タスク種別" aria-describedby="todo-task-type-help">
+          <button type="button" class="todo-task-type-btn active" data-tasktype="simple" aria-pressed="true">簡易タスク</button>
+          <button type="button" class="todo-task-type-btn" data-tasktype="main" aria-pressed="false">メインタスク</button>
+        </div>
+      </div>
       <!-- タスク名・カテゴリ -->
       <div class="form-row todo-primary-row" style="margin-bottom:14px">
         <label class="todo-inline-field">
