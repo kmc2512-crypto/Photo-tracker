@@ -11,7 +11,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <style>
 /* ── CSS変数でダーク/ライト切り替え ── */
 :root {
@@ -102,9 +102,9 @@ html.light {
   --gantt-row-hover: rgba(0,0,0,.035);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;background:var(--bg);color:var(--fg);font-family:'DM Mono',monospace;transition:background .2s,color .2s;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+html,body{min-height:100%;background:var(--bg);color:var(--fg);font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;transition:background .2s,color .2s;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--fg8)}
-input,textarea{font-family:'DM Mono',monospace;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--fg);outline:none;width:100%;padding:8px 0;font-size:14px;line-height:1.6;resize:none;transition:border-color .15s}
+input,textarea{font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--fg);outline:none;width:100%;padding:8px 0;font-size:14px;line-height:1.6;resize:none;transition:border-color .15s}
 input:focus,textarea:focus{border-bottom-color:var(--fg5)}
 input::placeholder,textarea::placeholder{color:var(--fg6)}
 button{cursor:pointer}
@@ -112,7 +112,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .nav{border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;background:var(--nav-bg);z-index:10;height:48px;transition:background .2s}
 .nav-title{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
 .nav-tabs{display:flex;align-items:center;gap:2px}
-.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.04em;padding:0 16px;height:48px;color:var(--fg5);border-bottom:2px solid transparent;transition:color .15s,border-color .15s,font-weight .15s;min-width:44px}
+.tab-btn{background:none;border:none;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.04em;padding:0 16px;height:48px;color:var(--fg5);border-bottom:2px solid transparent;transition:color .15s,border-color .15s,font-weight .15s;min-width:44px}
 .tab-btn:hover{color:var(--fg3)}
 .tab-btn.active{color:var(--fg);border-bottom-color:var(--fg);font-weight:700}
 .nav-more-wrap{position:relative}
@@ -121,6 +121,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .utility-tab-btn{height:40px;border:none;background:transparent;color:var(--fg4);font-family:'DM Mono',monospace;font-size:11px;text-align:left;padding:0 12px}
 .utility-tab-btn:hover,.utility-tab-btn.active{background:var(--bg4);color:var(--fg)}
 .mobile-bottom-nav{display:none}
+.mobile-menu-sheet{display:none}
 .nav-right{display:flex;align-items:center;gap:12px}
 .streak{font-size:10px;color:var(--fg6);letter-spacing:.1em;font-variant-numeric:tabular-nums}
 .sync-pill{border:1px solid var(--border2);background:transparent;color:var(--fg5);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;cursor:default}
@@ -215,6 +216,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .save-btn{background:var(--save-bg);border:none;color:var(--save-fg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;font-weight:500;padding:0 20px;height:var(--form-control-height);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;transition:opacity .15s,transform .1s}
 .save-btn:hover{opacity:.85}
 .save-btn:active{transform:scale(0.96)}
+.save-btn:disabled{opacity:.35;cursor:default;transform:none}
 .saved-msg{font-size:11px;color:var(--fg4);letter-spacing:.08em}
 .ghost-btn{background:none;border:1px solid var(--border2);color:var(--fg4);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;padding:0 14px;height:var(--form-control-height);display:inline-flex;align-items:center;transition:border-color .15s,color .15s,transform .1s;min-width:40px}
 .ghost-btn:hover{border-color:var(--fg5);color:var(--fg)}
@@ -225,11 +227,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .photo-record-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
 .photo-record-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;line-height:1.25}
 .photo-record-sub{margin-top:6px;font-size:14px;color:var(--fg4);line-height:1.6;max-width:560px}
-.photo-record-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.photo-record-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-top:14px}
+.photo-record-actions .save-btn{min-width:148px;justify-content:center}
 .photo-record-section .drop-zone{height:176px;margin-bottom:14px}
 .photo-record-section textarea{border:1px solid var(--border2);background:var(--input-bg);padding:12px 14px}
+.photo-save-help{font-size:12px;color:var(--fg4);line-height:1.6}
+.today-recent-section{border-top:1px solid var(--border);padding-top:20px;margin-bottom:var(--section-gap)}
+.today-recent-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.today-recent-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;line-height:1.2}
+.today-recent-list{display:grid;gap:8px}
 .section-div{border-top:1px solid var(--border);margin:0 0 40px}
-.lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg5)}
+.lbl{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg5)}
 .row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .row-gap{display:flex;align-items:center;gap:12px}
 .notice{background:var(--bg2);border:1px solid var(--bg5);padding:14px 16px;margin-bottom:16px}
@@ -924,6 +932,9 @@ input[type=time]{display:none}
   .mobile-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);background:var(--nav-bg);padding-bottom:env(safe-area-inset-bottom)}
   .mobile-bottom-nav .tab-btn{height:50px;font-size:11px;padding:0;color:var(--fg5)}
   .mobile-bottom-nav .tab-btn.active{color:var(--fg);border-bottom:none;border-top:2px solid var(--fg)}
+  .mobile-menu-sheet{position:fixed;left:12px;right:12px;bottom:calc(62px + env(safe-area-inset-bottom));z-index:32;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;border:1px solid var(--border);background:var(--bg2);padding:8px;box-shadow:0 18px 48px rgba(0,0,0,.32)}
+  .mobile-menu-sheet.hidden{display:none}
+  .mobile-menu-sheet .utility-tab-btn{height:44px;text-align:center;border:1px solid var(--border);background:var(--bg);font-size:11px}
   .nav-right{position:absolute;top:8px;right:12px;gap:8px}
   .streak{display:none}
   .sync-pill{height:28px;padding:0 8px;font-size:8px}
@@ -938,6 +949,8 @@ input[type=time]{display:none}
   .photo-record-head{display:grid;gap:12px}
   .photo-record-actions{justify-content:space-between}
   .photo-record-section .drop-zone{height:150px}
+  .photo-record-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .photo-record-actions .save-btn{width:100%}
   .command-center{padding:16px 0 18px;margin-bottom:var(--section-gap)}
   .command-center-head{display:grid;gap:8px;align-items:start}
   .command-center-title{font-size:20px}
@@ -1133,12 +1146,12 @@ input[type=time]{display:none}
   <span class="nav-title">写真成長記録</span>
   <div class="nav-tabs" role="tablist" aria-label="メインタブ">
     <button class="tab-btn active" data-tab="today" role="tab" id="tab-btn-today" aria-selected="true" aria-controls="tab-today">今日</button>
-    <button class="tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">Todo</button>
-    <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">プラン</button>
-    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">ログ</button>
+    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">写真ログ</button>
+    <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">成長プラン</button>
     <div class="nav-more-wrap">
       <button class="tab-btn nav-more-btn" id="nav-more-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-more-menu">その他</button>
       <div class="nav-more-menu hidden" id="nav-more-menu">
+        <button class="utility-tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">制作タスク</button>
         <button class="utility-tab-btn" data-tab="learn" role="tab" id="tab-btn-learn" aria-selected="false" aria-controls="tab-learn">学習</button>
         <button class="utility-tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
         <button class="utility-tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
@@ -1155,10 +1168,18 @@ input[type=time]{display:none}
 </nav>
 <nav class="mobile-bottom-nav" aria-label="モバイルナビゲーション">
   <button class="tab-btn active" data-tab="today" type="button" aria-label="今日を開く">今日</button>
-  <button class="tab-btn" data-tab="todo" type="button" aria-label="Todoを開く">Todo</button>
-  <button class="tab-btn" data-tab="log" type="button" aria-label="ログを開く">ログ</button>
-  <button class="tab-btn" data-tab="learn" type="button" aria-label="その他を開く">その他</button>
+  <button class="tab-btn" data-tab="log" type="button" aria-label="写真ログを開く">ログ</button>
+  <button class="tab-btn" data-tab="plan" type="button" aria-label="成長プランを開く">プラン</button>
+  <button class="tab-btn" id="mobile-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mobile-menu-sheet" aria-label="メニューを開く">メニュー</button>
 </nav>
+<div class="mobile-menu-sheet hidden" id="mobile-menu-sheet" role="menu" aria-label="その他メニュー">
+  <button class="utility-tab-btn" data-tab="todo" type="button" role="menuitem">制作タスク</button>
+  <button class="utility-tab-btn" data-tab="learn" type="button" role="menuitem">学習</button>
+  <button class="utility-tab-btn" data-tab="timer" type="button" role="menuitem">タイマー</button>
+  <button class="utility-tab-btn" data-tab="clip" type="button" role="menuitem">クリップ</button>
+  <button class="utility-tab-btn" data-tab="settings" type="button" role="menuitem">設定</button>
+  <button class="utility-tab-btn" data-tab="data" type="button" role="menuitem">データ</button>
+</div>
 <main class="main" id="main-content">
   <div class="runtime-guard" id="runtime-guard">
     <div>
@@ -1178,7 +1199,6 @@ input[type=time]{display:none}
         <div class="day-weekday" id="day-weekday"></div>
       </div>
     </div>
-    <section id="quick-capture-slot" aria-label="Quick Capture"></section>
     <!-- 写真記録 -->
     <div class="section photo-record-section">
       <div class="photo-record-head">
@@ -1186,10 +1206,6 @@ input[type=time]{display:none}
           <div class="lbl" style="margin-bottom:6px">今日の写真・制作記録</div>
           <div class="photo-record-title">写真を追加して、気づきを残す</div>
           <div class="photo-record-sub">写真・コメント・レンズ・デバイスをまとめて保存します。あとでログから見返せます。</div>
-        </div>
-        <div class="photo-record-actions">
-          <span class="saved-msg hidden" id="saved-msg" aria-live="polite" aria-atomic="true">保存済み</span>
-          <button class="save-btn" id="save-btn">写真ログを保存</button>
         </div>
       </div>
       <div class="drop-zone" id="photo-drop">
@@ -1199,9 +1215,14 @@ input[type=time]{display:none}
       </div>
       <input type="file" accept="image/*" id="photo-input" class="hidden">
       <div class="lens-wrap" id="lens-wrap"></div>
-      <textarea id="photo-comment" rows="3" placeholder="今日の気づき — 「光が良かった」は不正解。「逆光で葉が透けて希望を感じるから」が正解。"></textarea>
+      <textarea id="photo-comment" rows="3" placeholder="どんな光だったか、なぜ良いと感じたかを残す"></textarea>
+      <div class="photo-record-actions">
+        <span class="saved-msg hidden" id="saved-msg" aria-live="polite" aria-atomic="true">保存済み</span>
+        <button class="save-btn" id="save-btn">写真ログを保存</button>
+      </div>
+      <div class="photo-save-help" id="photo-save-help">写真か気づきを入力すると保存できます。</div>
     </div>
-    <section class="command-center" id="command-center" aria-label="Today Command Center"></section>
+    <section class="today-recent-section" id="today-recent-section" aria-label="最近の写真記録"></section>
     <!-- 進捗バナー -->
     <div class="progress-banner" id="progress-banner">
       <div class="pb-left">
@@ -1270,11 +1291,13 @@ input[type=time]{display:none}
   <div id="tab-todo" class="hidden" role="tabpanel" aria-labelledby="tab-btn-todo" tabindex="0">
     <div class="todo-header">
       <div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">Todo</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">制作タスク</div>
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px" id="todo-count" aria-live="polite">0 TASKS</div>
-        <div class="todo-subtitle">課題・予定の締切、期間、完了状態をまとめて確認します。追加したタスクはリストとDeadline Timelineに反映されます。</div>
+        <div class="todo-subtitle">撮影・制作・課題の締切、期間、完了状態をまとめて確認します。追加したタスクはリストとDeadline Timelineに反映されます。</div>
       </div>
     </div>
+    <section id="quick-capture-slot" aria-label="Quick Capture"></section>
+    <section class="command-center" id="command-center" aria-label="制作タスク Command Center"></section>
     <section class="todo-work-summary" id="todo-work-summary" aria-label="今日のTodo概要"></section>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">

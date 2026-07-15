@@ -754,6 +754,11 @@ function rememberLastTab(tab) {
   LS.set('last_tab_state', { tab, date: getLocalDateStr(), savedAt: new Date().toISOString() });
 }
 
+function closeMobileMenu() {
+  qs('#mobile-menu-sheet')?.classList.add('hidden');
+  qs('#mobile-menu-btn')?.setAttribute('aria-expanded', 'false');
+}
+
 function switchTab(tab, options = {}) {
   if (!tab) return;
   state.tab = tab;
@@ -763,12 +768,16 @@ function switchTab(tab, options = {}) {
   document.querySelectorAll('.tab-btn[data-tab],.utility-tab-btn[data-tab]').forEach(b => {
     const isActive = b.dataset.tab === tab;
     b.classList.toggle('active', isActive);
-    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    if (b.getAttribute('role') === 'tab') {
+      b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    }
   });
-  const utilityTabs = new Set(['learn','timer','clip','settings','data','widget']);
+  const utilityTabs = new Set(['todo','learn','timer','clip','settings','data','widget']);
   qs('#nav-more-btn')?.classList.toggle('active', utilityTabs.has(tab));
   qs('#nav-more-menu')?.classList.add('hidden');
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
+  closeMobileMenu();
+  qs('#mobile-menu-btn')?.classList.toggle('active', utilityTabs.has(tab));
   document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-widget,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
   if (!panel) return;
@@ -777,10 +786,11 @@ function switchTab(tab, options = {}) {
     renderLog();
   }
   if (tab === 'today') {
-    renderCommandCenter();
+    renderTodayRecentPhotos();
   }
   if (tab === 'learn') renderLearn();
   if (tab === 'todo') {
+    renderCommandCenter();
     renderTodo();
     // Todoタブを開くたびに他端末で追加されたタスクを取り込む
     if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
@@ -811,15 +821,25 @@ qs('#nav-more-btn')?.addEventListener('click', e => {
   const open = menu?.classList.toggle('hidden') === false;
   qs('#nav-more-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false');
 });
+qs('#mobile-menu-btn')?.addEventListener('click', e => {
+  e.stopPropagation();
+  const sheet = qs('#mobile-menu-sheet');
+  const open = sheet?.classList.toggle('hidden') === false;
+  const currentIsMenuTab = ['todo','learn','timer','clip','settings','data','widget'].includes(state.tab);
+  qs('#mobile-menu-btn')?.classList.toggle('active', !!open || currentIsMenuTab);
+  qs('#mobile-menu-btn')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
 document.addEventListener('click', e => {
   if (e.target?.closest?.('.nav-more-wrap')) return;
   qs('#nav-more-menu')?.classList.add('hidden');
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
+  if (!e.target?.closest?.('#mobile-menu-sheet') && !e.target?.closest?.('#mobile-menu-btn')) closeMobileMenu();
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   qs('#nav-more-menu')?.classList.add('hidden');
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
+  closeMobileMenu();
 });
 window.addEventListener('popstate', () => {
   const tab = getInitialTabFromUrl();
@@ -911,6 +931,7 @@ function renderProgressBanner() {
 // クリックイベントは一度だけ登録（renderProgressBanner()が複数回呼ばれても重複登録しない）
 qs('#progress-banner').addEventListener('click', () => switchTab('learn'));
 renderProgressBanner();
+renderTodayRecentPhotos();
 renderCommandCenter();
 
 function daysFromToday(dateStr) {
@@ -1374,6 +1395,62 @@ function getRecentLogItems(limit = 2) {
     .map(([date, data]) => ({ date, data }));
 }
 
+function renderTodayRecentPhotos() {
+  const wrap = qs('#today-recent-section');
+  if (!wrap) return;
+  const recentLogs = getRecentLogItems(3);
+  wrap.innerHTML = '';
+
+  const head = el('div', 'today-recent-head');
+  const titleBox = el('div');
+  const title = el('div', 'today-recent-title');
+  title.textContent = '最近の写真記録';
+  const sub = el('div', 'command-row-meta');
+  sub.textContent = '保存した写真・気づき・撮影情報をすぐ見返せます。';
+  titleBox.appendChild(title);
+  titleBox.appendChild(sub);
+  const count = el('div', 'command-row-badge');
+  count.textContent = recentLogs.length ? `${recentLogs.length} LOGS` : 'NO LOG';
+  head.appendChild(titleBox);
+  head.appendChild(count);
+  wrap.appendChild(head);
+
+  const list = el('div', 'today-recent-list');
+  if (recentLogs.length) {
+    recentLogs.forEach(item => {
+      const row = el('button', 'command-row');
+      row.type = 'button';
+      row.addEventListener('click', () => {
+        switchTab('log');
+        setTimeout(() => showLogDetail(item.date), 0);
+      });
+      const left = el('div');
+      const rowTitle = el('div', 'command-row-title');
+      rowTitle.textContent = item.data.comment || item.data.proMemos?.find(Boolean) || '写真記録';
+      const rowMeta = el('div', 'command-row-meta');
+      rowMeta.textContent = [fmtFull(item.date), item.data.lens, item.data.device].filter(Boolean).join(' / ');
+      const badge = el('div', 'command-row-badge');
+      badge.textContent = item.data.hasPhoto ? 'PHOTO' : 'TEXT';
+      left.appendChild(rowTitle);
+      left.appendChild(rowMeta);
+      row.appendChild(left);
+      row.appendChild(badge);
+      list.appendChild(row);
+    });
+  } else {
+    const empty = el('div', 'command-empty');
+    empty.textContent = 'まだ写真記録がありません。上の欄から今日の写真と気づきを保存しましょう。';
+    list.appendChild(empty);
+  }
+  wrap.appendChild(list);
+
+  const links = el('div', 'command-links');
+  addCommandLink(links, '写真ログを見る', () => switchTab('log'));
+  addCommandLink(links, '学習を見る', () => switchTab('learn'));
+  addCommandLink(links, '制作タスク', () => switchTab('todo'));
+  wrap.appendChild(links);
+}
+
 function renderCommandCenter() {
   const wrap = qs('#command-center');
   if (!wrap) return;
@@ -1425,9 +1502,9 @@ function renderCommandCenter() {
   const head = el('div', 'command-center-head');
   const headText = el('div');
   const title = el('div', 'command-center-title');
-  title.textContent = 'Today Command Center';
+  title.textContent = '制作タスク Command Center';
   const sub = el('div', 'command-center-sub');
-  sub.textContent = '今すぐ見るべき3件、次の作業ステップ、締め切りと未整理メモをまとめます。写真の記録は上の入力欄から残せます。';
+  sub.textContent = '今すぐ見るべき3件、次の作業ステップ、締め切りと未整理メモをまとめます。写真記録とは分けて、制作と課題の処理に集中できます。';
   const date = el('div', 'command-center-date');
   date.textContent = new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'numeric', day:'numeric', weekday:'short'});
   headText.appendChild(title);
@@ -1472,7 +1549,7 @@ function renderCommandCenter() {
     left.appendChild(empty);
   }
   const quickLinks = el('div', 'command-links');
-  addCommandLink(quickLinks, 'TODOを開く', () => {
+  addCommandLink(quickLinks, 'リストを見る', () => {
     state.todoView = 'list';
     qs('#todo-view-list-btn')?.classList.add('active');
     qs('#todo-view-gantt-btn')?.classList.remove('active');
@@ -1484,7 +1561,10 @@ function renderCommandCenter() {
     qs('#todo-view-list-btn')?.classList.remove('active');
     switchTab('todo');
   });
-  addCommandLink(quickLinks, '記録を書く', () => qs('#photo-comment')?.focus());
+  addCommandLink(quickLinks, '写真を記録', () => {
+    switchTab('today');
+    setTimeout(() => qs('#photo-comment')?.focus(), 0);
+  });
   left.appendChild(quickLinks);
 
   const right = el('div', 'command-panel');
@@ -5307,6 +5387,29 @@ function renderLenses() {
 }
 renderLenses();
 
+function hasTodayPhotoDraft() {
+  return !!state.photoObjUrl || state.proObjUrls.some(Boolean);
+}
+
+function hasTodayTextDraft() {
+  const comment = qs('#photo-comment')?.value?.trim() || '';
+  const proMemos = [0,1,2].map(i => (qs('#pro-memo-' + i)||{}).value || '');
+  return !!comment || proMemos.some(m => m.trim());
+}
+
+function updatePhotoSaveState() {
+  const saveBtn = qs('#save-btn');
+  const help = qs('#photo-save-help');
+  if (!saveBtn) return;
+  const canSave = hasTodayPhotoDraft() || hasTodayTextDraft();
+  saveBtn.disabled = !canSave;
+  if (help) {
+    help.textContent = canSave
+      ? '写真・コメント・撮影情報をまとめて保存します。'
+      : '写真か気づきを入力すると保存できます。';
+  }
+}
+
 // ── 写真アップロード ──────────────────────────
 async function handlePhotoFile(file) {
   if (!file) return;
@@ -5321,6 +5424,7 @@ async function handlePhotoFile(file) {
   }
   if (info?.device) state.device = info.device;
   renderPhotoZone();
+  updatePhotoSaveState();
   persistTodayDraft(true);
 }
 
@@ -5338,6 +5442,7 @@ function renderPhotoZone() {
       state.photoObjUrl = null;
       drop.style.height = '160px';
       renderPhotoZone();
+      updatePhotoSaveState();
       persistTodayDraft(true);
     });
     wrap.appendChild(img); wrap.appendChild(btn);
@@ -5347,6 +5452,7 @@ function renderPhotoZone() {
     drop.innerHTML = '<span class="plus">+</span><span class="hint">写真をドロップ or クリック</span><span class="sub">原画質で保存</span>';
     drop.onclick = () => qs('#photo-input').click();
   }
+  updatePhotoSaveState();
 }
 
 qs('#photo-input').addEventListener('change', e => handlePhotoFile(e.target.files[0]));
@@ -5377,6 +5483,7 @@ function renderProGrid() {
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = null;
         renderProGrid();
+        updatePhotoSaveState();
         persistTodayDraft(true);
       });
       drop.appendChild(img); drop.appendChild(btn);
@@ -5391,6 +5498,7 @@ function renderProGrid() {
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = URL.createObjectURL(blob);
         renderProGrid();
+        updatePhotoSaveState();
         persistTodayDraft(true);
       });
       drop.appendChild(inp);
@@ -5403,6 +5511,7 @@ function renderProGrid() {
         if (state.proObjUrls[i]) URL.revokeObjectURL(state.proObjUrls[i]);
         state.proObjUrls[i] = URL.createObjectURL(blob);
         renderProGrid();
+        updatePhotoSaveState();
         persistTodayDraft(true);
       });
       drop.onclick = () => inp.click();
@@ -5412,10 +5521,14 @@ function renderProGrid() {
     memo.value = proMemos[i];
     memo.style.fontSize = '11px';
     memo.id = 'pro-memo-' + i;
-    memo.addEventListener('input', () => persistTodayDraft(true));
+    memo.addEventListener('input', () => {
+      updatePhotoSaveState();
+      persistTodayDraft(true);
+    });
     slot.appendChild(drop); slot.appendChild(memo);
     grid.appendChild(slot);
   });
+  updatePhotoSaveState();
 }
 
 // ── 今日データ初期化 ──────────────────────────
@@ -5460,6 +5573,8 @@ async function initTodayData() {
     }
     if (todayData.device) state.device = todayData.device;
   }
+  updatePhotoSaveState();
+  renderTodayRecentPhotos();
 }
 
 // Blob → base64変換
@@ -5506,7 +5621,10 @@ function persistTodayDraft(scheduleRemote) {
   }, 1200);
 }
 
-qs('#photo-comment').addEventListener('input', () => persistTodayDraft(true));
+qs('#photo-comment').addEventListener('input', () => {
+  updatePhotoSaveState();
+  persistTodayDraft(true);
+});
 
 // ── 保存 ──────────────────────────────────────
 qs('#save-btn').addEventListener('click', async () => {
@@ -5614,7 +5732,7 @@ qs('#save-btn').addEventListener('click', async () => {
   msg.classList.remove('hidden');
   setTimeout(() => { msg.classList.add('hidden'); msg.textContent = '保存済み'; }, 3000);
   renderProgressBanner();
-  renderCommandCenter();
+  renderTodayRecentPhotos();
 });
 
 // ── 学習タブ ──────────────────────────────────
@@ -6746,7 +6864,7 @@ async function syncSettingsFromSupabase() {
     const mergedInbox = [...inboxMap.values()].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).slice(-200);
     if (JSON.stringify(localInbox) !== JSON.stringify(mergedInbox)) {
       LS.set('inbox_items', mergedInbox);
-      if (state.tab === 'today') renderCommandCenter();
+      if (state.tab === 'todo') renderCommandCenter();
     }
     if (JSON.stringify(remoteInbox) !== JSON.stringify(mergedInbox)) {
       SB.setSetting('inbox_items', mergedInbox);
@@ -6827,7 +6945,8 @@ async function syncSettingsFromSupabase() {
   }
   scheduleTaskNotifications();
   scheduleDonePurgeForVisibleTasks();
-  if (state.tab === 'today') renderCommandCenter();
+  if (state.tab === 'today') renderTodayRecentPhotos();
+  if (state.tab === 'todo') renderCommandCenter();
 }
 
 // ── 初期化 ────────────────────────────────────
@@ -6849,7 +6968,7 @@ setInterval(() => {
     // 今日のデータをリセット＆ロード
     initTodayData();
     renderProgressBanner();
-    renderCommandCenter();
+    renderTodayRecentPhotos();
   }
 }, 60000);
 
@@ -6859,5 +6978,6 @@ initTodayData().then(() => {
   ensureCloudLogsFresh(true);
   syncTodayPhotosFromSupabase();
   syncSettingsFromSupabase();
+  renderTodayRecentPhotos();
   renderCommandCenter();
 });
