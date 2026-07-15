@@ -726,16 +726,46 @@ function updateMainLayoutMode() {
   main.classList.toggle('todo-gantt-main', state.tab === 'todo');
 }
 
-function switchTab(tab) {
+const TAB_PATHS = {
+  today: 'today',
+  todo: 'todo',
+  learn: 'learning',
+  log: 'log',
+  plan: 'plan',
+  timer: 'timer',
+  clip: 'clip',
+  settings: 'settings',
+  data: 'data',
+  widget: 'widget',
+};
+const PATH_TABS = Object.fromEntries(Object.entries(TAB_PATHS).map(([key, value]) => [value, key]));
+
+function updateTabHistory(tab, mode = 'push') {
+  if (!history?.pushState || !TAB_PATHS[tab]) return;
+  const url = new URL(location.href);
+  url.searchParams.set('tab', TAB_PATHS[tab]);
+  url.hash = '';
+  const method = mode === 'replace' ? 'replaceState' : 'pushState';
+  history[method]({ tab }, '', url);
+}
+
+function rememberLastTab(tab) {
+  if (!tab) return;
+  LS.set('last_tab_state', { tab, date: getLocalDateStr(), savedAt: new Date().toISOString() });
+}
+
+function switchTab(tab, options = {}) {
   if (!tab) return;
   state.tab = tab;
+  if (options.remember !== false) rememberLastTab(tab);
+  if (options.history !== false) updateTabHistory(tab, options.replaceHistory ? 'replace' : 'push');
   updateMainLayoutMode();
   document.querySelectorAll('.tab-btn[data-tab],.utility-tab-btn[data-tab]').forEach(b => {
     const isActive = b.dataset.tab === tab;
     b.classList.toggle('active', isActive);
     b.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
-  const utilityTabs = new Set(['timer','clip','settings','data','widget']);
+  const utilityTabs = new Set(['learn','timer','clip','settings','data','widget']);
   qs('#nav-more-btn')?.classList.toggle('active', utilityTabs.has(tab));
   qs('#nav-more-menu')?.classList.add('hidden');
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
@@ -791,7 +821,10 @@ document.addEventListener('keydown', e => {
   qs('#nav-more-menu')?.classList.add('hidden');
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
 });
-qs('#sync-pill')?.addEventListener('click', () => switchTab('settings'));
+window.addEventListener('popstate', () => {
+  const tab = getInitialTabFromUrl();
+  switchTab(tab || 'today', { history: false, remember: true });
+});
 qs('#sync-key-save-btn')?.addEventListener('click', saveSyncKeyFromInput);
 qs('#sync-key-restore-btn')?.addEventListener('click', restoreFromSyncKey);
 qs('#sync-key-clear-btn')?.addEventListener('click', clearSyncKey);
@@ -819,15 +852,30 @@ qs('#widget-gantt-btn')?.addEventListener('click', () => {
 function getInitialTabFromUrl() {
   const allowed = ['today','learn','plan','log','todo','widget','timer','clip','settings','data'];
   const params = new URLSearchParams(location.search);
-  const fromQuery = params.get('tab');
+  const fromQueryRaw = params.get('tab');
+  const fromQuery = PATH_TABS[fromQueryRaw] || fromQueryRaw;
   const fromHash = location.hash ? location.hash.replace('#', '') : '';
   if (allowed.includes(fromQuery)) return fromQuery;
   if (allowed.includes(fromHash)) return fromHash;
   return '';
 }
 
-const initialTab = getInitialTabFromUrl();
-if (initialTab && initialTab !== 'today') switchTab(initialTab);
+function getInitialTabForDailyUse() {
+  const urlTab = getInitialTabFromUrl();
+  if (urlTab) return { tab: urlTab, fromUrl: true };
+  const last = LS.get('last_tab_state') || {};
+  if (last.date === getLocalDateStr() && getInitialAllowedTab(last.tab)) {
+    return { tab: last.tab, fromUrl: false };
+  }
+  return { tab: 'today', fromUrl: false };
+}
+
+function getInitialAllowedTab(tab) {
+  return ['today','learn','plan','log','todo','widget','timer','clip','settings','data'].includes(tab);
+}
+
+const initialTab = getInitialTabForDailyUse();
+switchTab(initialTab.tab, { replaceHistory: true, remember: true });
 updateAccountStatus();
 
 // ── 日付表示＋ストリーク ──────────────────────
@@ -889,9 +937,86 @@ function commandTone(days) {
 }
 
 function commandTaskSortValue(item) {
-  if (item.days === null) return 2000 - priorityRank(item.task.priority);
-  if (item.days < 0) return -1000 + item.days - priorityRank(item.task.priority);
-  return item.days * 10 - priorityRank(item.task.priority);
+  const task = item.task || item;
+  if (item.days === 0 && task.priority === 'high') return -4000;
+  if (item.days !== null && item.days < 0) return -3000 + item.days - priorityRank(task.priority);
+  if (item.days !== null && item.days <= 3) return -2000 + item.days * 10 - priorityRank(task.priority);
+  if (task.todayFlag || task.doToday) return -1000 - priorityRank(task.priority);
+  if (item.days === null) return 2000 - priorityRank(task.priority);
+  return item.days * 10 - priorityRank(task.priority);
+}
+
+function commandReasonLabel(item) {
+  const task = item.task || item;
+  const days = item.days ?? daysFromToday(task.due);
+  if (days === 0 && task.priority === 'high') return '今日中かつHIGH優先度';
+  if (days !== null && days < 0) return '期限超過のため';
+  if (days === 0) return '今日が締め切り';
+  if (days === 1) return '明日締切';
+  if (days !== null && days <= 3) return '3日以内の締め切り';
+  if (task.todayFlag || task.doToday) return '今日やる指定';
+  if (task.priority === 'high') return 'HIGH優先度';
+  if (getSubtasks(task).some(ms => !ms.completed)) return '次のサブタスクあり';
+  return '確認候補';
+}
+
+async function updateTaskScheduleQuick(task, patch) {
+  if (!task) return null;
+  const updated = await updateTaskPlanningData(task, current => ({
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  }));
+  renderCommandCenter();
+  if (state.tab === 'todo') renderTodo();
+  return updated;
+}
+
+async function handleCommandQuickAction(e, task, action) {
+  e.preventDefault();
+  e.stopPropagation();
+  const key = getTaskKey(task);
+  if (action === 'complete') {
+    toggleTaskDone(key, task);
+    renderCommandCenter();
+    return;
+  }
+  if (action === 'today') {
+    const today = getLocalDateStr();
+    await updateTaskScheduleQuick(task, {
+      due: today,
+      dueDate: today,
+      dateType: 'deadline',
+      todayFlag: true,
+      doToday: true,
+    });
+    return;
+  }
+  if (action === 'reschedule') {
+    const current = task.due || getLocalDateStr();
+    const next = window.prompt('新しい締め切り日を YYYY-MM-DD で入力', current);
+    if (!next) return;
+    const normalized = getDatePart(next);
+    if (!normalized) {
+      showAppToast('日付を変更できませんでした', 'YYYY-MM-DD形式で入力してください。');
+      return;
+    }
+    await updateTaskScheduleQuick(task, {
+      due: normalized,
+      dueDate: normalized,
+      dateType: 'deadline',
+    });
+    return;
+  }
+  if (action === 'hold') {
+    await updateTaskScheduleQuick(task, {
+      due: '',
+      dueDate: '',
+      dueTime: '',
+      dateType: 'none',
+      hold: true,
+    });
+  }
 }
 
 function addCommandTaskButton(parent, item, options = {}) {
@@ -906,6 +1031,8 @@ function addCommandTaskButton(parent, item, options = {}) {
     kicker.textContent = item.kicker || 'CHECK';
     const title = el('div', 'command-action-title');
     title.textContent = task.title || 'Untitled';
+    const reason = el('div', 'command-action-reason');
+    reason.textContent = commandReasonLabel(item);
     const meta = el('div', 'command-action-meta');
     [commandDeadlineLabel(days), task.subject, priorityLabel(task.priority), getSubtaskProgress(task).text]
       .filter(Boolean)
@@ -916,7 +1043,22 @@ function addCommandTaskButton(parent, item, options = {}) {
       });
     btn.appendChild(kicker);
     btn.appendChild(title);
+    btn.appendChild(reason);
     btn.appendChild(meta);
+    const actions = el('div', 'command-card-actions');
+    [
+      ['complete', '完了', 'primary'],
+      ['today', '今日やる', ''],
+      ['reschedule', '日程変更', 'warn'],
+      ['hold', '保留', ''],
+    ].forEach(([action, label, cls]) => {
+      const actionBtn = el('button', 'command-card-action' + (cls ? ' ' + cls : ''));
+      actionBtn.type = 'button';
+      actionBtn.textContent = label;
+      actionBtn.addEventListener('click', e => handleCommandQuickAction(e, task, action));
+      actions.appendChild(actionBtn);
+    });
+    btn.appendChild(actions);
   } else {
     const left = el('div');
     const title = el('div', 'command-row-title');
@@ -1045,6 +1187,7 @@ async function convertInboxItemToTodo(id) {
   const item = items.find(x => x.id === id);
   if (!item) return;
   const taskId = 'manual_' + Date.now();
+  const now = new Date().toISOString();
   const task = normalizeTask({
     id: taskId,
     title: item.text,
@@ -1064,10 +1207,34 @@ async function convertInboxItemToTodo(id) {
   });
   const manual = normalizeManualTasks(LS.get('manual_tasks'));
   await saveManualTasks([...manual, task]);
-  const now = new Date().toISOString();
   saveInboxItems(items.map(x => x.id === id ? {...x, archived: true, convertedToTaskId: taskId, updatedAt: now} : x));
   renderCommandCenter();
   if (state.tab === 'todo') renderTodo();
+}
+
+function undoInboxItem(id) {
+  deleteInboxItem(id);
+  showAppToast('Inbox追加を取り消しました', 'Quick Captureに戻しました。');
+}
+
+function editInboxItem(id) {
+  const items = getInboxItems();
+  const item = items.find(x => x.id === id);
+  if (!item) return;
+  const next = window.prompt('Inboxメモを編集', item.text);
+  if (next === null) return;
+  const text = String(next || '').trim();
+  if (!text) return;
+  const due = inferInboxDue(text);
+  saveInboxItems(items.map(x => x.id === id ? {
+    ...x,
+    text,
+    typeHint: inferInboxType(text),
+    dueCandidate: due.dueCandidate,
+    dueTimeCandidate: due.dueTimeCandidate,
+    updatedAt: new Date().toISOString(),
+  } : x));
+  renderCommandCenter();
 }
 
 function renderQuickCapture(parent) {
@@ -1083,14 +1250,18 @@ function renderQuickCapture(parent) {
   const form = el('div', 'quick-capture-form');
   const input = el('textarea', 'quick-capture-input');
   input.rows = 1;
-  input.placeholder = '思いついたことをそのまま入力';
+  input.placeholder = 'タスクやメモを入力してInboxへ追加';
   input.setAttribute('aria-label', 'Quick Captureに追加する内容');
   bindImeCompositionGuard(input);
   const btn = el('button', 'quick-capture-btn');
   btn.type = 'button';
   btn.textContent = '追加';
+  btn.disabled = true;
   const msg = el('div', 'quick-capture-msg');
   msg.setAttribute('aria-live', 'polite');
+  const updateButtonState = () => {
+    btn.disabled = !input.value.trim();
+  };
   const submit = () => {
     const item = addInboxItemFromText(input.value);
     if (!item) {
@@ -1099,10 +1270,31 @@ function renderQuickCapture(parent) {
       return;
     }
     input.value = '';
-    msg.textContent = `Inboxに保存しました: ${inboxTypeLabel(item.typeHint)}`;
+    updateButtonState();
     renderCommandCenter();
+    const nextMsg = qs('#quick-capture-slot .quick-capture-msg') || msg;
+    nextMsg.textContent = '';
+    const text = el('span');
+    const dueText = item.dueCandidate ? ` 候補: ${fmtFull(item.dueCandidate)}${item.dueTimeCandidate ? ' ' + item.dueTimeCandidate : ''}` : '';
+    text.textContent = `Inboxに追加しました${dueText}`;
+    const edit = el('button');
+    edit.type = 'button';
+    edit.textContent = '編集';
+    edit.addEventListener('click', () => editInboxItem(item.id));
+    const undo = el('button');
+    undo.type = 'button';
+    undo.textContent = '元に戻す';
+    undo.addEventListener('click', () => undoInboxItem(item.id));
+    nextMsg.appendChild(text);
+    nextMsg.appendChild(edit);
+    nextMsg.appendChild(undo);
+    setTimeout(() => {
+      if (nextMsg.contains(text)) nextMsg.textContent = '';
+    }, 5000);
+    setTimeout(() => qs('#quick-capture-slot .quick-capture-input')?.focus(), 0);
   };
   btn.addEventListener('click', submit);
+  input.addEventListener('input', updateButtonState);
   input.addEventListener('keydown', e => {
     if (e.key !== 'Enter' || e.shiftKey) return;
     if (isImeComposingEvent(e)) return;
@@ -1113,6 +1305,9 @@ function renderQuickCapture(parent) {
   form.appendChild(btn);
   box.appendChild(head);
   box.appendChild(form);
+  const help = el('div', 'quick-capture-help');
+  help.textContent = 'Enterで追加 / 日付や分類は後で設定';
+  box.appendChild(help);
   box.appendChild(msg);
   parent.appendChild(box);
 }

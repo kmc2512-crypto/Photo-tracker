@@ -123,7 +123,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .mobile-bottom-nav{display:none}
 .nav-right{display:flex;align-items:center;gap:12px}
 .streak{font-size:10px;color:var(--fg6);letter-spacing:.1em;font-variant-numeric:tabular-nums}
-.sync-pill{border:1px solid var(--border2);background:transparent;color:var(--fg5);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px}
+.sync-pill{border:1px solid var(--border2);background:transparent;color:var(--fg5);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;cursor:default}
 .sync-pill::before{content:'';width:5px;height:5px;background:var(--fg5);display:block}
 .sync-pill.ok{color:var(--fg4)}
 .sync-pill.ok::before{background:var(--fg4)}
@@ -159,8 +159,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .command-action-card:hover{border-color:var(--border3);background:var(--bg3)}
 .command-action-kicker{font-size:10px;color:var(--fg4);letter-spacing:.12em;text-transform:uppercase}
 .command-action-title{font-size:15px;font-weight:700;line-height:1.45;text-wrap:balance}
+.command-action-reason{font-size:11px;color:var(--fg3);line-height:1.45}
 .command-action-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--fg5);font-variant-numeric:tabular-nums}
 .command-action-meta span{border:1px solid var(--border2);padding:3px 7px}
+.command-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:3px}
+.command-card-action{height:30px;border:1px solid var(--border2);background:transparent;color:var(--fg4);font-family:'DM Mono',monospace;font-size:9px;padding:0 8px}
+.command-card-action:hover{border-color:var(--fg5);color:var(--fg)}
+.command-card-action.primary{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.command-card-action.warn{color:#d4a820}
 .command-section-list{display:grid;gap:var(--form-gap)}
 .command-row{width:100%;min-width:0;border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:12px;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-height:48px}
 .command-row:hover{border-color:var(--border3);background:var(--bg3)}
@@ -181,7 +187,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .quick-capture-input{min-height:var(--form-control-height);height:var(--form-control-height);border:1px solid var(--border2);background:var(--bg);padding:9px 12px;font-size:14px;line-height:1.55;resize:none}
 .quick-capture-input:focus{border-color:var(--fg5)}
 .quick-capture-btn{height:var(--form-control-height);border:1px solid var(--border2);background:var(--fg);color:var(--bg);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em}
-.quick-capture-msg{min-height:16px;margin-top:7px;font-size:9px;color:var(--fg5);letter-spacing:.04em}
+.quick-capture-help{margin-top:7px;font-size:10px;color:var(--fg5);line-height:1.55}
+.quick-capture-msg{min-height:16px;margin-top:7px;font-size:11px;color:var(--fg4);letter-spacing:.02em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.quick-capture-msg button{height:28px;border:1px solid var(--border2);background:transparent;color:var(--fg4);font-family:'DM Mono',monospace;font-size:9px;padding:0 8px}
+.quick-capture-msg button:hover{border-color:var(--fg5);color:var(--fg)}
+.quick-capture-btn:disabled{opacity:.35;cursor:default}
 .inbox-list{display:grid;gap:var(--form-gap)}
 .inbox-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--border);background:var(--bg);padding:12px;min-height:52px}
 .inbox-main{min-width:0}
@@ -1123,13 +1133,13 @@ input[type=time]{display:none}
   <span class="nav-title">写真成長記録</span>
   <div class="nav-tabs" role="tablist" aria-label="メインタブ">
     <button class="tab-btn active" data-tab="today" role="tab" id="tab-btn-today" aria-selected="true" aria-controls="tab-today">今日</button>
-    <button class="tab-btn" data-tab="learn" role="tab" id="tab-btn-learn" aria-selected="false" aria-controls="tab-learn">学習</button>
-    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">記録</button>
-    <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">プラン</button>
     <button class="tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">Todo</button>
+    <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">プラン</button>
+    <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">ログ</button>
     <div class="nav-more-wrap">
       <button class="tab-btn nav-more-btn" id="nav-more-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-more-menu">その他</button>
       <div class="nav-more-menu hidden" id="nav-more-menu">
+        <button class="utility-tab-btn" data-tab="learn" role="tab" id="tab-btn-learn" aria-selected="false" aria-controls="tab-learn">学習</button>
         <button class="utility-tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
         <button class="utility-tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
         <button class="utility-tab-btn" data-tab="settings" role="tab" id="tab-btn-settings" aria-selected="false" aria-controls="tab-settings">設定</button>
@@ -1138,16 +1148,16 @@ input[type=time]{display:none}
     </div>
   </div>
   <div class="nav-right">
-    <button class="sync-pill" id="sync-pill" type="button">確認中</button>
+    <span class="sync-pill" id="sync-pill" role="status" aria-live="polite">確認中</span>
     <span class="streak" id="streak" aria-label="連続記録日数"></span>
     <button class="theme-btn" id="theme-btn" aria-label="ライトモードに切り替え">☀</button>
   </div>
 </nav>
 <nav class="mobile-bottom-nav" aria-label="モバイルナビゲーション">
   <button class="tab-btn active" data-tab="today" type="button" aria-label="今日を開く">今日</button>
-  <button class="tab-btn" data-tab="learn" type="button" aria-label="学習を開く">学習</button>
-  <button class="tab-btn" data-tab="log" type="button" aria-label="記録を開く">記録</button>
-  <button class="tab-btn" data-tab="todo" type="button" aria-label="その他の管理を開く">その他</button>
+  <button class="tab-btn" data-tab="todo" type="button" aria-label="Todoを開く">Todo</button>
+  <button class="tab-btn" data-tab="log" type="button" aria-label="ログを開く">ログ</button>
+  <button class="tab-btn" data-tab="learn" type="button" aria-label="その他を開く">その他</button>
 </nav>
 <main class="main" id="main-content">
   <div class="runtime-guard" id="runtime-guard">
