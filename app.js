@@ -90,6 +90,7 @@ function updateSyncHealth() {
   const health = LS.get('sync_health') || {};
   const origin = location.protocol === 'file:' ? 'FILE' : (location.hostname.includes('github.io') ? 'GITHUB PAGES' : 'LOCALHOST');
   const hasWarning = health.lastSaveOk === false || health.lastLogBackupOk === false || health.lastCloudCheckOk === false || health.lastTodoSyncOk === false;
+  const offline = navigator.onLine === false;
   const hasPending = health.pending === true;
   const save = health.lastSaveAt
     ? `${health.lastSaveOk === false ? '要確認' : 'OK'} / ${new Date(health.lastSaveAt).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}`
@@ -107,9 +108,10 @@ function updateSyncHealth() {
   const pill = qs('#sync-pill');
   if (pill) {
     pill.classList.remove('ok', 'pending', 'warn');
-    pill.classList.add(hasWarning ? 'warn' : hasPending ? 'pending' : 'ok');
-    pill.textContent = hasWarning ? '要確認' : hasPending ? '保存中' : '同期済み';
+    pill.classList.add(offline || hasWarning ? 'warn' : hasPending ? 'pending' : 'ok');
+    pill.textContent = offline ? 'オフライン' : hasWarning ? '同期エラー' : hasPending ? '保存中' : 'クラウド同期済み';
   }
+  if (qs('#tab-data') && !qs('#tab-data').classList.contains('hidden')) renderRecoveryCenter();
 }
 
 // NOTE: anon keyのフロント直書きはSupabaseでは一般的だが、テーブル側のRLS（Row Level Security）設定を必ず確認すること
@@ -812,6 +814,7 @@ function switchTab(tab, options = {}) {
   if (tab === 'data') {
     if (typeof updateSyncHealth === 'function') updateSyncHealth();
     if (typeof renderAutoBackupStatus === 'function') renderAutoBackupStatus();
+    if (typeof renderRecoveryCenter === 'function') renderRecoveryCenter();
   }
 }
 document.querySelectorAll('.tab-btn[data-tab],.utility-tab-btn[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -841,6 +844,8 @@ document.addEventListener('keydown', e => {
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
   closeMobileMenu();
 });
+window.addEventListener('online', updateSyncHealth);
+window.addEventListener('offline', updateSyncHealth);
 window.addEventListener('popstate', () => {
   const tab = getInitialTabFromUrl();
   switchTab(tab || 'today', { history: false, remember: true });
@@ -4793,6 +4798,15 @@ qs('#todo-add-btn').addEventListener('click', () => {
   }
   qs('#todo-title-input').removeAttribute('aria-invalid');
 
+  if (state.todoTaskType === 'main' && state.todoDateType !== 'range') {
+    setTodoDateType('range');
+    const picker = qs('#pick-start-date');
+    picker?.setAttribute('aria-invalid', 'true');
+    setTodoFormMessage('メインタスクには開始日と終了日が必要です。期間を設定してください。', true);
+    picker?.focus();
+    return;
+  }
+
   if (state.todoDateType === 'deadline' && !qs('#todo-due-input').value) {
     const picker = qs('#pick-due-date');
     picker?.setAttribute('aria-invalid', 'true');
@@ -4831,6 +4845,8 @@ qs('#todo-add-btn').addEventListener('click', () => {
   const existingTask = isEditing ? manual.find(x => x.id === state.editingTaskId) : null;
   const subject = qs('#todo-subject-input').value.trim();
   const preservedMilestones = existingTask?.milestones || existingTask?.subtasks || [];
+  const existingKey = existingTask ? getTaskKey(normalizeTask(existingTask)) : '';
+  const existingDoneRecord = existingKey ? getTaskDoneRecord(existingKey) : null;
 
   const task = {
     id: isEditing ? state.editingTaskId : 'manual_' + Date.now(),
@@ -4848,6 +4864,10 @@ qs('#todo-add-btn').addEventListener('click', () => {
     createdAt: existingTask?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  if (isEditing && (sourceMarksTaskDone(existingTask) || existingDoneRecord)) {
+    task.completed = true;
+    task.completedAt = existingTask?.completedAt || existingDoneRecord?.completedAt || new Date().toISOString();
+  }
 
   if (state.todoDateType === 'deadline') {
     task.due = qs('#todo-due-input').value || '';
@@ -6000,6 +6020,180 @@ function renderAutoBackupStatus(mode = '') {
 renderAutoBackupStatus();
 setInterval(() => scheduleFullBackup('periodic'), 10 * 60 * 1000);
 
+function recoveryTimeLabel(value) {
+  if (!value) return '未確認';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '未確認';
+  return d.toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+
+function addRecoveryDate(map, date, source) {
+  if (!date) return;
+  if (!map.has(date)) map.set(date, new Set());
+  map.get(date).add(source);
+}
+
+async function getRecoverySnapshot() {
+  const localMeta = LS.get('meta') || {};
+  const health = LS.get('sync_health') || {};
+  const candidates = new Map();
+  Object.entries(localMeta).forEach(([date, data]) => {
+    if (hasLogContent(data)) addRecoveryDate(candidates, date, '端末ログ');
+  });
+
+  let idbKeys = [];
+  try { idbKeys = await IDB.listKeys(); } catch {}
+  const localPhotoDates = new Set();
+  idbKeys.forEach(key => {
+    const date = String(key).match(/_(\d{4}-\d{2}-\d{2})$/)?.[1];
+    if (!date) return;
+    localPhotoDates.add(date);
+    addRecoveryDate(candidates, date, '端末写真');
+  });
+
+  let exifDates = 0;
+  for (const key of idbKeys.filter(k => /^main_\d{4}-\d{2}-\d{2}$/.test(String(k))).slice(0, 80)) {
+    try {
+      const blob = await IDB.get(key);
+      const info = await inferCaptureInfoFromBlob(blob);
+      const date = String(key).match(/_(\d{4}-\d{2}-\d{2})$/)?.[1];
+      if (date && (info?.lens || info?.device)) {
+        exifDates++;
+        addRecoveryDate(candidates, date, 'EXIF');
+      }
+    } catch {}
+  }
+
+  let cloudRows = [];
+  try { cloudRows = await SB.fetchAll() || []; } catch {}
+  cloudRows.forEach(row => addRecoveryDate(candidates, row.date, 'クラウドログ'));
+
+  let storageKeys = [];
+  try { storageKeys = await SB.listPhotoKeys() || []; } catch {}
+  storageKeys.forEach(name => {
+    const date = photoDateFromFileName(name);
+    if (date) addRecoveryDate(candidates, date, 'Storage写真');
+    const metaDate = metaDateFromFileName(name);
+    if (metaDate) addRecoveryDate(candidates, metaDate, 'Storage JSON');
+  });
+
+  let mirroredMeta = null;
+  try { mirroredMeta = await SB.getSetting('photo_log_meta_backup'); } catch {}
+  const mirroredDates = mirroredMeta?.meta && typeof mirroredMeta.meta === 'object'
+    ? Object.keys(mirroredMeta.meta)
+    : [];
+  mirroredDates.forEach(date => addRecoveryDate(candidates, date, 'メタバックアップ'));
+
+  let fullBackup = null;
+  try { fullBackup = await SB.getSetting('full_backup'); } catch {}
+  const fullBackupDateCount = fullBackup?.meta && typeof fullBackup.meta === 'object'
+    ? Object.keys(fullBackup.meta).length
+    : 0;
+
+  return {
+    health,
+    localLogCount: Object.keys(localMeta).filter(date => hasLogContent(localMeta[date])).length,
+    localPhotoCount: localPhotoDates.size,
+    cloudLogCount: cloudRows.filter(row => row.date).length,
+    storageJsonCount: storageKeys.filter(metaDateFromFileName).length,
+    storagePhotoCount: new Set(storageKeys.map(photoDateFromFileName).filter(Boolean)).size,
+    mirroredCount: mirroredDates.length,
+    fullBackupDateCount,
+    exifDates,
+    candidates: [...candidates.entries()]
+      .map(([date, sources]) => ({ date, sources: [...sources] }))
+      .sort((a, b) => b.date.localeCompare(a.date)),
+  };
+}
+
+let recoveryRenderSeq = 0;
+async function renderRecoveryCenter() {
+  const statusGrid = qs('#recovery-status-grid');
+  const sourceGrid = qs('#recovery-source-grid');
+  const list = qs('#recovery-list');
+  if (!statusGrid || !sourceGrid || !list) return;
+  const seq = ++recoveryRenderSeq;
+  statusGrid.innerHTML = '<div class="command-empty">復旧候補を確認中...</div>';
+  sourceGrid.innerHTML = '';
+  list.innerHTML = '';
+  const snapshot = await getRecoverySnapshot();
+  if (seq !== recoveryRenderSeq) return;
+
+  const health = snapshot.health;
+  const offline = navigator.onLine === false;
+  const backupTime = health.lastBackupAt || (state.lastFullBackupAt ? new Date(state.lastFullBackupAt).toISOString() : '');
+  const rows = [
+    ['端末保存', health.lastSaveOk === false ? '同期要確認' : recoveryTimeLabel(health.lastSaveAt)],
+    ['クラウド同期', offline ? 'オフライン' : health.lastLogBackupOk === false ? 'エラー' : recoveryTimeLabel(health.lastLogBackupAt)],
+    ['全体バックアップ', health.lastBackupOk === false ? 'エラー' : recoveryTimeLabel(backupTime)],
+    ['未送信', health.pending ? '保存待ちあり' : '0件'],
+  ];
+  statusGrid.innerHTML = '';
+  rows.forEach(([label, value]) => {
+    const cell = el('div', 'recovery-status-cell');
+    const lab = el('div', 'recovery-status-label');
+    lab.textContent = label;
+    const val = el('div', 'recovery-status-value');
+    val.textContent = value;
+    cell.appendChild(lab);
+    cell.appendChild(val);
+    statusGrid.appendChild(cell);
+  });
+
+  sourceGrid.innerHTML = '';
+  [
+    ['端末ログ', snapshot.localLogCount],
+    ['クラウドログ', snapshot.cloudLogCount],
+    ['Storage JSON', snapshot.storageJsonCount || snapshot.mirroredCount],
+    ['写真 / EXIF', `${snapshot.storagePhotoCount}/${snapshot.exifDates}`],
+  ].forEach(([label, value]) => {
+    const box = el('div', 'recovery-source');
+    const num = el('div', 'recovery-source-num');
+    num.textContent = String(value);
+    const lab = el('div', 'recovery-source-label');
+    lab.textContent = label;
+    box.appendChild(num);
+    box.appendChild(lab);
+    sourceGrid.appendChild(box);
+  });
+
+  list.innerHTML = '';
+  if (!snapshot.candidates.length) {
+    const empty = el('div', 'command-empty');
+    empty.textContent = '復元候補はまだありません。写真ログを保存すると、ここに日付別の候補が表示されます。';
+    list.appendChild(empty);
+    return;
+  }
+  snapshot.candidates.slice(0, 30).forEach(item => {
+    const row = el('div', 'recovery-row');
+    const date = el('div', 'recovery-date');
+    date.textContent = item.date;
+    const tags = el('div', 'recovery-tags');
+    item.sources.forEach(source => {
+      const tag = el('span', 'recovery-tag');
+      tag.textContent = source;
+      tags.appendChild(tag);
+    });
+    const btn = el('button', 'recovery-action');
+    btn.type = 'button';
+    btn.textContent = '復元';
+    btn.addEventListener('click', () => restoreRecoveryDate(item.date));
+    row.appendChild(date);
+    row.appendChild(tags);
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+async function restoreRecoveryDate(date) {
+  const msg = qs('#recovery-msg');
+  if (msg) msg.textContent = `${date} を復元中...`;
+  const result = await restoreFromSupabase({ forcePhotos: false, showMessage: false, refreshLog: true, dates: [date] });
+  if (msg) msg.textContent = `${date} 復元完了: 写真 ${result.restored}件復元 / ${result.skipped}件は既存 / ${result.failed}件未取得`;
+  renderRecoveryCenter();
+  renderTodayRecentPhotos();
+}
+
 qs('#backup-export-btn').addEventListener('click', () => {
   const payload = createFullBackupPayload('export');
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
@@ -6064,6 +6258,28 @@ qs('#backup-cloud-restore-btn').addEventListener('click', async () => {
   }
 });
 
+qs('#recovery-refresh-btn')?.addEventListener('click', async () => {
+  const msg = qs('#recovery-msg');
+  if (msg) msg.textContent = '復旧候補を確認しています...';
+  await renderRecoveryCenter();
+  if (msg) msg.textContent = '復旧候補を更新しました';
+});
+
+qs('#recovery-restore-all-btn')?.addEventListener('click', async () => {
+  const confirmed = await confirmAction({
+    title: '復旧センターから一括復元',
+    body: 'クラウド側のログ、Storage JSON、メタデータバックアップから写真ログを復元します。端末にある写真は維持し、足りない情報だけ補完します。',
+    okText: '一括復元'
+  });
+  if (!confirmed) return;
+  const msg = qs('#recovery-msg');
+  if (msg) msg.textContent = '一括復元中...';
+  const result = await restoreFromSupabase({ forcePhotos: false, showMessage: false, refreshLog: true });
+  if (msg) msg.textContent = `一括復元完了: 写真 ${result.restored}件復元 / ${result.skipped}件は既存 / ${result.failed}件未取得`;
+  renderRecoveryCenter();
+  renderTodayRecentPhotos();
+});
+
 // ── 写真の再同期（ローカルにあってクラウドに無いものを一括送信） ──
 async function resyncPhotos(force) {
   const btn = force ? qs('#force-resync-photos-btn') : qs('#resync-photos-btn');
@@ -6121,8 +6337,19 @@ async function resyncPhotos(force) {
     if (failedKeys.length > 0) result += `<br>失敗: ${failedKeys.join(', ')}`;
     result += `<br>この端末で見つかった日付: ${foundDates.join(', ') || 'なし'}`;
     msg.innerHTML = result;
+    setSyncHealth({
+      lastLogBackupAt: new Date().toISOString(),
+      lastLogBackupOk: failed === 0 && metaFailed === 0,
+      pending: false,
+    });
+    renderRecoveryCenter();
   } catch(e) {
     msg.textContent = 'エラーが発生しました: ' + e.message;
+    setSyncHealth({
+      lastLogBackupAt: new Date().toISOString(),
+      lastLogBackupOk: false,
+      pending: false,
+    });
   }
 
   btn.disabled = false; otherBtn.disabled = false;
@@ -6628,7 +6855,8 @@ async function restoreCloudPhotosForDate(date, remote, force, availablePhotoFile
 }
 
 async function restoreFromSupabase(options = {}) {
-  const { forcePhotos = false, showMessage = false, refreshLog = true } = options;
+  const { forcePhotos = false, showMessage = false, refreshLog = true, dates = null } = options;
+  const targetDateSet = Array.isArray(dates) && dates.length ? new Set(dates) : null;
   const msg = qs('#resync-msg');
   const btn = qs('#restore-cloud-btn');
   const resyncBtn = qs('#resync-photos-btn');
@@ -6678,6 +6906,11 @@ async function restoreFromSupabase(options = {}) {
       };
       const existing = remoteLogsByDate.get(date);
       remoteLogsByDate.set(date, existing ? mergeRemoteIntoLocalLog(existing, normalized).data : normalized);
+    }
+  }
+  if (targetDateSet) {
+    for (const date of [...remoteLogsByDate.keys()]) {
+      if (!targetDateSet.has(date)) remoteLogsByDate.delete(date);
     }
   }
 

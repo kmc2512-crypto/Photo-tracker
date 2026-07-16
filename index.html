@@ -436,6 +436,23 @@ html:not(.light) .detail-pro-img{outline:1px solid rgba(255,255,255,.07)}
 .backup-section .lbl{margin-bottom:12px}
 .backup-btns{display:flex;gap:8px;flex-wrap:wrap}
 .backup-state{background:var(--bg2);border:1px solid var(--border);padding:10px 12px;margin:12px 0 14px;font-size:10px;color:var(--fg4);line-height:1.7;letter-spacing:.04em}
+.recovery-center{border:1px solid var(--border);background:var(--bg2);padding:var(--card-pad);display:grid;gap:14px}
+.recovery-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);background:var(--bg)}
+.recovery-status-cell{min-height:70px;padding:12px;border-right:1px solid var(--border);display:grid;align-content:space-between;gap:8px}
+.recovery-status-cell:last-child{border-right:none}
+.recovery-status-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--fg5);letter-spacing:.12em;text-transform:uppercase}
+.recovery-status-value{font-size:13px;color:var(--fg2);line-height:1.45;font-variant-numeric:tabular-nums}
+.recovery-source-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.recovery-source{border:1px solid var(--border);background:var(--bg);padding:12px;min-height:72px}
+.recovery-source-num{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.recovery-source-label{font-size:10px;color:var(--fg5);letter-spacing:.08em;line-height:1.5;margin-top:4px}
+.recovery-list{display:grid;gap:6px;max-height:260px;overflow:auto;border-top:1px solid var(--border);padding-top:10px}
+.recovery-row{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--border);background:var(--bg);padding:10px 12px;min-height:44px}
+.recovery-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--fg2);font-variant-numeric:tabular-nums}
+.recovery-tags{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.recovery-tag{font-size:9px;color:var(--fg4);border:1px solid var(--border2);padding:3px 6px;letter-spacing:.06em}
+.recovery-action{height:30px;border:1px solid var(--border2);background:transparent;color:var(--fg4);font-family:'DM Mono',monospace;font-size:9px;padding:0 8px}
+.recovery-action:hover{border-color:var(--fg5);color:var(--fg)}
 .runtime-guard{display:none;border:1px solid var(--border);background:var(--bg2);padding:14px 16px;margin-bottom:24px}
 .runtime-guard.show{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .runtime-guard-title{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--fg)}
@@ -1125,6 +1142,10 @@ input[type=time]{display:none}
   .task-actions{justify-content:flex-start}
   .backup-btns{flex-direction:column}
   .backup-btns .save-btn,.backup-btns .ghost-btn{width:100%;justify-content:center}
+  .recovery-status-grid,.recovery-source-grid{grid-template-columns:1fr 1fr}
+  .recovery-status-cell:nth-child(2n){border-right:none}
+  .recovery-row{grid-template-columns:1fr;gap:8px}
+  .recovery-action{width:100%;height:40px}
 }
 @media (max-width: 380px) {
   :root{--page-pad-x:12px}
@@ -1480,6 +1501,25 @@ input[type=time]{display:none}
       <p>SYNC / NOTIFICATION</p>
     </div>
     <div class="settings-grid">
+      <section class="settings-card">
+        <div class="settings-card-head">
+          <div>
+            <div class="settings-card-title">復旧センター</div>
+            <div class="settings-card-sub">端末保存・クラウド同期・全体バックアップの状態と、日付別の復元候補を確認します。必要な日付だけワンタップで復元できます。</div>
+          </div>
+          <div class="settings-actions">
+            <button class="save-btn" id="recovery-refresh-btn">確認</button>
+            <button class="ghost-btn" id="recovery-restore-all-btn">一括復元</button>
+          </div>
+        </div>
+        <div class="recovery-center">
+          <div class="recovery-status-grid" id="recovery-status-grid" aria-live="polite"></div>
+          <div class="recovery-source-grid" id="recovery-source-grid"></div>
+          <div class="recovery-list" id="recovery-list"></div>
+        </div>
+        <p id="recovery-msg" aria-live="polite" style="font-size:10px;color:var(--fg5);margin-top:10px;letter-spacing:.05em"></p>
+      </section>
+
       <section class="settings-card">
         <div class="settings-card-head">
           <div>
