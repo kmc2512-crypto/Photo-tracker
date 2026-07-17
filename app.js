@@ -76,7 +76,7 @@ const LS = {
 };
 
 window.PTR_BACKUP_KEYS = new Set([
-  'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','task_overrides','external_tasks_completed','script_url',
+  'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','task_overrides','external_tasks_completed','script_url','gas_auto_sync_state',
   'clips','clips_deleted','timer_log_today','todo_done_log','inbox_items','notif','notif_leads','auth_session'
 ]);
 
@@ -670,6 +670,8 @@ const state = {
   logView: 'list',
   logSyncPromise: null,
   lastLogSyncAt: 0,
+  gasSyncTimer: null,
+  gasSyncInFlight: false,
   logRenderId: 0,
   logQuery: '',
   logDateFilter: '',
@@ -774,12 +776,13 @@ function switchTab(tab, options = {}) {
       b.setAttribute('aria-selected', isActive ? 'true' : 'false');
     }
   });
-  const utilityTabs = new Set(['todo','learn','timer','clip','settings','data','widget']);
+  const utilityTabs = new Set(['learn','timer','clip','settings','data','widget']);
+  const mobileMenuTabs = new Set(['todo','learn','timer','clip','settings','data','widget']);
   qs('#nav-more-btn')?.classList.toggle('active', utilityTabs.has(tab));
   qs('#nav-more-menu')?.classList.add('hidden');
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
   closeMobileMenu();
-  qs('#mobile-menu-btn')?.classList.toggle('active', utilityTabs.has(tab));
+  qs('#mobile-menu-btn')?.classList.toggle('active', mobileMenuTabs.has(tab));
   document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-widget,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
   if (!panel) return;
@@ -1452,7 +1455,7 @@ function renderTodayRecentPhotos() {
   const links = el('div', 'command-links');
   addCommandLink(links, '写真ログを見る', () => switchTab('log'));
   addCommandLink(links, '学習を見る', () => switchTab('learn'));
-  addCommandLink(links, '制作タスク', () => switchTab('todo'));
+  addCommandLink(links, 'Todo', () => switchTab('todo'));
   wrap.appendChild(links);
 }
 
@@ -1507,7 +1510,7 @@ function renderCommandCenter() {
   const head = el('div', 'command-center-head');
   const headText = el('div');
   const title = el('div', 'command-center-title');
-  title.textContent = '制作タスク Command Center';
+  title.textContent = 'Todo Command Center';
   const sub = el('div', 'command-center-sub');
   sub.textContent = '今すぐ見るべき3件、次の作業ステップ、締め切りと未整理メモをまとめます。写真記録とは分けて、制作と課題の処理に集中できます。';
   const date = el('div', 'command-center-date');
@@ -2097,7 +2100,10 @@ function scheduleTaskNotifications() {
 initNotifLeadControls();
 setInterval(scheduleTaskNotifications, 60000);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) scheduleTaskNotifications();
+  if (!document.hidden) {
+    scheduleTaskNotifications();
+    runGasAutoSync('visible');
+  }
 });
 qs('#notif-allow-btn').addEventListener('click', requestNotifPermission);
 qs('#notif-test-btn').addEventListener('click', async () => {
@@ -3151,7 +3157,7 @@ function renderTodoWorkSummary(allTasks) {
   const copy = el('div', 'todo-focus-copy');
 
   if (!allTasks.length) {
-    title.textContent = '最初の制作タスクを追加しましょう';
+    title.textContent = '最初のTodoを追加しましょう';
     copy.textContent = 'タスク名と締め切りを入れると、リスト・Deadline Timeline・スマホカードに同じ予定が反映されます。';
   } else if (next) {
     const { task, days } = next;
@@ -5077,12 +5083,24 @@ qs('#cloud-safety-btn')?.addEventListener('click', async () => {
   }
 });
 
-async function syncTodoTasks(url) {
+async function syncTodoTasks(url, options = {}) {
+  const silent = options.silent === true;
   const target = url || state.scriptUrl;
-  if (!target) { qs('#todo-error-msg').textContent='GAS連携URLを設定してください'; qs('#todo-error').classList.remove('hidden'); return; }
-  qs('#todo-sync-btn').textContent = '...';
-  qs('#todo-sync-btn').disabled = true;
-  qs('#todo-error').classList.add('hidden');
+  const syncBtn = qs('#todo-sync-btn');
+  const errorBox = qs('#todo-error');
+  const errorMsg = qs('#todo-error-msg');
+  if (!target) {
+    if (!silent) {
+      errorMsg.textContent='GAS連携URLを設定してください';
+      errorBox.classList.remove('hidden');
+    }
+    return false;
+  }
+  if (!silent && syncBtn) {
+    syncBtn.textContent = '...';
+    syncBtn.disabled = true;
+  }
+  if (!silent) errorBox?.classList.add('hidden');
   try {
     const res = await fetch(target, {redirect:'follow'});
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -5094,16 +5112,83 @@ async function syncTodoTasks(url) {
     LS.set('tasks_cache', cachePayload);
     // ★ GAS由来のタスクもSupabaseにキャッシュ保存（他端末がSYNCしなくても見えるように）
     SB.setSetting('gas_tasks_cache', cachePayload);
-    renderTodo();
+    if (state.tab === 'todo') renderTodo();
+    if (state.tab === 'widget') renderTodoWidget();
     setSyncHealth({ lastTodoSyncAt: new Date().toISOString(), lastTodoSyncOk: true });
     if (LS.get('notif') === 'granted') scheduleTaskNotifications();
+    LS.set('gas_auto_sync_state', {
+      lastRunAt: new Date().toISOString(),
+      lastOk: true,
+      reason: options.reason || (silent ? 'auto' : 'manual'),
+      count: state.tasks.length,
+    });
+    return true;
   } catch(e) {
-    qs('#todo-error-msg').textContent = 'Googleタスクの取得に失敗しました。GAS URLと公開設定を確認してください。';
+    if (!silent) {
+      errorMsg.textContent = 'Googleタスクの取得に失敗しました。GAS URLと公開設定を確認してください。';
+      errorBox.classList.remove('hidden');
+    }
     setSyncHealth({ lastTodoSyncAt: new Date().toISOString(), lastTodoSyncOk: false });
-    qs('#todo-error').classList.remove('hidden');
+    LS.set('gas_auto_sync_state', {
+      lastRunAt: new Date().toISOString(),
+      lastOk: false,
+      reason: options.reason || (silent ? 'auto' : 'manual'),
+      error: String(e?.message || e || 'unknown'),
+    });
+    return false;
+  } finally {
+    if (!silent && syncBtn) {
+      syncBtn.textContent = 'SYNC';
+      syncBtn.disabled = false;
+    }
   }
-  qs('#todo-sync-btn').textContent = 'SYNC';
-  qs('#todo-sync-btn').disabled = false;
+}
+
+const GAS_AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+
+function getGasAutoSyncState() {
+  const value = LS.get('gas_auto_sync_state') || {};
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+async function resolveGasScriptUrl() {
+  if (state.scriptUrl) return state.scriptUrl;
+  if (typeof SB === 'undefined' || typeof SB.getSetting !== 'function') return '';
+  const remoteUrl = await SB.getSetting('script_url');
+  if (typeof remoteUrl === 'string' && remoteUrl) {
+    state.scriptUrl = remoteUrl;
+    LS.set('script_url', remoteUrl);
+    return remoteUrl;
+  }
+  return '';
+}
+
+async function runGasAutoSync(reason = 'auto', options = {}) {
+  const force = options.force === true;
+  if (state.gasSyncInFlight) return false;
+  const target = await resolveGasScriptUrl();
+  if (!target) return false;
+
+  const last = getGasAutoSyncState();
+  const lastRunAt = Date.parse(last.lastRunAt || '');
+  const syncDue = !Number.isFinite(lastRunAt) || Date.now() - lastRunAt >= GAS_AUTO_SYNC_INTERVAL_MS;
+  if (!force && !syncDue) return false;
+
+  state.gasSyncInFlight = true;
+  setSyncHealth({ pending: true });
+  try {
+    return await syncTodoTasks(target, { silent: true, reason });
+  } finally {
+    state.gasSyncInFlight = false;
+    setSyncHealth({ pending: false });
+  }
+}
+
+function startGasAutoSync() {
+  if (state.gasSyncTimer) clearInterval(state.gasSyncTimer);
+  state.gasSyncTimer = setInterval(() => {
+    runGasAutoSync('hourly');
+  }, GAS_AUTO_SYNC_INTERVAL_MS);
 }
 
 // ══════════════════════════════════════════════
@@ -7122,16 +7207,18 @@ async function syncSettingsFromSupabase() {
 
   // GAS連携URL: リモートにあればローカルより優先（リモートが正の場合のみ上書き）
   const remoteUrl = await SB.getSetting('script_url');
+  let gasUrlChanged = false;
   if (typeof remoteUrl === 'string' && remoteUrl) {
-    if (remoteUrl !== state.scriptUrl) {
+    gasUrlChanged = remoteUrl !== state.scriptUrl;
+    if (gasUrlChanged) {
       state.scriptUrl = remoteUrl;
       LS.set('script_url', remoteUrl);
-      syncTodoTasks(remoteUrl);
     }
   } else if (state.scriptUrl) {
     // ローカルにあるがリモートにない → リモートへ反映
     SB.setSetting('script_url', state.scriptUrl);
   }
+  if (state.scriptUrl) runGasAutoSync(gasUrlChanged ? 'url-updated' : 'settings-sync');
 
   // 手動タスク: tombstone（削除済みID一覧）を考慮した正しいマージ
   // 1. リモートのタスクから「ローカルで削除済み」のものを除外
@@ -7210,7 +7297,8 @@ initPickers();
 initTodayData().then(() => {
   ensureCloudLogsFresh(true);
   syncTodayPhotosFromSupabase();
-  syncSettingsFromSupabase();
+  syncSettingsFromSupabase().then(() => runGasAutoSync('startup'));
+  startGasAutoSync();
   renderTodayRecentPhotos();
   renderCommandCenter();
 });

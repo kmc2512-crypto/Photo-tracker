@@ -1168,11 +1168,11 @@ input[type=time]{display:none}
   <div class="nav-tabs" role="tablist" aria-label="メインタブ">
     <button class="tab-btn active" data-tab="today" role="tab" id="tab-btn-today" aria-selected="true" aria-controls="tab-today">今日</button>
     <button class="tab-btn" data-tab="log" role="tab" id="tab-btn-log" aria-selected="false" aria-controls="tab-log">写真ログ</button>
+    <button class="tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">Todo</button>
     <button class="tab-btn" data-tab="plan" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-plan">成長プラン</button>
     <div class="nav-more-wrap">
       <button class="tab-btn nav-more-btn" id="nav-more-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-more-menu">その他</button>
       <div class="nav-more-menu hidden" id="nav-more-menu">
-        <button class="utility-tab-btn" data-tab="todo" role="tab" id="tab-btn-todo" aria-selected="false" aria-controls="tab-todo">制作タスク</button>
         <button class="utility-tab-btn" data-tab="learn" role="tab" id="tab-btn-learn" aria-selected="false" aria-controls="tab-learn">学習</button>
         <button class="utility-tab-btn" data-tab="timer" role="tab" id="tab-btn-timer" aria-selected="false" aria-controls="tab-timer">タイマー</button>
         <button class="utility-tab-btn" data-tab="clip" role="tab" id="tab-btn-clip" aria-selected="false" aria-controls="tab-clip">クリップ</button>
@@ -1194,7 +1194,7 @@ input[type=time]{display:none}
   <button class="tab-btn" id="mobile-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mobile-menu-sheet" aria-label="メニューを開く">メニュー</button>
 </nav>
 <div class="mobile-menu-sheet hidden" id="mobile-menu-sheet" role="menu" aria-label="その他メニュー">
-  <button class="utility-tab-btn" data-tab="todo" type="button" role="menuitem">制作タスク</button>
+  <button class="utility-tab-btn" data-tab="todo" type="button" role="menuitem">Todo</button>
   <button class="utility-tab-btn" data-tab="learn" type="button" role="menuitem">学習</button>
   <button class="utility-tab-btn" data-tab="timer" type="button" role="menuitem">タイマー</button>
   <button class="utility-tab-btn" data-tab="clip" type="button" role="menuitem">クリップ</button>
@@ -1312,13 +1312,13 @@ input[type=time]{display:none}
   <div id="tab-todo" class="hidden" role="tabpanel" aria-labelledby="tab-btn-todo" tabindex="0">
     <div class="todo-header">
       <div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">制作タスク</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">Todo</div>
         <div style="font-size:10px;color:var(--fg5);letter-spacing:.15em;margin-top:6px" id="todo-count" aria-live="polite">0 TASKS</div>
         <div class="todo-subtitle">撮影・制作・課題の締切、期間、完了状態をまとめて確認します。追加したタスクはリストとDeadline Timelineに反映されます。</div>
       </div>
     </div>
     <section id="quick-capture-slot" aria-label="Quick Capture"></section>
-    <section class="command-center" id="command-center" aria-label="制作タスク Command Center"></section>
+    <section class="command-center" id="command-center" aria-label="Todo Command Center"></section>
     <section class="todo-work-summary" id="todo-work-summary" aria-label="今日のTodo概要"></section>
     <!-- 手動追加フォーム -->
     <div class="todo-add-form">
