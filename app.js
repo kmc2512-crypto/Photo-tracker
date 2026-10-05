@@ -65,12 +65,14 @@ const IDB = (() => {
   };
 })();
 
+let applyingCloudSnapshot = false;
+
 const LS = {
   get: k => { try { const v = localStorage.getItem('ptr_' + k); return v ? JSON.parse(v) : null; } catch { return null; } },
   set: (k, v) => {
     try {
       localStorage.setItem('ptr_' + k, JSON.stringify(v));
-      if (window.PTR_BACKUP_KEYS?.has(k) && typeof scheduleFullBackup === 'function') scheduleFullBackup('local-' + k);
+      if (!applyingCloudSnapshot && window.PTR_BACKUP_KEYS?.has(k) && typeof scheduleFullBackup === 'function') scheduleFullBackup('local-' + k);
     } catch {}
   }
 };
@@ -281,16 +283,10 @@ async function restoreFromEmailAccount() {
     setAccountMessage('復元するには、先にメールアカウントでログインしてください。', true);
     return;
   }
-  setAccountMessage('メールアカウントのバックアップを確認しています...');
-  const data = await SB.getSetting('full_backup');
-  try {
-    if (!data) throw new Error('このメールアカウントのバックアップがまだありません');
-    applyFullBackupPayload(data);
-    setAccountMessage('メールアカウントから復元しました。ページを再読み込みします...');
-    setTimeout(() => location.reload(), 1200);
-  } catch(err) {
-    setAccountMessage('エラー: ' + err.message, true);
-  }
+  setAccountMessage('メールアカウントのデータとこの端末のデータを統合しています...');
+  const ok = await syncFullBackupAcrossDevices({ reason: 'email-account-sync' });
+  setAccountMessage(ok ? 'メールアカウントと同期しました。画面を更新します...' : 'メールアカウントとの同期に失敗しました。端末内のデータは残っています。', !ok);
+  if (ok) setTimeout(() => location.reload(), 900);
 }
 
 async function logoutEmailAccount() {
@@ -370,9 +366,10 @@ async function saveSyncKeyFromInput() {
   LS.set(SYNC_KEY_STORAGE_KEY, info);
   if (input) input.value = '';
   updateAccountStatus();
-  setAccountMessage('同期キーを設定しました。現在の端末データをこのキーに保存しています...');
-  const ok = await writeFullBackupToCloud('sync-key-save');
-  setAccountMessage(ok ? '同期キーに現在のデータを保存しました。別端末では同じキーを入れて「復元」を押してください。' : '同期キーは設定しましたが、クラウド保存に失敗しました。ネットワークやSupabase設定を確認してください。', !ok);
+  setAccountMessage('同期キーへ接続し、他の端末のデータと安全に統合しています...');
+  const ok = await syncFullBackupAcrossDevices({ reason: 'sync-key-connect' });
+  setAccountMessage(ok ? '接続しました。PCとスマホのデータを統合しました。画面を更新します...' : '同期キーは設定しましたが、クラウド接続に失敗しました。端末内のデータは残っています。', !ok);
+  if (ok) setTimeout(() => location.reload(), 900);
 }
 
 async function restoreFromSyncKey() {
@@ -384,21 +381,15 @@ async function restoreFromSyncKey() {
   }
   const sync = getSyncKeyInfo();
   if (!sync?.id) {
-    setAccountMessage('復元するには、先に同期キーを入力してください。', true);
+    setAccountMessage('同期するには、先に同期キーを入力してください。', true);
     input?.focus();
     return;
   }
   updateAccountStatus();
-  setAccountMessage('同期キーのバックアップを確認しています...');
-  const data = await SB.getSetting('full_backup');
-  try {
-    if (!data) throw new Error('この同期キーのバックアップがまだありません');
-    applyFullBackupPayload(data);
-    setAccountMessage('同期キーから復元しました。ページを再読み込みします...');
-    setTimeout(() => location.reload(), 1200);
-  } catch(err) {
-    setAccountMessage('エラー: ' + err.message, true);
-  }
+  setAccountMessage('PCとスマホの最新データを確認しています...');
+  const ok = await syncFullBackupAcrossDevices({ reason: 'manual-device-sync' });
+  setAccountMessage(ok ? '同期しました。両方の端末データを統合して画面を更新します...' : '同期できませんでした。通信状態を確認して、もう一度お試しください。', !ok);
+  if (ok) setTimeout(() => location.reload(), 900);
 }
 
 function clearSyncKey() {
@@ -857,7 +848,7 @@ qs('#sync-key-save-btn')?.addEventListener('click', saveSyncKeyFromInput);
 qs('#sync-key-restore-btn')?.addEventListener('click', restoreFromSyncKey);
 qs('#sync-key-clear-btn')?.addEventListener('click', clearSyncKey);
 qs('#sync-key-input')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') saveSyncKeyFromInput();
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) saveSyncKeyFromInput();
 });
 qs('#email-login-btn')?.addEventListener('click', signInWithEmail);
 qs('#email-signup-btn')?.addEventListener('click', signUpWithEmail);
@@ -865,7 +856,7 @@ qs('#email-account-save-btn')?.addEventListener('click', saveCurrentDataToEmailA
 qs('#email-account-restore-btn')?.addEventListener('click', restoreFromEmailAccount);
 qs('#email-logout-btn')?.addEventListener('click', logoutEmailAccount);
 qs('#email-password-input')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') signInWithEmail();
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) signInWithEmail();
 });
 qs('#widget-list-btn')?.addEventListener('click', () => {
   state.widgetView = 'list';
@@ -5712,6 +5703,7 @@ function persistTodayDraft(scheduleRemote) {
     mainPhoto,
     proPhotos,
     proMemos,
+    updatedAt: new Date().toISOString(),
   };
   LS.set('meta', meta);
   renderProgressBanner();
@@ -5766,6 +5758,7 @@ qs('#save-btn').addEventListener('click', async () => {
     mainPhoto: snapshotMainPhoto,
     proPhotos: snapshotProPhotos,
     proMemos: snapshotProMemos,
+    updatedAt: new Date().toISOString(),
   };
   meta[snapshotToday] = dayData;
   LS.set('meta', meta);
@@ -6049,33 +6042,150 @@ function createFullBackupPayload(reason = 'manual') {
   };
 }
 
+function mergeRecordMapByUpdatedAt(remoteMap = {}, localMap = {}) {
+  const merged = {};
+  const keys = new Set([...Object.keys(remoteMap || {}), ...Object.keys(localMap || {})]);
+  keys.forEach(key => {
+    const remote = remoteMap?.[key];
+    const local = localMap?.[key];
+    if (remote == null) { merged[key] = local; return; }
+    if (local == null) { merged[key] = remote; return; }
+    const remoteTime = Date.parse(remote?.updatedAt || remote?.savedAt || '');
+    const localTime = Date.parse(local?.updatedAt || local?.savedAt || '');
+    if (Number.isFinite(remoteTime) || Number.isFinite(localTime)) {
+      merged[key] = (Number.isFinite(localTime) ? localTime : 0) > (Number.isFinite(remoteTime) ? remoteTime : 0) ? local : remote;
+      return;
+    }
+    // 旧データには更新時刻がないため、2台目の空データで既存クラウド値を消さない。
+    merged[key] = remote;
+  });
+  return merged;
+}
+
+function mergeItemsById(remoteItems = [], localItems = [], deletedIds = []) {
+  const deleted = new Set(deletedIds || []);
+  const merged = new Map();
+  [...(remoteItems || []), ...(localItems || [])].forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    const id = String(item.id || `legacy_${index}_${item.createdAt || ''}`);
+    if (deleted.has(id)) return;
+    const current = merged.get(id);
+    const currentTime = Date.parse(current?.updatedAt || current?.createdAt || '') || Number(current?.updatedAt || current?.createdAt) || 0;
+    const nextTime = Date.parse(item.updatedAt || item.createdAt || '') || Number(item.updatedAt || item.createdAt) || 0;
+    if (!current || nextTime >= currentTime) merged.set(id, item);
+  });
+  return [...merged.values()];
+}
+
+function mergeLogEntries(remoteItems = [], localItems = []) {
+  const seen = new Set();
+  return [...(remoteItems || []), ...(localItems || [])].filter(item => {
+    const key = item?.id || JSON.stringify(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(-500);
+}
+
+function mergeFullBackupPayload(remoteData, localData) {
+  if (!remoteData) return localData;
+  if (!localData) return remoteData;
+  const deletedTaskIds = [...new Set([...(remoteData.manualTasksDeleted || []), ...(localData.manualTasksDeleted || [])])].slice(-500);
+  const deletedClipIds = [...new Set([...(remoteData.clipsDeleted || []), ...(localData.clipsDeleted || [])])].slice(-500);
+  return {
+    ...remoteData,
+    ...localData,
+    version: Math.max(Number(remoteData.version || 0), Number(localData.version || 0), 3),
+    reason: 'cross-device-merge',
+    exportedAt: new Date().toISOString(),
+    meta: mergeRecordMapByUpdatedAt(remoteData.meta, localData.meta),
+    checks: { ...(remoteData.checks || {}), ...(localData.checks || {}) },
+    tasksDone: mergeTaskDoneMaps(remoteData.tasksDone, localData.tasksDone),
+    manualTasksDeleted: deletedTaskIds,
+    manualTasks: mergeTaskListsById(remoteData.manualTasks, localData.manualTasks, deletedTaskIds),
+    taskOverrides: mergeTaskOverrideMaps(remoteData.taskOverrides, localData.taskOverrides),
+    externalTasksCompleted: [...new Set([...(remoteData.externalTasksCompleted || []), ...(localData.externalTasksCompleted || [])])].slice(-500),
+    scriptUrl: remoteData.scriptUrl || localData.scriptUrl || '',
+    clipsDeleted: deletedClipIds,
+    clips: mergeItemsById(remoteData.clips, localData.clips, deletedClipIds),
+    timerLogToday: mergeLogEntries(remoteData.timerLogToday, localData.timerLogToday),
+    todoDoneLog: mergeLogEntries(remoteData.todoDoneLog, localData.todoDoneLog),
+    inboxItems: mergeItemsById(remoteData.inboxItems, localData.inboxItems).slice(-200),
+    notif: localData.notif || remoteData.notif || '',
+    notifLeads: Array.isArray(localData.notifLeads) && localData.notifLeads.length ? localData.notifLeads : remoteData.notifLeads,
+    syncKey: localData.syncKey || remoteData.syncKey || null,
+    syncHealth: localData.syncHealth || {},
+    learnData: { ...(remoteData.learnData || {}), ...(localData.learnData || {}) },
+  };
+}
+
 function applyFullBackupPayload(data) {
   if (!data || !data.meta) throw new Error('無効なバックアップファイルです');
-  LS.set('meta', data.meta || {});
-  if (data.checks) LS.set('checks', data.checks);
-  if (data.tasksDone) LS.set('tasks_done', data.tasksDone);
-  if (data.manualTasks) LS.set('manual_tasks', data.manualTasks);
-  if (data.manualTasksDeleted) LS.set('manual_tasks_deleted', data.manualTasksDeleted);
-  if (data.taskOverrides) LS.set('task_overrides', data.taskOverrides);
-  if (data.externalTasksCompleted) LS.set('external_tasks_completed', data.externalTasksCompleted);
-  if (data.scriptUrl !== undefined) LS.set('script_url', data.scriptUrl);
-  if (data.clips) LS.set('clips', data.clips);
-  if (data.clipsDeleted) LS.set('clips_deleted', data.clipsDeleted);
-  if (data.timerLogToday) LS.set('timer_log_today', data.timerLogToday);
-  if (data.todoDoneLog) LS.set('todo_done_log', data.todoDoneLog);
-  if (data.inboxItems) LS.set('inbox_items', data.inboxItems);
-  if (data.notif) LS.set('notif', data.notif);
-  if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
-  if (data.syncKey?.id) LS.set(SYNC_KEY_STORAGE_KEY, data.syncKey);
-  if (data.syncHealth) LS.set('sync_health', data.syncHealth);
-  if (data.learnData) Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
+  applyingCloudSnapshot = true;
+  try {
+    LS.set('meta', data.meta || {});
+    if (data.checks) LS.set('checks', data.checks);
+    if (data.tasksDone) LS.set('tasks_done', data.tasksDone);
+    if (data.manualTasks) LS.set('manual_tasks', data.manualTasks);
+    if (data.manualTasksDeleted) LS.set('manual_tasks_deleted', data.manualTasksDeleted);
+    if (data.taskOverrides) LS.set('task_overrides', data.taskOverrides);
+    if (data.externalTasksCompleted) LS.set('external_tasks_completed', data.externalTasksCompleted);
+    if (data.scriptUrl !== undefined) LS.set('script_url', data.scriptUrl);
+    if (data.clips) LS.set('clips', data.clips);
+    if (data.clipsDeleted) LS.set('clips_deleted', data.clipsDeleted);
+    if (data.timerLogToday) LS.set('timer_log_today', data.timerLogToday);
+    if (data.todoDoneLog) LS.set('todo_done_log', data.todoDoneLog);
+    if (data.inboxItems) LS.set('inbox_items', data.inboxItems);
+    if (data.notif) LS.set('notif', data.notif);
+    if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
+    if (data.syncKey?.id) LS.set(SYNC_KEY_STORAGE_KEY, data.syncKey);
+    if (data.learnData) Object.entries(data.learnData).forEach(([k, v]) => LS.set(k, v));
+  } finally {
+    applyingCloudSnapshot = false;
+  }
+}
+
+let fullBackupSyncPromise = null;
+
+async function syncFullBackupAcrossDevices(options = {}) {
+  if (!getAuthScopeId() && !getSyncScopeId()) return false;
+  if (fullBackupSyncPromise) return fullBackupSyncPromise;
+  fullBackupSyncPromise = (async () => {
+    try {
+      const localData = createFullBackupPayload(options.reason || 'cross-device-sync');
+      const remoteData = await SB.getSetting('full_backup');
+      const merged = mergeFullBackupPayload(remoteData, localData);
+      const ok = await SB.setSetting('full_backup', merged);
+      if (!ok) throw new Error('クラウドへの保存に失敗しました');
+      applyFullBackupPayload(merged);
+      state.lastFullBackupAt = Date.now();
+      setSyncHealth({
+        pending: false,
+        lastBackupAt: new Date().toISOString(),
+        lastBackupOk: true,
+        lastCloudCheckAt: new Date().toISOString(),
+        lastCloudCheckOk: true,
+      });
+      renderAutoBackupStatus('ok');
+      return true;
+    } catch (error) {
+      console.warn('[cross-device-sync] failed', error);
+      setSyncHealth({ pending: false, lastBackupOk: false, lastCloudCheckOk: false });
+      renderAutoBackupStatus('failed');
+      return false;
+    } finally {
+      fullBackupSyncPromise = null;
+    }
+  })();
+  return fullBackupSyncPromise;
 }
 
 async function writeFullBackupToCloud(reason = 'manual') {
+  if (getAuthScopeId() || getSyncScopeId()) return syncFullBackupAcrossDevices({ reason });
   const payload = createFullBackupPayload(reason);
   const ok = await SB.setSetting('full_backup', payload);
   if (ok) state.lastFullBackupAt = Date.now();
-  setSyncHealth({ lastBackupAt: new Date().toISOString(), lastBackupOk: ok });
+  setSyncHealth({ lastBackupAt: new Date().toISOString(), lastBackupOk: ok, pending: false });
   renderAutoBackupStatus(ok ? 'ok' : 'failed');
   return ok;
 }
@@ -6104,6 +6214,26 @@ function renderAutoBackupStatus(mode = '') {
 
 renderAutoBackupStatus();
 setInterval(() => scheduleFullBackup('periodic'), 10 * 60 * 1000);
+
+function refreshCrossDeviceData(reason) {
+  if (document.visibilityState === 'hidden' || navigator.onLine === false) return;
+  syncFullBackupAcrossDevices({ reason }).then(ok => {
+    if (!ok) return;
+    state.tasksDone = LS.get('tasks_done') || {};
+    state.scriptUrl = LS.get('script_url') || '';
+    if (state.tab === 'todo') { renderCommandCenter(); renderTodo(); }
+    if (state.tab === 'widget') renderTodoWidget();
+    if (state.tab === 'clip') renderClip();
+    if (state.tab === 'log') renderLog();
+    renderProgressBanner();
+  });
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshCrossDeviceData('app-resume');
+});
+window.addEventListener('online', () => refreshCrossDeviceData('back-online'));
+setInterval(() => refreshCrossDeviceData('foreground-poll'), 2 * 60 * 1000);
 
 function recoveryTimeLabel(value) {
   if (!value) return '未確認';

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'photo-tracker-shell-v5';
+const CACHE_NAME = 'photo-tracker-shell-v6';
 const SHELL_ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', event => {
