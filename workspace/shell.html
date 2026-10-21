@@ -1,0 +1,25 @@
+<nav class="embedded-nav" aria-label="Todoの表示"><a href="#today" data-route="today">今日の行動</a><a href="#inbox" data-route="inbox">Inbox</a><a href="#tasks" data-route="tasks">一覧</a><a href="#projects" data-route="projects">プロジェクト</a><a href="#plan" data-route="plan">計画</a><a href="#review" data-route="review">週次レビュー</a></nav>
+  <a class="skip" href="#main">本文へ移動</a>
+  <aside class="sidebar">
+    <a class="brand" href="#today"><span class="brand-symbol" aria-hidden="true">W<span>·</span></span><span>WORK DESK<small>PERSONAL WORKSPACE</small></span></a>
+    <div class="workspace-label">ワークスペース <span>TODO</span></div>
+    <nav class="side-nav" aria-label="メインナビゲーション">
+      <a href="#today" data-route="today"><span class="nav-symbol" aria-hidden="true">◷</span>今日<span class="nav-count" data-count="today"></span></a>
+      <a href="#inbox" data-route="inbox"><span class="nav-symbol" aria-hidden="true">↓</span>Inbox<span class="nav-count" data-count="inbox"></span></a>
+      <a href="#tasks" data-route="tasks"><span class="nav-symbol" aria-hidden="true">☷</span>タスク一覧</a>
+      <a href="#projects" data-route="projects"><span class="nav-symbol" aria-hidden="true">▣</span>プロジェクト</a>
+      <a href="#plan" data-route="plan"><span class="nav-symbol" aria-hidden="true">▥</span>計画</a>
+      <a href="#review" data-route="review"><span class="nav-symbol" aria-hidden="true">↺</span>週次レビュー</a>
+    </nav>
+    <div class="sidebar-foot"><p><span class="status-dot"></span><span id="saveStatus" role="status">端末に保存済み</span></p><button type="button" class="text-button" id="backupButton">バックアップ</button><button type="button" class="text-button" id="themeButton">ライトモード</button><small>Photo-tracker / Todo</small></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div class="breadcrumb">WORKSPACE <span>/</span> <strong id="breadcrumb">今日</strong></div><div class="top-actions"><span class="prototype-tag">TODO LAB</span><button class="button small" type="button" data-action="new-task">＋ タスク</button></div></header>
+    <section id="main" aria-label="Todoコンテンツ" tabindex="-1"></section>
+  </div>
+  <nav class="bottom-nav" aria-label="モバイルナビゲーション"><a href="#today" data-route="today">今日</a><a href="#inbox" data-route="inbox">Inbox</a><a href="#tasks" data-route="tasks">タスク</a><a href="#projects" data-route="projects">制作・課題</a><a href="#plan" data-route="plan">計画</a></nav>
+  <dialog id="editor" aria-labelledby="editorTitle"><div id="editorContent"></div></dialog>
+  <dialog id="projectDetail" class="wide-dialog" aria-labelledby="detailTitle"><div id="detailContent"></div></dialog>
+  <dialog id="backupDialog" aria-labelledby="backupTitle"><div class="dialog-content"><div class="dialog-heading"><h2 id="backupTitle">バックアップ</h2><button class="icon-button" type="button" data-action="close" aria-label="閉じる">×</button></div><p class="secondary">写真ログの文字情報とTodoをJSONで保存します。写真本体は含みません。読み込みはTodoのみを統合し、写真・同期キー・アカウント設定は変更しません。</p><div class="backup-actions"><button type="button" class="button primary" id="exportButton">JSONを書き出す</button><button type="button" class="button" id="importButton">JSONを読み込む</button><input type="file" id="importFile" accept="application/json" hidden></div><p class="form-message" id="importMessage" role="status"></p></div></dialog>
+  <dialog id="confirmDialog" class="compact-dialog" aria-labelledby="confirmTitle"><form method="dialog" class="dialog-content"><h2 id="confirmTitle">タスクを削除しますか？</h2><p id="confirmText" class="secondary"></p><div class="dialog-footer"><button class="button" value="cancel" autofocus>キャンセル</button><button class="button danger" value="confirm">削除する</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>

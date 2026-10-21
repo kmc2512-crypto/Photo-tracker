@@ -77,7 +77,7 @@ const LS = {
 
 window.PTR_BACKUP_KEYS = new Set([
   'meta','checks','tasks_done','manual_tasks','manual_tasks_deleted','task_overrides','external_tasks_completed','script_url','gas_auto_sync_state',
-  'clips','clips_deleted','timer_log_today','todo_done_log','inbox_items','notif','notif_leads','auth_session'
+  'clips','clips_deleted','timer_log_today','todo_done_log','inbox_items','notif','notif_leads','auth_session','todo_workspace'
 ]);
 
 function setSyncHealth(patch) {
@@ -89,7 +89,7 @@ function setSyncHealth(patch) {
 function updateSyncHealth() {
   const health = LS.get('sync_health') || {};
   const origin = location.protocol === 'file:' ? 'FILE' : (location.hostname.includes('github.io') ? 'GITHUB PAGES' : 'LOCALHOST');
-  const hasWarning = health.lastSaveOk === false || health.lastLogBackupOk === false || health.lastCloudCheckOk === false || health.lastTodoSyncOk === false;
+  const hasWarning = health.lastSaveOk === false || health.lastLogBackupOk === false || health.lastCloudCheckOk === false || health.lastTodoSyncOk === false || health.workspaceSyncOk === false;
   const offline = navigator.onLine === false;
   const hasPending = health.pending === true;
   const save = health.lastSaveAt
@@ -595,6 +595,7 @@ const SB = {
       const cloudKey = scopedSettingKey(key);
       const res = await fetch(SB_URL + '/rest/v1/settings?on_conflict=key', {
         method: 'POST',
+        signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(15000) : undefined,
         headers: {...SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
         body: JSON.stringify({ key: cloudKey, value, updated_at: new Date().toISOString() })
       });
@@ -607,6 +608,7 @@ const SB = {
     try {
       const cloudKey = scopedSettingKey(key);
       const res = await fetch(SB_URL + `/rest/v1/settings?key=eq.${encodeURIComponent(cloudKey)}&select=value`, {
+        signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(15000) : undefined,
         headers: SB_HEADERS
       });
       if (!res.ok) return null;
@@ -741,6 +743,7 @@ const TAB_PATHS = {
   settings: 'settings',
   data: 'data',
   widget: 'widget',
+  brief: 'brief',
 };
 const PATH_TABS = Object.fromEntries(Object.entries(TAB_PATHS).map(([key, value]) => [value, key]));
 
@@ -766,6 +769,7 @@ function closeMobileMenu() {
 function switchTab(tab, options = {}) {
   if (!tab) return;
   state.tab = tab;
+  document.title = tab === 'brief' ? '今日のタスク確認 | 写真成長記録' : state.defaultTitle;
   if (options.remember !== false) rememberLastTab(tab);
   if (options.history !== false) updateTabHistory(tab, options.replaceHistory ? 'replace' : 'push');
   updateMainLayoutMode();
@@ -783,7 +787,7 @@ function switchTab(tab, options = {}) {
   qs('#nav-more-btn')?.setAttribute('aria-expanded', 'false');
   closeMobileMenu();
   qs('#mobile-menu-btn')?.classList.toggle('active', mobileMenuTabs.has(tab));
-  document.querySelectorAll('#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-widget,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
+  document.querySelectorAll('#tab-today,#tab-brief,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-widget,#tab-timer,#tab-clip,#tab-settings,#tab-data').forEach(d => d.classList.add('hidden'));
   const panel = document.getElementById('tab-' + tab);
   if (!panel) return;
   panel.classList.remove('hidden');
@@ -792,6 +796,10 @@ function switchTab(tab, options = {}) {
   }
   if (tab === 'today') {
     renderTodayRecentPhotos();
+  }
+  if (tab === 'brief') {
+    renderDailyBrief();
+    if (typeof syncSettingsFromSupabase === 'function') syncSettingsFromSupabase();
   }
   if (tab === 'learn') renderLearn();
   if (tab === 'todo') {
@@ -878,7 +886,7 @@ qs('#widget-gantt-btn')?.addEventListener('click', () => {
   renderTodoWidget();
 });
 function getInitialTabFromUrl() {
-  const allowed = ['today','learn','plan','log','todo','widget','timer','clip','settings','data'];
+  const allowed = ['today','brief','learn','plan','log','todo','widget','timer','clip','settings','data'];
   const params = new URLSearchParams(location.search);
   const fromQueryRaw = params.get('tab');
   const fromQuery = PATH_TABS[fromQueryRaw] || fromQueryRaw;
@@ -899,7 +907,7 @@ function getInitialTabForDailyUse() {
 }
 
 function getInitialAllowedTab(tab) {
-  return ['today','learn','plan','log','todo','widget','timer','clip','settings','data'].includes(tab);
+  return ['today','brief','learn','plan','log','todo','widget','timer','clip','settings','data'].includes(tab);
 }
 
 const initialTab = getInitialTabForDailyUse();
@@ -1457,6 +1465,178 @@ function renderTodayRecentPhotos() {
   addCommandLink(links, '学習を見る', () => switchTab('learn'));
   addCommandLink(links, 'Todo', () => switchTab('todo'));
   wrap.appendChild(links);
+}
+
+function dailyBriefStatus(days) {
+  if (days === null || days === undefined) return '日時なし';
+  if (days < 0) return `${Math.abs(days)}日超過`;
+  if (days === 0) return '今日締切';
+  if (days === 1) return '明日締切';
+  return `あと${days}日`;
+}
+
+function dailyBriefTone(days) {
+  if (days !== null && days <= 0) return 'hot';
+  if (days !== null && days <= 3) return 'warn';
+  return '';
+}
+
+function dailyBriefTaskSort(a, b) {
+  const aDays = a.days ?? 9999;
+  const bDays = b.days ?? 9999;
+  const aBucket = aDays < 0 ? 0 : aDays === 0 ? 1 : aDays <= 3 ? 2 : 3;
+  const bBucket = bDays < 0 ? 0 : bDays === 0 ? 1 : bDays <= 3 ? 2 : 3;
+  if (aBucket !== bBucket) return aBucket - bBucket;
+  if (aDays !== bDays) return aDays - bDays;
+  return priorityRank(b.task?.priority) - priorityRank(a.task?.priority);
+}
+
+function appendDailyBriefSection(parent, titleText, copyText, items, emptyText) {
+  const section = el('section', 'daily-brief-section');
+  const title = el('h2', 'daily-brief-section-title');
+  title.textContent = titleText;
+  const copy = el('p', 'daily-brief-section-copy');
+  copy.textContent = copyText;
+  section.appendChild(title);
+  section.appendChild(copy);
+
+  if (!items.length) {
+    const empty = el('div', 'daily-brief-empty');
+    empty.textContent = emptyText;
+    section.appendChild(empty);
+    parent.appendChild(section);
+    return;
+  }
+
+  const list = el('ol', 'daily-brief-list');
+  items.forEach(item => {
+    const listItem = el('li');
+    const button = el('button', 'daily-brief-item');
+    button.type = 'button';
+    button.setAttribute('aria-label', `${item.title}の詳細を開く`);
+    button.addEventListener('click', () => openTodoDetail(item.task));
+    const main = el('div', 'daily-brief-item-main');
+    const itemTitle = el('div', 'daily-brief-item-title');
+    itemTitle.textContent = item.title;
+    const meta = el('div', 'daily-brief-item-meta');
+    meta.textContent = item.meta;
+    const status = el('div', 'daily-brief-item-status' + (item.tone ? ` ${item.tone}` : ''));
+    status.textContent = item.status;
+    main.appendChild(itemTitle);
+    main.appendChild(meta);
+    button.appendChild(main);
+    button.appendChild(status);
+    listItem.appendChild(button);
+    list.appendChild(listItem);
+  });
+  section.appendChild(list);
+  parent.appendChild(section);
+}
+
+function updateDailyBriefStructuredData(activeTasks) {
+  let script = qs('#daily-brief-structured-data');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'daily-brief-structured-data';
+    script.type = 'application/ld+json';
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Photo Tracker Daily Brief ${state.today}`,
+    dateModified: new Date().toISOString(),
+    itemListElement: activeTasks.slice(0, 30).map((task, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'Action',
+        name: task.title || 'Untitled',
+        description: task.description || task.memo || '',
+        endTime: task.due ? `${task.due}T${task.dueTime || '23:59'}:00` : undefined,
+        actionStatus: 'https://schema.org/PotentialActionStatus',
+      },
+    })),
+  });
+}
+
+function renderDailyBrief() {
+  const content = qs('#daily-brief-content');
+  const metrics = qs('#daily-brief-metrics');
+  if (!content || !metrics) return;
+
+  const tasks = getAllTasks();
+  const active = tasks.filter(task => !isTaskDone(getTaskKey(task)));
+  const dueItems = active
+    .map(task => ({ task, days: daysFromToday(task.due) }))
+    .filter(item => item.days !== null)
+    .sort(dailyBriefTaskSort);
+  const overdue = dueItems.filter(item => item.days < 0);
+  const today = dueItems.filter(item => item.days === 0);
+  const within7 = dueItems.filter(item => item.days >= 0 && item.days <= 7);
+  const upcoming = dueItems.filter(item => item.days > 0 && item.days <= 7);
+  const nextSteps = active.flatMap(task => getSubtasks(task)
+    .filter(step => !step.completed)
+    .map(step => ({
+      task,
+      step,
+      days: daysFromToday(step.dueDate || task.due),
+    })))
+    .sort(dailyBriefTaskSort);
+
+  const date = new Date();
+  qs('#daily-brief-date').textContent = date.toLocaleDateString('ja-JP', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  });
+  qs('#daily-brief-date').dateTime = state.today;
+  qs('#daily-brief-summary').textContent = overdue.length
+    ? `期限切れが${overdue.length}件あります。まず期限切れを整理し、そのあと今日の締め切りと次の工程を確認してください。`
+    : today.length
+      ? `今日締め切りが${today.length}件あります。次の工程と今後7日間の予定も確認できます。`
+      : active.length
+        ? '今日の締め切りはありません。次の工程と今後7日間の予定を確認してください。'
+        : '未完了のタスクはありません。新しい予定が入ると、このページに自動で表示されます。';
+
+  metrics.innerHTML = '';
+  [
+    { label: '未完了', value: active.length, tone: '' },
+    { label: '期限切れ', value: overdue.length, tone: overdue.length ? 'hot' : '' },
+    { label: '今日締切', value: today.length, tone: today.length ? 'hot' : '' },
+    { label: '7日以内', value: within7.length, tone: within7.length ? 'warn' : '' },
+  ].forEach(item => {
+    const cell = el('div', 'daily-brief-metric' + (item.tone ? ` ${item.tone}` : ''));
+    const value = el('div', 'daily-brief-metric-value');
+    value.textContent = String(item.value);
+    const label = el('div', 'daily-brief-metric-label');
+    label.textContent = item.label;
+    cell.appendChild(value);
+    cell.appendChild(label);
+    metrics.appendChild(cell);
+  });
+
+  const toTaskItem = item => ({
+    task: item.task,
+    title: item.task.title || 'Untitled',
+    meta: [item.task.subject || item.task.category, priorityLabel(item.task.priority), getTaskDateLabel(item.task)].filter(Boolean).join(' / '),
+    status: dailyBriefStatus(item.days),
+    tone: dailyBriefTone(item.days),
+  });
+  const focus = dueItems.slice(0, 3).map(toTaskItem);
+  const stepItems = nextSteps.slice(0, 5).map(item => ({
+    task: item.task,
+    title: item.step.title || 'サブタスク',
+    meta: `${item.task.title || '親タスク'} / ${item.step.dueDate ? `${fmtFull(item.step.dueDate)}${item.step.dueTime ? ` ${item.step.dueTime}` : ''}` : '親タスクの期限に準拠'}`,
+    status: dailyBriefStatus(item.days),
+    tone: dailyBriefTone(item.days),
+  }));
+
+  content.innerHTML = '';
+  appendDailyBriefSection(content, '最初に確認すること', '期限と優先度から、最初に見る3件です。', focus, '急いで確認する締め切りはありません。');
+  appendDailyBriefSection(content, '期限切れ', '日程変更・完了・保留の判断が必要な項目です。', overdue.slice(0, 8).map(toTaskItem), '期限切れはありません。');
+  appendDailyBriefSection(content, '今日締め切り', '本日中に完了または進捗確認する項目です。', today.slice(0, 8).map(toTaskItem), '今日締め切りのタスクはありません。');
+  appendDailyBriefSection(content, '次の作業ステップ', 'メインタスクや課題で、次に進める未完了の工程です。', stepItems, '未完了の作業ステップはありません。');
+  appendDailyBriefSection(content, '今後7日間', '明日以降、7日以内に締め切りが来る項目です。', upcoming.slice(0, 10).map(toTaskItem), '7日以内の締め切りはありません。');
+  updateDailyBriefStructuredData(active);
 }
 
 function renderCommandCenter() {
@@ -2499,7 +2679,7 @@ function filterVisibleExternalTasks(tasks) {
   const completedIds = getExternalCompletedTaskIds();
   return (Array.isArray(tasks) ? tasks : []).filter(t => {
     const key = getTaskKey(t);
-    return !completedIds.includes(key) && !sourceMarksTaskDone(t);
+    return !completedIds.includes(key) && (!sourceMarksTaskDone(t) || isWorkspaceManagedTask(key));
   });
 }
 
@@ -2957,6 +3137,12 @@ function setTaskDoneRecord(k, completedAt = new Date().toISOString()) {
 
 function hydrateTaskDoneRecordFromTask(task) {
   const key = getTaskKey(task);
+  const workspaceFields = LS.get('todo_workspace')?.nativeFields?.[key];
+  if (window.PhotoTodoWorkspace && workspaceFields) {
+    const manual = task._manual || (LS.get('manual_tasks') || []).some(item => item.id === task.id);
+    const editAt = task._repeatInstance ? '' : manual ? task.updatedAt || '' : getTaskOverrides()[task._overrideKey || key]?.updatedAt || '';
+    task = window.PhotoTodoWorkspace.overlayTask(task, workspaceFields, editAt, state.tasksDone[key]);
+  }
   if (!key || !sourceMarksTaskDone(task) || getTaskDoneRecord(key)) return;
   const completedAt = Number.isFinite(Date.parse(task.completedAt)) ? task.completedAt : new Date().toISOString();
   state.tasksDone[key] = { completed: true, completedAt };
@@ -2996,12 +3182,22 @@ function getDoneRemainingMs(k) {
   return Math.max(0, DONE_DELAY_MS - (Date.now() - completedAt));
 }
 
+function isWorkspaceManagedTask(k) {
+  const workspace = LS.get('todo_workspace') || {};
+  return !!(workspace.nativeFields?.[k] || workspace.tasks?.[k] || workspace.projects?.[k]);
+}
+
 function scheduleDonePurgeForTask(k, t) {
+  if (isWorkspaceManagedTask(k)) {
+    if (state.doneTimers[k]) { clearTimeout(state.doneTimers[k]); delete state.doneTimers[k]; }
+    return;
+  }
   if (!getTaskDoneRecord(k)) return;
   if (state.doneTimers[k]) return;
   const remaining = getDoneRemainingMs(k);
   state.doneTimers[k] = setTimeout(() => {
     delete state.doneTimers[k];
+    if (isWorkspaceManagedTask(k)) return;
     dismissTodoTask(k, t);
   }, remaining);
 }
@@ -3029,6 +3225,7 @@ function toggleTaskDone(k, t) {
     if (t && !t._manual) removeExternalCompletedTaskId(k);
   }
   if (state.tab === 'widget') renderTodoWidget();
+  else if (state.tab === 'brief') renderDailyBrief();
   else renderTodo();
 }
 
@@ -3058,6 +3255,7 @@ async function dismissTodoTask(k, t) {
   clearTaskDoneRecord(k);
   scheduleTaskNotifications();
   if (state.tab === 'widget') renderTodoWidget();
+  else if (state.tab === 'brief') renderDailyBrief();
   else renderTodo();
 }
 
@@ -3309,6 +3507,7 @@ function renderTodo() {
         countdown.style.cssText = 'font-size:10px;color:var(--fg6);letter-spacing:.05em;margin-left:auto';
         countdown.textContent = '5分後に削除';
         const updateCountdown = () => {
+          if (isWorkspaceManagedTask(k)) { countdown.textContent = '完了（履歴に保持）'; return; }
           const remaining = getDoneRemainingMs(k);
           const mins = Math.floor(remaining / 60000);
           const secs = Math.floor((remaining % 60000) / 1000);
@@ -3680,7 +3879,8 @@ async function updateManualTaskById(id, updater) {
   nextTask.updatedAt = new Date().toISOString();
   manual[idx] = nextTask;
   await saveManualTasks(manual);
-  renderTodo();
+  if (state.tab === 'brief') renderDailyBrief();
+  else renderTodo();
   return nextTask;
 }
 
@@ -3714,7 +3914,8 @@ async function updateTaskPlanningData(task, updater) {
     updatedAt: new Date().toISOString(),
   });
   saveTaskOverrides(overrides);
-  renderTodo();
+  if (state.tab === 'brief') renderDailyBrief();
+  else renderTodo();
   return applyTaskUserOverride(baseTask);
 }
 
@@ -5114,6 +5315,7 @@ async function syncTodoTasks(url, options = {}) {
     SB.setSetting('gas_tasks_cache', cachePayload);
     if (state.tab === 'todo') renderTodo();
     if (state.tab === 'widget') renderTodoWidget();
+    if (state.tab === 'brief') renderDailyBrief();
     setSyncHealth({ lastTodoSyncAt: new Date().toISOString(), lastTodoSyncOk: true });
     if (LS.get('notif') === 'granted') scheduleTaskNotifications();
     LS.set('gas_auto_sync_state', {
@@ -6036,6 +6238,8 @@ function createFullBackupPayload(reason = 'manual') {
     timerLogToday: LS.get('timer_log_today') || [],
     todoDoneLog: LS.get('todo_done_log') || [],
     inboxItems: LS.get('inbox_items') || [],
+    todoWorkspace: LS.get('todo_workspace') || {},
+    tasksCache: LS.get('tasks_cache') || null,
     notif: LS.get('notif') || '',
     notifLeads: LS.get('notif_leads') || getNotifLeads(),
     authSession: getAuthSession() ? {
@@ -6051,6 +6255,11 @@ function createFullBackupPayload(reason = 'manual') {
 
 function applyFullBackupPayload(data) {
   if (!data || !data.meta) throw new Error('無効なバックアップファイルです');
+  if (data.todoOnly) {
+    const fields = { tasksDone: 'tasks_done', manualTasks: 'manual_tasks', manualTasksDeleted: 'manual_tasks_deleted', taskOverrides: 'task_overrides', externalTasksCompleted: 'external_tasks_completed', inboxItems: 'inbox_items', todoWorkspace: 'todo_workspace', tasksCache: 'tasks_cache', todoDoneLog: 'todo_done_log' };
+    Object.entries(fields).forEach(([property, key]) => { if (data[property] !== undefined) LS.set(key, data[property]); });
+    return;
+  }
   LS.set('meta', data.meta || {});
   if (data.checks) LS.set('checks', data.checks);
   if (data.tasksDone) LS.set('tasks_done', data.tasksDone);
@@ -6064,6 +6273,8 @@ function applyFullBackupPayload(data) {
   if (data.timerLogToday) LS.set('timer_log_today', data.timerLogToday);
   if (data.todoDoneLog) LS.set('todo_done_log', data.todoDoneLog);
   if (data.inboxItems) LS.set('inbox_items', data.inboxItems);
+  if (data.todoWorkspace) LS.set('todo_workspace', data.todoWorkspace);
+  if (data.tasksCache) LS.set('tasks_cache', data.tasksCache);
   if (data.notif) LS.set('notif', data.notif);
   if (data.notifLeads) LS.set('notif_leads', data.notifLeads);
   if (data.syncKey?.id) LS.set(SYNC_KEY_STORAGE_KEY, data.syncKey);
@@ -7142,6 +7353,20 @@ async function syncTodayPhotosFromSupabase() {
 async function syncSettingsFromSupabase() {
   await syncClipsFromSupabase();
 
+  const remoteWorkspace = await SB.getSetting('todo_workspace');
+  const localWorkspace = LS.get('todo_workspace') || {};
+  if (window.PhotoTodoWorkspace && (remoteWorkspace || Object.keys(localWorkspace).length)) {
+    const mergedWorkspace = window.PhotoTodoWorkspace.mergeWorkspace(remoteWorkspace || {}, LS.get('todo_workspace') || {});
+    LS.set('todo_workspace', mergedWorkspace);
+    if (JSON.stringify(remoteWorkspace) !== JSON.stringify(mergedWorkspace)) await SB.setSetting('todo_workspace', mergedWorkspace);
+  }
+
+  const remoteDeletedIds = await SB.getSetting('manual_tasks_deleted');
+  const localDeletedIds = LS.get('manual_tasks_deleted') || [];
+  if (Array.isArray(remoteDeletedIds)) {
+    LS.set('manual_tasks_deleted', [...new Set([...remoteDeletedIds, ...localDeletedIds])]);
+  }
+
   const remoteExternalCompleted = await SB.getSetting('external_tasks_completed');
   if (Array.isArray(remoteExternalCompleted)) {
     const mergedCompleted = [...new Set([...getExternalCompletedTaskIds(), ...remoteExternalCompleted])].slice(-500);
@@ -7238,6 +7463,7 @@ async function syncSettingsFromSupabase() {
       LS.set('manual_tasks', merged);
       if (state.tab === 'todo') renderTodo();
       if (state.tab === 'widget') renderTodoWidget();
+      if (state.tab === 'brief') renderDailyBrief();
     }
     // リモート側の内容（削除済みタスクが残っている等）が古ければ書き戻す
     const remoteStr = JSON.stringify(remoteTasks);
@@ -7261,12 +7487,15 @@ async function syncSettingsFromSupabase() {
       LS.set('tasks_cache', {...remoteGasCache, tasks: state.tasks});
       if (state.tab === 'todo') renderTodo();
       if (state.tab === 'widget') renderTodoWidget();
+      if (state.tab === 'brief') renderDailyBrief();
     }
   }
   scheduleTaskNotifications();
   scheduleDonePurgeForVisibleTasks();
   if (state.tab === 'today') renderTodayRecentPhotos();
   if (state.tab === 'todo') renderCommandCenter();
+  if (state.tab === 'brief') renderDailyBrief();
+  window.dispatchEvent(new Event('photo-todo-workspace-change'));
 }
 
 // ── 初期化 ────────────────────────────────────
@@ -7289,6 +7518,7 @@ setInterval(() => {
     initTodayData();
     renderProgressBanner();
     renderTodayRecentPhotos();
+    if (state.tab === 'brief') renderDailyBrief();
   }
 }, 60000);
 
@@ -7301,4 +7531,5 @@ initTodayData().then(() => {
   startGasAutoSync();
   renderTodayRecentPhotos();
   renderCommandCenter();
+  if (state.tab === 'brief') renderDailyBrief();
 });

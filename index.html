@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>写真成長記録</title>
+<link rel="stylesheet" href="workspace/workspace.css">
+<script src="workspace/runtime.js"></script>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#080808">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -180,6 +182,33 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .command-empty{border:1px solid var(--border);background:var(--bg);padding:13px 14px;font-size:14px;color:var(--fg4);line-height:1.6;text-wrap:pretty}
 .command-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .command-links .ghost-btn{height:36px}
+.daily-brief{max-width:840px;margin:0 auto}
+.daily-brief-head{border-bottom:1px solid var(--border2);padding-bottom:20px;margin-bottom:24px}
+.daily-brief-kicker{font-family:'DM Mono',monospace;font-size:11px;color:var(--fg4);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.daily-brief-title{font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700;line-height:1.2;text-wrap:balance}
+.daily-brief-date{font-size:14px;color:var(--fg3);line-height:1.6;margin-top:8px;font-variant-numeric:tabular-nums}
+.daily-brief-summary{font-size:15px;color:var(--fg2);line-height:1.8;margin-top:14px;text-wrap:pretty}
+.daily-brief-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);margin-bottom:24px}
+.daily-brief-metric{min-height:84px;padding:14px;border-right:1px solid var(--border);display:grid;align-content:space-between;gap:8px;background:var(--bg2)}
+.daily-brief-metric:last-child{border-right:none}
+.daily-brief-metric-value{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.daily-brief-metric-label{font-size:12px;color:var(--fg4);line-height:1.4}
+.daily-brief-metric.hot .daily-brief-metric-value{color:#ff7040}
+.daily-brief-metric.warn .daily-brief-metric-value{color:#d4a820}
+.daily-brief-section{border-top:1px solid var(--border);padding-top:20px;margin-top:28px}
+.daily-brief-section-title{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;line-height:1.3;margin-bottom:6px}
+.daily-brief-section-copy{font-size:13px;color:var(--fg4);line-height:1.6;margin-bottom:12px}
+.daily-brief-list{display:grid;gap:8px;list-style:none;padding:0;margin:0}
+.daily-brief-item{width:100%;border:1px solid var(--border);background:var(--bg2);color:var(--fg);padding:14px;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;min-height:64px}
+.daily-brief-item:hover{border-color:var(--border3);background:var(--bg3)}
+.daily-brief-item-main{min-width:0}
+.daily-brief-item-title{font-size:15px;font-weight:700;line-height:1.5;text-wrap:pretty}
+.daily-brief-item-meta{font-size:12px;color:var(--fg4);line-height:1.6;margin-top:4px;font-variant-numeric:tabular-nums;text-wrap:pretty}
+.daily-brief-item-status{font-size:12px;color:var(--fg3);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.daily-brief-item-status.hot{color:#ff7040}
+.daily-brief-item-status.warn{color:#d4a820}
+.daily-brief-empty{border:1px solid var(--border);background:var(--bg2);padding:16px;font-size:14px;color:var(--fg4);line-height:1.7}
+.daily-brief-footer{border-top:1px solid var(--border);margin-top:32px;padding-top:16px;font-size:12px;color:var(--fg5);line-height:1.7}
 .quick-capture{border:1px solid var(--border);background:var(--bg2);padding:var(--card-pad);margin-bottom:var(--grid-gap)}
 .quick-capture-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px}
 .quick-capture-title{font-size:10px;color:var(--fg4);letter-spacing:.14em;text-transform:uppercase}
@@ -981,6 +1010,13 @@ input[type=time]{display:none}
   .command-action-card,.command-row{min-height:52px}
   .command-row{grid-template-columns:1fr;gap:6px}
   .command-row-badge{justify-self:start}
+  .daily-brief-title{font-size:26px}
+  .daily-brief-metrics{grid-template-columns:1fr 1fr}
+  .daily-brief-metric{min-height:72px;border-bottom:1px solid var(--border)}
+  .daily-brief-metric:nth-child(2n){border-right:none}
+  .daily-brief-metric:nth-last-child(-n+2){border-bottom:none}
+  .daily-brief-item{grid-template-columns:1fr;gap:6px;min-height:72px}
+  .daily-brief-item-status{justify-self:start}
   .quick-capture{padding:var(--card-pad)}
   .quick-capture-form{grid-template-columns:1fr}
   .quick-capture-btn{width:100%;height:var(--form-control-height)}
@@ -1157,8 +1193,8 @@ input[type=time]{display:none}
   .mobile-task-due,.mobile-mini-timeline{margin-left:53px;padding-left:0}
   .mobile-subtask-due{margin-left:53px}
 }
-#tab-today,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings,#tab-data{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
-#tab-today.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden,#tab-settings.hidden,#tab-data.hidden{animation:none}
+#tab-today,#tab-brief,#tab-learn,#tab-plan,#tab-log,#tab-todo,#tab-timer,#tab-clip,#tab-settings,#tab-data{animation:tab-in .18s cubic-bezier(.2,0,0,1)}
+#tab-today.hidden,#tab-brief.hidden,#tab-learn.hidden,#tab-plan.hidden,#tab-log.hidden,#tab-todo.hidden,#tab-timer.hidden,#tab-clip.hidden,#tab-settings.hidden,#tab-data.hidden{animation:none}
 @keyframes tab-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
@@ -1263,6 +1299,21 @@ input[type=time]{display:none}
     </div>
   </div>
 
+  <!-- DIA / AI BROWSER DAILY BRIEF -->
+  <section id="tab-brief" class="daily-brief hidden" aria-labelledby="daily-brief-title" tabindex="0">
+    <header class="daily-brief-head">
+      <div class="daily-brief-kicker">Photo Tracker / Daily Brief</div>
+      <h1 class="daily-brief-title" id="daily-brief-title">今日のタスク確認</h1>
+      <time class="daily-brief-date" id="daily-brief-date"></time>
+      <p class="daily-brief-summary" id="daily-brief-summary">今日のタスクを読み込んでいます。</p>
+    </header>
+    <div class="daily-brief-metrics" id="daily-brief-metrics" aria-label="今日のタスク集計"></div>
+    <div id="daily-brief-content" aria-live="polite"></div>
+    <footer class="daily-brief-footer">
+      このページはDIAなどのAIブラウザが、今日の優先事項・締め切り・次の工程を読み取りやすい形でまとめています。
+    </footer>
+  </section>
+
   <!-- PLAN -->
   <div id="tab-plan" class="hidden" role="tabpanel" aria-labelledby="tab-btn-plan" tabindex="0">
     <div class="log-header">
@@ -1310,6 +1361,9 @@ input[type=time]{display:none}
 
   <!-- TODO -->
   <div id="tab-todo" class="hidden" role="tabpanel" aria-labelledby="tab-btn-todo" tabindex="0">
+    <div class="todo-workspace-toolbar"><div><strong>Todo</strong><span id="todo-workspace-status" role="status">端末のタスクを読み込み中</span></div><div class="todo-workspace-modes" role="group" aria-label="Todo画面"><button type="button" data-todo-mode="workspace" aria-pressed="true">ワークスペース</button><button type="button" data-todo-mode="legacy" aria-pressed="false">従来リスト・ガント</button></div></div>
+    <div id="todo-workspace" aria-label="Todoワークスペース"><p role="status">Todoを読み込んでいます。読み込めない場合は「従来リスト・ガント」を利用できます。</p></div>
+    <div id="todo-legacy" hidden>
     <div class="todo-header">
       <div>
         <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em">Todo</div>
@@ -1474,6 +1528,7 @@ input[type=time]{display:none}
     <div class="done-log" id="todo-done-log-wrap">
       <div class="done-log-title">完了ログ</div>
       <div id="todo-done-log"></div>
+    </div>
     </div>
   </div>
 
@@ -1772,5 +1827,7 @@ input[type=time]{display:none}
 </div>
 
 <script src="app.js"></script>
+<script src="workspace/bridge.js"></script>
+<script type="module" src="workspace/start.mjs"></script>
 </body>
 </html>

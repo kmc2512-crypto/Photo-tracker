@@ -1,0 +1,5 @@
+.todo-workspace-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border2)}
+.todo-workspace-toolbar strong{display:block;font-size:20px;letter-spacing:0}.todo-workspace-toolbar span{display:block;font-size:12px;color:var(--fg3);margin-top:8px;letter-spacing:0}
+.todo-workspace-modes{display:flex;border:1px solid var(--border2)}.todo-workspace-modes button{font-family:inherit;font-size:12px;min-height:44px;padding:8px 12px;background:transparent;color:var(--fg3);border:0;border-right:1px solid var(--border2)}.todo-workspace-modes button:last-child{border:0}.todo-workspace-modes button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+#todo-legacy[hidden],#todo-workspace[hidden]{display:none!important}#todo-workspace{scroll-margin-top:80px}
+@media(max-width:700px){.todo-workspace-toolbar{align-items:stretch;flex-direction:column}.todo-workspace-modes button{flex:1}.todo-workspace-toolbar strong{font-size:18px}}

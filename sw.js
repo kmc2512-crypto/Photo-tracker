@@ -1,5 +1,8 @@
-const CACHE_NAME = 'photo-tracker-shell-v5';
-const SHELL_ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon.svg'];
+const CACHE_NAME = 'photo-tracker-shell-v6-workspace';
+const SHELL_ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon.svg',
+  './workspace/runtime.js', './workspace/bridge.js', './workspace/workspace.css',
+  './workspace/start.mjs', './workspace/integration.mjs', './workspace/adapter.mjs', './workspace/model.mjs',
+  './workspace/shell.html', './workspace/styles.css', './workspace/embedded.css'];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
@@ -29,11 +32,13 @@ self.addEventListener('fetch', event => {
     if (event.request.mode === 'navigate' || isShellAsset) {
       try {
         const fresh = await fetch(event.request);
+        if (!fresh.ok) throw new Error('Shell unavailable');
         const cache = await caches.open(CACHE_NAME);
         cache.put(event.request, fresh.clone());
         return fresh;
       } catch(e) {
-        return caches.match(event.request) || caches.match('./index.html');
+        const cached = await caches.match(event.request);
+        return cached || (event.request.mode === 'navigate' ? await caches.match('./index.html') : null) || Response.error();
       }
     }
     const cached = await caches.match(event.request);
