@@ -1,4 +1,4 @@
-const CACHE_NAME = 'photo-tracker-shell-v6-workspace';
+const CACHE_NAME = 'photo-tracker-shell-v7-workspace';
 const SHELL_ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon.svg',
   './workspace/runtime.js', './workspace/bridge.js', './workspace/workspace.css',
   './workspace/start.mjs', './workspace/integration.mjs', './workspace/adapter.mjs', './workspace/model.mjs',
